@@ -1,0 +1,108 @@
+# Dev environment for netbox-pyats.
+#
+# Brings up NetBox 4.6 with the plugin installed editable from the repo, plus
+# PostgreSQL and Redis. The plugin's tests run inside the `netbox` container.
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up -d
+#   docker compose -f docker-compose.dev.yml exec netbox pytest netbox_pyats/tests
+#   open http://localhost:8000  (admin / admin)
+
+services:
+  netbox:
+    image: docker.io/netboxcommunity/netbox:v4.6-5.0.2
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_NAME: netbox
+      DB_USER: netbox
+      DB_PASSWORD: netbox
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      SECRET_KEY: "dev-only-not-for-production-CHANGE-ME"
+      ALLOWED_HOSTS: "*"
+      SUPERUSER_NAME: admin
+      SUPERUSER_PASSWORD: admin
+      SUPERUSER_EMAIL: admin@example.com
+      SKIP_SUPERUSER: "false"
+    healthcheck:
+      test: curl -f http://localhost:8080/login/ || exit 1
+      start_period: 180s
+      timeout: 3s
+      interval: 15s
+    ports:
+      - "8000:8080"
+    volumes:
+      # Mount the plugin source so edits are visible inside the container.
+      - .:/opt/netbox/netbox/netbox_pyats_src:rw
+      # Local configuration that enables the plugin.
+      - ./dev/configuration:/etc/netbox/config:ro
+      # Dev entrypoint wrapper that pip-installs the plugin first.
+      - ./dev/pyats-entrypoint.sh:/opt/netbox/pyats-entrypoint.sh:ro
+      - netbox-media:/opt/netbox/netbox/media:rw
+      - netbox-reports:/opt/netbox/netbox/reports:rw
+      - netbox-scripts:/opt/netbox/netbox/scripts:rw
+    entrypoint: ["/usr/bin/tini", "--", "/opt/netbox/pyats-entrypoint.sh"]
+
+  netbox-worker:
+    image: docker.io/netboxcommunity/netbox:v4.6-5.0.2
+    depends_on:
+      netbox:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_NAME: netbox
+      DB_USER: netbox
+      DB_PASSWORD: netbox
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      SECRET_KEY: "dev-only-not-for-production-CHANGE-ME"
+    volumes:
+      - .:/opt/netbox/netbox/netbox_pyats_src:rw
+      - ./dev/configuration:/etc/netbox/config:ro
+      - ./dev/pyats-entrypoint.sh:/opt/netbox/pyats-entrypoint.sh:ro
+    entrypoint: ["/usr/bin/tini", "--", "/bin/bash", "-c"]
+    command:
+      - |
+        /opt/netbox/venv/bin/pip install --editable /opt/netbox/netbox/netbox_pyats_src &&
+        /opt/netbox/docker-entrypoint.sh /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py rqworker
+
+  postgres:
+    image: docker.io/postgres:18-alpine
+    environment:
+      POSTGRES_DB: netbox
+      POSTGRES_USER: netbox
+      POSTGRES_PASSWORD: netbox
+    healthcheck:
+      test: pg_isready -q -t 2 -d netbox -U netbox
+      start_period: 20s
+      timeout: 30s
+      interval: 10s
+      retries: 5
+    volumes:
+      - netbox-postgres:/var/lib/postgresql
+
+  redis:
+    image: docker.io/valkey/valkey:9.1-alpine
+    command: ["valkey-server", "--appendonly", "yes"]
+    healthcheck:
+      test: valkey-cli ping | grep -q PONG
+      start_period: 5s
+      timeout: 3s
+      interval: 1s
+      retries: 5
+    volumes:
+      - netbox-redis:/data
+
+volumes:
+  netbox-media:
+  netbox-postgres:
+  netbox-redis:
+  netbox-reports:
+  netbox-scripts:
