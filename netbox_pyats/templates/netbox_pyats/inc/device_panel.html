@@ -1,0 +1,70 @@
+{% load helpers %}
+<div class="card">
+  <h5 class="card-header">
+    PyATS
+    {% if pyats_os %}<span class="badge bg-success ms-2">{{ pyats_os }}</span>{% endif %}
+    {% if not platform_supported %}<span class="badge bg-warning ms-2">unsupported platform</span>{% endif %}
+  </h5>
+  <div class="card-body">
+    {% if not platform_supported %}
+      <div class="alert alert-warning mb-3">
+        This device's platform has no Genie parser. Captures will be recorded as <strong>unsupported</strong> (no data), so the device still appears in the snapshot history.
+      </div>
+    {% endif %}
+
+    <form method="post" action="{{ capture_url }}">
+      {% csrf_token %}
+      <div class="row mb-3">
+        <div class="col col-md-6">
+          <label class="form-label" for="id_kind">Capture snapshot</label>
+          <select name="kind" id="id_kind" class="form-select">
+            {% for value, label in snapshot_kinds %}
+              <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col col-md-6 d-flex align-items-end">
+          <button type="submit" class="btn btn-primary">
+            <i class="mdi mdi-camera"></i> Capture
+          </button>
+          <a href="{{ snapshot_list_url }}" class="btn btn-outline-secondary ms-2">History</a>
+        </div>
+      </div>
+      <p class="text-muted small mb-0">
+        Queues a snapshot capture on the dedicated <code>pyats</code> RQ worker. The new snapshot appears here when the worker finishes.
+      </p>
+    </form>
+
+    <hr>
+
+    <h6>Recent snapshots</h6>
+    {% if snapshots %}
+      <table class="table table-sm table-hover">
+        <thead>
+          <tr>
+            <th>Kind</th>
+            <th>Status</th>
+            <th>Size</th>
+            <th>Warnings</th>
+            <th>Captured at</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for snap in snapshots %}
+            <tr>
+              <td>{{ snap.get_kind_display }}</td>
+              <td><span class="badge bg-{{ snap.get_status_color }}">{{ snap.get_status_display }}</span></td>
+              <td>{{ snap.size_bytes|filesizeformat }}</td>
+              <td>{% if snap.has_warnings %}<i class="mdi mdi-alert text-warning" title="{{ snap.parser_warnings|join:' | ' }}"></i>{% endif %}</td>
+              <td>{{ snap.captured_at|date:'Y-m-d H:i' }}</td>
+              <td><a href="{{ snap.get_absolute_url }}" class="btn btn-sm btn-outline-primary">View</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="text-muted">No snapshots captured yet for this device.</p>
+    {% endif %}
+  </div>
+</div>

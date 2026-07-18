@@ -1,7 +1,7 @@
 from netbox.api.serializers import NetBoxModelSerializer
 from rest_framework import serializers
 
-from netbox_pyats.models import PyatsCredential
+from netbox_pyats.models import PyatsCredential, PyatsSnapshot
 
 
 class PyatsCredentialSerializer(NetBoxModelSerializer):
@@ -69,3 +69,45 @@ class PyatsCredentialSerializer(NetBoxModelSerializer):
             instance.set_enable_secret(plaintext_enable_secret)
         instance.save()
         return instance
+
+
+class PyatsSnapshotSerializer(NetBoxModelSerializer):
+    """Serializer for the PyatsSnapshot model.
+
+    Snapshots are read-only via the REST API in v1 — they are produced by the
+    ``capture_snapshot`` RQ job, not by direct API writes. The full JSONB
+    ``data`` payload is returned (it is the snapshot), along with
+    ``parser_warnings``, the worker version strings, and ``size_bytes``.
+    """
+
+    class Meta:
+        model = PyatsSnapshot
+        fields = [
+            "id",
+            "url",
+            "device",
+            "kind",
+            "status",
+            "triggered_by",
+            "captured_at",
+            "data",
+            "parser_warnings",
+            "genie_version",
+            "pyats_version",
+            "size_bytes",
+            "tags",
+            "created",
+            "last_updated",
+        ]
+        read_only_fields = (
+            "id",
+            "url",
+            "captured_at",
+            "data",
+            "parser_warnings",
+            "genie_version",
+            "pyats_version",
+            "size_bytes",
+            "created",
+            "last_updated",
+        )

@@ -1,0 +1,82 @@
+"""Template extensions injecting the PyATS tab into the NetBox Device page.
+
+Phase 2 (ATW-13) injects a "PyATS" panel into the Device detail page's
+right-hand column. The panel renders:
+
+- A "Capture snapshot" form (config / state / full) that POSTs to the
+  plugin's enqueue endpoint and redirects back to the device page.
+- The most recent N snapshots for this device (kind, status badge, size,
+  captured_at, warnings indicator), linked to the snapshot detail view.
+
+The panel is read-only on GET (the capture form posts to a separate URL; no
+JS is required). If the device's platform has no Genie parser, the testbed
+builder's unsupported flag is surfaced as a banner so the operator knows
+captures will be skipped before they click.
+"""
+
+from __future__ import annotations
+
+from netbox.plugins import PluginTemplateExtension
+
+from .choices import SnapshotKindChoices
+from .testbed import UNSUPPORTED_OS, platform_to_pyats_os
+
+# How many recent snapshots to show in the device-page panel. Kept small so
+# the device page stays fast; the full history is on the snapshot list view.
+DEVICE_PAGE_SNAPSHOT_LIMIT = 5
+
+
+class DevicePyATSPanel(PluginTemplateExtension):
+    """Inject the PyATS capture panel + recent snapshots into the Device page."""
+
+    models = ["dcim.device"]
+
+    def right_page(self):
+        device = self.context.get("object")
+        if device is None:
+            return ""
+
+        # Lazy imports: models/views are only importable inside NetBox, and
+        # the template extension is only constructed inside a NetBox request.
+        from .models import PyatsSnapshot
+
+        snapshots = list(
+            PyatsSnapshot.objects.filter(device=device).order_by("-captured_at")[:DEVICE_PAGE_SNAPSHOT_LIMIT]
+        )
+
+        # Surface the platform support status so the operator knows before
+        # clicking whether captures will succeed. We map the device's
+        # platform to a pyATS os; the unsupported sentinel means Genie has no
+        # parser for it and captures will be skipped.
+        os_value = platform_to_pyats_os(getattr(device, "platform", None))
+        platform_supported = os_value != UNSUPPORTED_OS
+
+        return self.render(
+            "netbox_pyats/inc/device_panel.html",
+            extra_context={
+                "device": device,
+                "snapshots": snapshots,
+                "snapshot_kinds": SnapshotKindChoices.choices,
+                "platform_supported": platform_supported,
+                "pyats_os": os_value if platform_supported else None,
+                "capture_url": _capture_url_for_device(device),
+                "snapshot_list_url": _snapshot_list_url_for_device(device),
+            },
+        )
+
+
+def _capture_url_for_device(device):
+    """Return the POST URL for the device-page capture form."""
+    from django.urls import reverse
+
+    return reverse("plugins:netbox_pyats:device_capture", kwargs={"device_id": device.pk})
+
+
+def _snapshot_list_url_for_device(device):
+    """Return the filtered snapshot-list URL for this device."""
+    from django.urls import reverse
+
+    return f"{reverse('plugins:netbox_pyats:pyatssnapshot_list')}?device_id={device.pk}"
+
+
+template_extensions = [DevicePyATSPanel]

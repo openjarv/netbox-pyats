@@ -1,8 +1,14 @@
 from django import forms
 from netbox.forms import NetBoxModelFilterSetForm, NetBoxModelForm
 
-from .choices import CredentialProtocolChoices, CredentialScopeChoices
-from .models import PyatsCredential
+from .choices import (
+    CredentialProtocolChoices,
+    CredentialScopeChoices,
+    SnapshotKindChoices,
+    SnapshotStatusChoices,
+    SnapshotTriggerChoices,
+)
+from .models import PyatsCredential, PyatsSnapshot
 
 
 class PyatsCredentialForm(NetBoxModelForm):
@@ -93,3 +99,40 @@ class PyatsCredentialFilterForm(NetBoxModelFilterSetForm):
         choices=[("", "---------")] + CredentialProtocolChoices.choices,
     )
     device = forms.IntegerField(required=False, label="Device ID")
+
+
+class PyatsSnapshotFilterForm(NetBoxModelFilterSetForm):
+    """Filter form for the PyatsSnapshot list view."""
+
+    model = PyatsSnapshot
+
+    q = forms.CharField(required=False, label="Search")
+    device = forms.IntegerField(required=False, label="Device ID")
+    kind = forms.ChoiceField(
+        required=False,
+        choices=[("", "---------")] + SnapshotKindChoices.choices,
+    )
+    status = forms.ChoiceField(
+        required=False,
+        choices=[("", "---------")] + SnapshotStatusChoices.choices,
+    )
+    triggered_by = forms.ChoiceField(
+        required=False,
+        choices=[("", "---------")] + SnapshotTriggerChoices.choices,
+    )
+
+
+class DeviceCaptureForm(forms.Form):
+    """Form backing the device-page "Capture snapshot" button.
+
+    Posted to the ``device_capture`` view. Only the ``kind`` is user-selectable;
+    the device is in the URL, and ``triggered_by`` is always ``user`` for
+    manual captures from the device page (automated flows enqueue directly).
+    """
+
+    kind = forms.ChoiceField(
+        choices=SnapshotKindChoices.choices,
+        initial=SnapshotKindChoices.KIND_FULL,
+        required=True,
+        label="Capture kind",
+    )

@@ -1,6 +1,6 @@
 from netbox.graphql.types import NetBoxObjectType
 
-from netbox_pyats.models import PyatsCredential
+from netbox_pyats.models import PyatsCredential, PyatsSnapshot
 
 
 class PyatsCredentialType(NetBoxObjectType):
@@ -21,6 +21,34 @@ class PyatsCredentialType(NetBoxObjectType):
             "username",
             "protocol",
             "ssh_port",
+            "tags",
+            "created",
+            "last_updated",
+        )
+
+
+class PyatsSnapshotType(NetBoxObjectType):
+    """GraphQL type for the PyatsSnapshot model.
+
+    Exposes the full JSONB ``data`` payload (it is the snapshot) plus the
+    capture metadata. Read-only by nature (snapshots are produced by the
+    capture job).
+    """
+
+    class Meta:
+        model = PyatsSnapshot
+        fields = (
+            "id",
+            "device",
+            "kind",
+            "status",
+            "triggered_by",
+            "captured_at",
+            "data",
+            "parser_warnings",
+            "genie_version",
+            "pyats_version",
+            "size_bytes",
             "tags",
             "created",
             "last_updated",

@@ -52,7 +52,7 @@ netbox_pyats = "netbox_pyats:config"
 include = ["netbox_pyats*"]
 
 [tool.setuptools.package-data]
-netbox_pyats = ["templates/netbox_pyats/*.html"]
+netbox_pyats = ["templates/netbox_pyats/**/*.html"]
 
 [tool.black]
 line-length = 120

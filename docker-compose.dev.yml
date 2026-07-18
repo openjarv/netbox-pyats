@@ -73,6 +73,38 @@ services:
         /opt/netbox/venv/bin/pip install --editable /opt/netbox/netbox/netbox_pyats_src &&
         /opt/netbox/docker-entrypoint.sh /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py rqworker
 
+  # Dedicated pyats RQ worker. Runs the `pyats` queue only (not NetBox's
+  # default queue), with pyats[full] + genie installed so Genie.learn /
+  # parser-based config capture work. This is the container that actually
+  # connects to devices and writes PyatsSnapshot rows. The default
+  # netbox-worker above does NOT have pyats installed and only services
+  # NetBox's own housekeeping queue.
+  netbox-pyats-worker:
+    build:
+      context: .
+      dockerfile: dev/Dockerfile.pyats-worker
+    depends_on:
+      netbox:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_NAME: netbox
+      DB_USER: netbox
+      DB_PASSWORD: netbox
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      SECRET_KEY: "dev-only-not-for-production-CHANGE-ME"
+    volumes:
+      - .:/opt/netbox/netbox/netbox_pyats_src:rw
+      - ./dev/configuration:/etc/netbox/config:ro
+      - ./dev/pyats-worker-entrypoint.sh:/opt/netbox/pyats-worker-entrypoint.sh:ro
+    entrypoint: ["/usr/bin/tini", "--", "/opt/netbox/pyats-worker-entrypoint.sh"]
+    # Only service the `pyats` queue; the default queue is handled by
+    # netbox-worker above. This keeps Genie.learn runs off NetBox's
+    # housekeeping workers.
+    command: ["pyats"]
+
   postgres:
     image: docker.io/postgres:18-alpine
     environment:
