@@ -24,7 +24,7 @@ class NetBoxPyATSConfig(PluginConfig):
     # create it at startup; operators run a second worker pointed at `pyats`
     # (see dev/docker-compose.dev.yml `netbox-pyats-worker` and the worker
     # Dockerfile). Keeping pyATS work off the default queue means a long
-    # Genie.learn run can never block NetBox's own housekeeping jobs.
+    # device capture run can never block NetBox's own housekeeping jobs.
     queues = ["pyats"]
 
     # Inject the PyATS capture panel + recent-snapshots list into the Device

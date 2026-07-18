@@ -4,7 +4,7 @@ The netbox-pyats plugin runs snapshot captures (and, in later phases, diffs and 
 
 ## Why a separate queue
 
-pyATS/Genie is a heavy dependency (`pyats[full]` pulls Cython binaries, parser packages, and Unicon connection plugins) that the default NetBox worker container does not — and should not — have installed. Snapshot captures also make outbound SSH/Telnet connections to real devices and can run for tens of seconds per device (`Genie.learn` pulls a lot of state). Running that work on NetBox's default queue would block NetBox's own housekeeping jobs (datasource syncs, changelog pruning, release checks) behind slow device captures.
+pyATS/Genie is a heavy dependency (`pyats[full]` pulls Cython binaries, parser packages, and Unicon connection plugins) that the default NetBox worker container does not — and should not — have installed. Snapshot captures also make outbound SSH/Telnet connections to real devices and can run for tens of seconds per device (each capture runs `device.parse('show running-config')` plus a small state command set, sequentially). Running that work on NetBox's default queue would block NetBox's own housekeeping jobs (datasource syncs, changelog pruning, release checks) behind slow device captures.
 
 The plugin declares the `pyats` queue via `NetBoxPyATSConfig.queues = ["pyats"]`, so NetBox creates it at startup. Operators run a second worker pointed at `pyats` only; the default worker continues to service NetBox's own queue.
 
@@ -55,4 +55,4 @@ If the device's platform has no Genie parser, the job writes an `unsupported` sn
 - **"PyATS snapshot queued" but no row appears:** the `pyats` worker is not running or not servicing the `pyats` queue. Check **Operations → Background Tasks → Workers** and the worker logs.
 - **`error` status with `connection failed` in warnings:** the worker cannot reach the device's management IP. Verify `primary_ip4`/`primary_ip6` on the NetBox device and that the worker host has network reachability to it.
 - **`unsupported` status for a platform you expect to be supported:** the NetBox Platform slug is not in the map in `netbox_pyats/testbed.py`. Add it (only if Genie has a real parser for that os) and redeploy.
-- **`error` status with `genie.learn not found`:** the worker's genie install is too old or incomplete. Reinstall with `pip install netbox-pyats[pyats]` (or rebuild the worker image).
+- **`error` status with `state capture failed: ...`:** a state command's parser raised an unexpected exception (not `ParserNotFound`). Check the worker's genie install (`pip install netbox-pyats[pyats]` or rebuild the worker image) and the full traceback in the snapshot's `parser_warnings`.

@@ -2,7 +2,7 @@
 
 An [Atw](https://github.com/openjarv) [NetBox](https://netbox.dev) plugin that brings [Cisco PyATS / Genie](https://developer.cisco.com/pyats/) into the NetBox UI — dynamic testbed building from the NetBox ORM, plugin-local encrypted credentials, device snapshots stored as JSONB, and (in later phases) structured diffs and config compliance from the device page.
 
-> **Phase 2 (this release):** everything in Phase 1, plus the snapshot capture pipeline — a `PyatsSnapshot` model (JSONB), a `capture_snapshot` RQ job running `Genie.learn` + parser-based config capture on a dedicated `pyats` RQ queue, and a "PyATS" tab on the Device detail page with a "Capture snapshot" button and recent-snapshot history. Diff and compliance land in subsequent phases (see the ATW-10 build plan).
+> **Phase 2 (this release):** everything in Phase 1, plus the snapshot capture pipeline — a `PyatsSnapshot` model (JSONB), a `capture_snapshot` RQ job running parser-based config + state capture via `device.parse(...)` on a dedicated `pyats` RQ queue, and a "PyATS" tab on the Device detail page with a "Capture snapshot" button and recent-snapshot history. Diff and compliance land in subsequent phases (see the ATW-10 build plan).
 
 ## What it does
 
@@ -12,7 +12,7 @@ Phase 2 ships:
 
 - **`PyatsCredential` model** — plugin-local, Fernet-encrypted device credentials (password + enable secret). Never exposed via REST, GraphQL, or the detail view; only ciphertext is persisted.
 - **`build_testbed(device_qs)`** — constructs a `pyats.topology.Testbed` from a NetBox Device queryset: maps Platform → pyATS `os`, resolves the management IP from `primary_ip4`/`primary_ip6`, attaches the device's `PyatsCredential`, and **flags unsupported platforms gracefully** (`os = "unsupported - no parser"`) rather than crashing batch runs.
-- **`PyatsSnapshot` model + `capture_snapshot` RQ job** — click "Capture snapshot" on a device's PyATS tab and the worker connects via Unicon, runs `Genie.learn` (state) and/or parser-based config capture, and stores the result as JSONB. Devices without Genie parser support are surfaced as `unsupported` in the history (a row is still created) rather than failing the run. Capture errors are recorded as `error` rows with the exception text in `parser_warnings`.
+- **`PyatsSnapshot` model + `capture_snapshot` RQ job** — click "Capture snapshot" on a device's PyATS tab and the worker connects via Unicon, runs `device.parse('show running-config')` (config) and/or a small OS-agnostic state command set via `device.parse(...)` (state), and stores the parsed result as JSONB. Devices without Genie parser support are surfaced as `unsupported` in the history (a row is still created) rather than failing the run. Capture errors are recorded as `error` rows with the exception text in `parser_warnings`.
 - **Dedicated `pyats` RQ queue + worker** — pyATS/Genie work runs on its own queue (declared via `NetBoxPyATSConfig.queues`), isolated from NetBox's default workers. The default NetBox worker does not need pyATS installed; run a second worker pointed at `pyats` (see `dev/Dockerfile.pyats-worker` and [docs/workers.md](docs/workers.md)).
 - **Device-page "PyATS" tab** — capture button (config / state / full) + the most recent snapshots for the device, with status badges and a warnings indicator.
 - **CRUD + REST + GraphQL** for credentials and snapshots, all under `/plugins/pyats/`.

@@ -154,9 +154,10 @@ class PyatsSnapshot(NetBoxModel):
 
     Populated by the ``capture_snapshot`` RQ job (see ``netbox_pyats.jobs``).
     The job builds a pyATS testbed from the NetBox Device + its
-    :class:`PyatsCredential`, connects via Unicon, runs ``Genie.learn`` (state)
-    and/or parser-based config capture, serializes the result to JSON, and
-    stores it in :attr:`data` (JSONB).
+    :class:`PyatsCredential`, connects via Unicon, runs parser-based config
+    capture (``show running-config``) and/or state capture (a small
+    OS-agnostic command set via ``device.parse(...)``), serializes the
+    result to JSON, and stores it in :attr:`data` (JSONB).
 
     Multi-vendor graceful degradation: if the device's platform has no Genie
     parser, the job writes a row with ``status=unsupported``, an empty
@@ -168,8 +169,11 @@ class PyatsSnapshot(NetBoxModel):
 
     The ``data`` payload shape depends on ``kind``:
 
-    - ``config``: ``{"config": {<parsed show-running output>}}``
-    - ``state``:  ``{"state":  {<Genie.learn "ops" output>}}``
+    - ``config``: ``{"config": {<parsed show-running-config output>}}``
+    - ``state``:  ``{"state": {<command: <parsed output>, ...>}}`` — one entry
+      per command in :data:`netbox_pyats.capture.STATE_COMMANDS`; commands
+      whose parser is missing for the device's os are recorded as ``None``
+      with a warning.
     - ``full``:   ``{"config": {...}, "state": {...}}``
 
     ``size_bytes`` is the length of the JSON-serialized ``data`` payload, set

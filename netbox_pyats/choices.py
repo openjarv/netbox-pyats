@@ -26,11 +26,13 @@ class CredentialScopeChoices(models.TextChoices):
 class SnapshotKindChoices(models.TextChoices):
     """What a :class:`PyatsSnapshot` captures from a device.
 
-    ``config`` runs parser-based config capture (``show running-config`` etc.).
-    ``state`` runs ``Genie.learn`` to pull structured operational state
-    (interfaces, routing, ARP, etc.). ``full`` runs both and stores them under
-    ``data["config"]`` and ``data["state"]`` respectively, so a single row
-    captures a complete pre/post-change picture.
+    ``config`` runs parser-based config capture (``show running-config`` via
+    ``device.parse(...)``). ``state`` runs a small OS-agnostic state command
+    set (``show version``, ``show inventory``, ``show ip interface brief``),
+    each parsed via ``device.parse(...)``; commands whose parser is missing
+    for the device's os are skipped with a warning. ``full`` runs both and
+    stores them under ``data["config"]`` and ``data["state"]`` respectively,
+    so a single row captures a complete pre/post-change picture.
     """
 
     KIND_CONFIG = "config", "Config"

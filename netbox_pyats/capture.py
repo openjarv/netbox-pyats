@@ -36,6 +36,19 @@ from .testbed import UNSUPPORTED_OS, is_supported_os
 
 logger = logging.getLogger(__name__)
 
+# OS-agnostic state commands captured for kind='state' / kind='full'. Each
+# command must have a Genie parser for every os in testbed.PLATFORM_SLUG_TO_PYATS_OS
+# or the per-command parse is skipped (and recorded as None in the state dict
+# so the caller's warnings can flag it). The set is intentionally conservative:
+# adding a command here is a commitment that Genie has real parser coverage for
+# it across the supported OS matrix (Cisco IOS/XE/XR/NX-OS/ASA, Juniper JunOS,
+# Arista EOS, Nokia SR OS).
+STATE_COMMANDS: tuple[str, ...] = (
+    "show version",
+    "show inventory",
+    "show ip interface brief",
+)
+
 
 @dataclass
 class CaptureResult:
@@ -122,41 +135,48 @@ def _capture_config(pyats_device) -> dict:
 
 
 def _capture_state(pyats_device) -> dict:
-    """Run ``Genie.learn`` to pull structured operational state.
+    """Run parser-based state capture on a connected pyATS Device.
 
-    ``Genie.learn`` on a connected device pulls interfaces, routing, ARP, BGP,
-    OSPF, etc. — everything Genie has an Ops parser for on this os. The
-    returned object is JSON-serializable via its ``.as_dict()`` method.
+    Runs a small, OS-agnostic set of state commands via
+    ``pyats_device.parse(<command>)`` — the verified Genie "service" that
+    returns a structured dict for a CLI command. Each command's parsed output
+    is merged into a single dict keyed by command; commands whose parser is
+    missing for the device's os are skipped with a warning (recorded by the
+    caller).
+
+    Why not ``Genie.learn(device)``: the verified Genie API has no top-level
+    ``genie.learn(device)`` function. ``genie`` is a namespace package whose
+    top-level ``__init__`` does not export a ``learn`` callable, and
+    ``genie.libs`` (shipped by the separate ``genielibs`` wheel) does not
+    export one either — the only ``learn`` in the installed ``genie`` wheel
+    is :meth:`genie.ops.base.base.Base.ops.learn` (a per-feature instance
+    method) and the compiled ``genie.cli.commands.learn`` CLI entry point.
+    Enumerating per-OS feature Ops classes (``Lookup.from_device(device).ops.<feature>(device).learn()``)
+    is brittle for a v1 "capture everything" snapshot. ``device.parse(...)`` is
+    the Genie primitive that returns a structured dict for a CLI command, with
+    a clean ``ParserNotFound`` exception for unsupported OSes — the right
+    primitive for a v1 that ships and degrades gracefully (see the ATW-10
+    build plan §6.1: "multi-vendor bounded by Genie parser availability").
     """
-    # Importing genie triggers Ops plugin discovery (genie.libs.ops registers
-    # parsers on import). We import the package, then resolve ``genie.learn``
-    # — the high-level helper that runs every applicable Ops parser for the
-    # device's os. ``Diff`` (used by the Phase 3 diff engine) lives in the
-    # same package and is imported lazily there to keep this module's import
-    # surface minimal.
-    import genie  # noqa: F401 - imported for side effects (plugin discovery)
-
-    learned = {}
-    learn_fn = getattr(genie, "learn", None)
-    if learn_fn is None:
-        # Some genie layouts expose learn under genie.libs rather than the
-        # top-level package; fall back so we work across genie releases.
+    state: dict[str, Any] = {}
+    for command in STATE_COMMANDS:
         try:
-            from genie.libs import learn as libs_learn  # type: ignore[attr-defined]
-
-            learn_fn = libs_learn
-        except (ImportError, AttributeError) as exc:
-            raise RuntimeError("genie.learn not found on this worker (genie.libs too old?)") from exc
-    # ``learn`` mutates the device in place and returns a learn-result object
-    # whose ``.as_dict()`` is the JSON-serializable state snapshot.
-    result = learn_fn(pyats_device)
-    if hasattr(result, "as_dict"):
-        learned = result.as_dict()
-    elif isinstance(result, dict):
-        learned = result
-    else:
-        learned = {"raw": str(result)}
-    return learned
+            output = pyats_device.parse(command)
+        except Exception as exc:  # noqa: BLE001 - per-command parser miss is a warning, not fatal
+            # Duck-type ParserNotFound by class name so we don't import genie
+            # (which is only present on the worker) just to check the type.
+            if type(exc).__name__ == "ParserNotFound":
+                logger.debug("netbox_pyats: no parser for %r on %s, skipping", command, pyats_device.name)
+                # Record the skip in the state dict so the caller's warnings
+                # list can surface it; the per-command key is set to None to
+                # signal "no parser" distinctly from "parsed but empty".
+                state[command] = None
+                continue
+            # Any other exception is a real failure for this command — re-raise
+            # so the caller's try/except records it as a state-capture warning.
+            raise
+        state[command] = output if isinstance(output, dict) else {"raw": str(output)}
+    return state
 
 
 def capture_snapshot(pyats_device, *, kind: str = SnapshotKindChoices.KIND_FULL) -> CaptureResult:
@@ -211,7 +231,14 @@ def capture_snapshot(pyats_device, *, kind: str = SnapshotKindChoices.KIND_FULL)
                 data["config"] = {}
         if kind in (SnapshotKindChoices.KIND_STATE, SnapshotKindChoices.KIND_FULL):
             try:
-                data["state"] = _capture_state(pyats_device)
+                state = _capture_state(pyats_device)
+                # _capture_state records per-command parser misses as None.
+                # Surface those as warnings so the UI shows which state
+                # commands were skipped on this device's os.
+                for cmd, value in state.items():
+                    if value is None:
+                        warnings.append(f"no Genie parser for {cmd!r} on os={os_value!r}; skipped")
+                data["state"] = state
             except Exception as exc:  # noqa: BLE001 - state capture failure is a warning, not fatal
                 warnings.append(f"state capture failed: {exc}")
                 data["state"] = {}
