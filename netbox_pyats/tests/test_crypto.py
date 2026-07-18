@@ -8,9 +8,11 @@ and outside a NetBox test environment.
 import base64
 import hashlib
 import warnings
+
 from cryptography.fernet import Fernet
 from django.conf import settings
 from django.test import SimpleTestCase, override_settings
+
 from netbox_pyats import crypto
 
 
