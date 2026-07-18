@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "netbox-pyats"
+version = "0.1.0"
+description = "Atw NetBox plugin — brings Cisco PyATS/Genie into NetBox: device snapshots, structured diffs, and config compliance from the device page."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+authors = [
+    {name = "Atw", email = "engineering@atw.dev"},
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Django",
+    "Intended Audience :: System Administrators",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Networking",
+]
+dependencies = [
+    "cryptography>=42.0,<50",
+]
+
+[project.optional-dependencies]
+pyats = [
+    # Runtime pyATS/Genie. Kept optional so the plugin installs/import-checks
+    # without the (heavy) pyATS[full] dependency. The dedicated RQ worker
+    # image installs this extra.
+    "pyats[full]>=23.0",
+]
+dev = [
+    "build>=1.0,<2",
+    "black>=24.0,<25",
+    "flake8>=7.0,<8",
+    "isort>=5.13,<6",
+    "pytest>=8.0,<9",
+    "pytest-django>=4.8,<5",
+]
+
+[project.entry-points."netbox.plugins"]
+netbox_pyats = "netbox_pyats:config"
+
+[tool.setuptools.packages.find]
+include = ["netbox_pyats*"]
+
+[tool.setuptools.package-data]
+netbox_pyats = [
+    "templates/netbox_pyats/*.html",
+    "templates/netbox_pyats/**/*.html",
+]
+
+[tool.black]
+line-length = 120
+target-version = ["py310"]
+
+[tool.isort]
+profile = "black"
+line_length = 120
+
+[tool.pytest.ini_options]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+testpaths = ["netbox_pyats/tests"]
