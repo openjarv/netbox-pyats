@@ -1,14 +1,15 @@
 """Models for the netbox-pyats plugin.
 
-Phase 1 (ATW-12) ships a single plugin model, :class:`PyatsCredential`, a
-plugin-local encrypted store for device credentials used to build pyATS
-testbeds. Passwords and enable secrets are encrypted at rest with Fernet
-(`netbox_pyats.crypto`); only ciphertext is ever persisted to the database.
+Phase 1 (ATW-12) shipped :class:`PyatsCredential`, a plugin-local encrypted
+store for device credentials used to build pyATS testbeds. Passwords and
+enable secrets are encrypted at rest with Fernet (`netbox_pyats.crypto`); only
+ciphertext is ever persisted to the database.
 
-Later phases add :class:`PyatsSnapshot`, :class:`PyatsSnapshotDiff`,
-:class:`PyatsGoldenConfig`, :class:`PyatsComplianceRun`, and :class:`PyatsJob`
-(see the ATW-10 build plan, §3) — each in its own migration, in the phase that
-introduces it, so Phase 1 stays small and reviewable.
+Phase 2 (ATW-13) adds :class:`PyatsSnapshot`, a JSONB-backed row per captured
+config/state/full snapshot, written by the `capture_snapshot` RQ job. Later
+phases add :class:`PyatsSnapshotDiff`, :class:`PyatsGoldenConfig`,
+:class:`PyatsComplianceRun`, and :class:`PyatsJob` (see the ATW-10 build plan,
+§3) — each in its own migration, in the phase that introduces it.
 """
 
 from django.db import models
@@ -16,7 +17,13 @@ from django.urls import reverse
 from netbox.models import NetBoxModel
 
 from . import crypto
-from .choices import CredentialProtocolChoices, CredentialScopeChoices
+from .choices import (
+    CredentialProtocolChoices,
+    CredentialScopeChoices,
+    SnapshotKindChoices,
+    SnapshotStatusChoices,
+    SnapshotTriggerChoices,
+)
 
 
 class PyatsCredential(NetBoxModel):
@@ -140,3 +147,129 @@ class PyatsCredential(NetBoxModel):
             raise models.ValidationError({"device": "A per-device credential must have a device assigned."})
         if self.scope == CredentialScopeChoices.SCOPE_GLOBAL and self.device_id:
             raise models.ValidationError({"device": "A global credential must not be bound to a specific device."})
+
+
+class PyatsSnapshot(NetBoxModel):
+    """One captured config/state/full snapshot for a NetBox Device.
+
+    Populated by the ``capture_snapshot`` RQ job (see ``netbox_pyats.jobs``).
+    The job builds a pyATS testbed from the NetBox Device + its
+    :class:`PyatsCredential`, connects via Unicon, runs ``Genie.learn`` (state)
+    and/or parser-based config capture, serializes the result to JSON, and
+    stores it in :attr:`data` (JSONB).
+
+    Multi-vendor graceful degradation: if the device's platform has no Genie
+    parser, the job writes a row with ``status=unsupported``, an empty
+    ``data`` payload, and a ``parser_warnings`` entry explaining the skip —
+    so the device-page PyATS tab can surface "unsupported" in the history
+    rather than silently omitting the device. Capture errors are recorded
+    with ``status=error`` and the exception message in ``parser_warnings``;
+    the row is still created so the operator sees the failure in-line.
+
+    The ``data`` payload shape depends on ``kind``:
+
+    - ``config``: ``{"config": {<parsed show-running output>}}``
+    - ``state``:  ``{"state":  {<Genie.learn "ops" output>}}``
+    - ``full``:   ``{"config": {...}, "state": {...}}``
+
+    ``size_bytes`` is the length of the JSON-serialized ``data`` payload, set
+    by the job so the UI can render it without re-serializing. ``genie_version``
+    and ``pyats_version`` are captured from the worker environment so snapshots
+    taken with different Genie releases are distinguishable (Genie's parsed
+    output shape drifts between releases).
+    """
+
+    device = models.ForeignKey(
+        to="dcim.Device",
+        on_delete=models.CASCADE,
+        related_name="pyats_snapshots",
+        help_text="NetBox device this snapshot was captured from.",
+    )
+    kind = models.CharField(
+        max_length=20,
+        choices=SnapshotKindChoices,
+        default=SnapshotKindChoices.KIND_FULL,
+        help_text="What was captured: config, state, or full (config + state).",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=SnapshotStatusChoices,
+        default=SnapshotStatusChoices.STATUS_SUCCESS,
+        help_text="Outcome of the capture: success, unsupported platform, or error.",
+    )
+    triggered_by = models.CharField(
+        max_length=20,
+        choices=SnapshotTriggerChoices,
+        default=SnapshotTriggerChoices.TRIGGER_USER,
+        help_text="Who/what initiated the capture: a user (manual) or a job (automated).",
+    )
+    captured_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When the snapshot was captured (set on row creation).",
+    )
+    data = models.JSONField(
+        blank=True,
+        default=dict,
+        help_text=(
+            "Captured snapshot payload as JSON. Shape depends on kind: "
+            "config → {config: ...}, state → {state: ...}, full → {config, state}. "
+            "Empty for unsupported/error rows."
+        ),
+    )
+    parser_warnings = models.JSONField(
+        blank=True,
+        default=list,
+        help_text=(
+            "List of human-readable warnings/errors from the capture: parser "
+            "unsupported messages, Unicon connection issues, exception text. "
+            "Surfaced in the UI as a 'warnings' indicator on the snapshot row."
+        ),
+    )
+    genie_version = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+        help_text="genie version on the worker at capture time (e.g. '26.6').",
+    )
+    pyats_version = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+        help_text="pyats version on the worker at capture time (e.g. '26.6').",
+    )
+    size_bytes = models.PositiveBigIntegerField(
+        default=0,
+        help_text="Size of the JSON-serialized `data` payload in bytes (set by the job).",
+    )
+
+    clone_fields = ("device", "kind", "triggered_by")
+
+    class Meta:
+        ordering = ("-captured_at",)
+        verbose_name = "PyATS Snapshot"
+        verbose_name_plural = "PyATS Snapshots"
+        indexes = [
+            # Most common queries: "recent snapshots for this device" and
+            # "snapshots of this kind for this device" (diff/compliance pickers).
+            models.Index(fields=("device", "-captured_at")),
+            models.Index(fields=("device", "kind", "-captured_at")),
+        ]
+
+    def __str__(self):
+        return f"{self.device} · {self.get_kind_display()} · {self.captured_at:%Y-%m-%d %H:%M:%S}"
+
+    def get_absolute_url(self):
+        return reverse("plugins:netbox_pyats:pyatssnapshot", kwargs={"pk": self.pk})
+
+    def get_status_color(self):
+        """Map status to a NetBox color label for table badges."""
+        return {
+            SnapshotStatusChoices.STATUS_SUCCESS: "success",
+            SnapshotStatusChoices.STATUS_UNSUPPORTED: "warning",
+            SnapshotStatusChoices.STATUS_ERROR: "danger",
+        }.get(self.status, "secondary")
+
+    @property
+    def has_warnings(self) -> bool:
+        """True if this snapshot row carries parser warnings / error context."""
+        return bool(self.parser_warnings)

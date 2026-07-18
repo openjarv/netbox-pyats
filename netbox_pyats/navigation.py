@@ -12,4 +12,9 @@ menu_items = [
         link_text=_("Add Credential"),
         permissions=["netbox_pyats.add_pyatscredential"],
     ),
+    PluginMenuItem(
+        link="plugins:netbox_pyats:pyatssnapshot_list",
+        link_text=_("PyATS Snapshots"),
+        permissions=["netbox_pyats.view_pyatssnapshot"],
+    ),
 ]

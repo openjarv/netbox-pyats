@@ -1,0 +1,36 @@
+# Dedicated pyats RQ worker image.
+#
+# Builds on the official NetBox image so the worker shares NetBox's Django
+# environment (models, settings, RQ) and adds pyats[full] + genie + the unicon
+# plugins Genie needs for SSH/Telnet. This is the only container that needs
+# pyats installed; the NetBox web process and the default RQ worker do not.
+#
+# The worker services the `pyats` queue only (see docker-compose.dev.yml),
+# which the plugin declares via NetBoxPyATSConfig.queues. Keeping pyats work
+# off the default queue means a long Genie.learn run can never block NetBox's
+# own housekeeping jobs.
+#
+# In dev this image is built by `docker compose -f docker-compose.dev.yml
+# build netbox-pyats-worker`. In production, operators build/publish this
+# image (or install pyats[full] into their own worker container) and run a
+# second rqworker pointed at the `pyats` queue.
+
+FROM docker.io/netboxcommunity/netbox:v4.6-5.0.2
+
+# Install pyats[full] and genie into NetBox's venv. pyats[full] pulls the
+# parser packages, unicon, and the connection plugins needed for SSH/Telnet
+# to real devices. We pin to a 26.x release to match the compatibility matrix
+# in the README; operators can override the version by rebuilding with a
+# different PYATS_VERSION build arg.
+ARG PYATS_VERSION=26.6
+RUN /opt/netbox/venv/bin/pip install --no-cache-dir "pyats[full]==${PYATS_VERSION}"
+
+# The plugin source is bind-mounted at runtime (see docker-compose.dev.yml),
+# so we don't COPY it here. The entrypoint pip-installs the plugin editable
+# before starting the worker so NetBox's plugin registry picks it up.
+COPY pyats-worker-entrypoint.sh /opt/netbox/pyats-worker-entrypoint.sh
+RUN chmod +x /opt/netbox/pyats-worker-entrypoint.sh
+
+# The queue name is passed as the command arg (`pyats`) by docker-compose.
+ENTRYPOINT ["/usr/bin/tini", "--", "/opt/netbox/pyats-worker-entrypoint.sh"]
+CMD ["pyats"]

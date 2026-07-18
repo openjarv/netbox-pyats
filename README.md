@@ -1,18 +1,21 @@
 # netbox-pyats
 
-An [Atw](https://github.com/openjarv) [NetBox](https://netbox.dev) plugin that brings [Cisco PyATS / Genie](https://developer.cisco.com/pyats/) into the NetBox UI — dynamic testbed building from the NetBox ORM, plugin-local encrypted credentials, and (in later phases) device snapshots, structured diffs, and config compliance from the device page.
+An [Atw](https://github.com/openjarv) [NetBox](https://netbox.dev) plugin that brings [Cisco PyATS / Genie](https://developer.cisco.com/pyats/) into the NetBox UI — dynamic testbed building from the NetBox ORM, plugin-local encrypted credentials, device snapshots stored as JSONB, and (in later phases) structured diffs and config compliance from the device page.
 
-> **Phase 1 (this release):** plugin scaffold, encrypted `PyatsCredential` model, and the `build_testbed(device_qs)` bridge that materializes a pyATS `Testbed` from NetBox Device/Interface/IPAddress/Platform rows + a resolved credential. Snapshot capture, diff, and compliance land in subsequent phases (see the ATW-10 build plan).
+> **Phase 2 (this release):** everything in Phase 1, plus the snapshot capture pipeline — a `PyatsSnapshot` model (JSONB), a `capture_snapshot` RQ job running `Genie.learn` + parser-based config capture on a dedicated `pyats` RQ queue, and a "PyATS" tab on the Device detail page with a "Capture snapshot" button and recent-snapshot history. Diff and compliance land in subsequent phases (see the ATW-10 build plan).
 
 ## What it does
 
 Real-world NetBox deployments already have device inventories. PyATS needs a testbed to talk to those devices, but maintaining a static YAML testbed alongside NetBox duplicates the source of truth. `netbox-pyats` builds the testbed directly from the NetBox ORM at runtime — the NetBox device record *is* the testbed.
 
-Phase 1 ships:
+Phase 2 ships:
 
 - **`PyatsCredential` model** — plugin-local, Fernet-encrypted device credentials (password + enable secret). Never exposed via REST, GraphQL, or the detail view; only ciphertext is persisted.
 - **`build_testbed(device_qs)`** — constructs a `pyats.topology.Testbed` from a NetBox Device queryset: maps Platform → pyATS `os`, resolves the management IP from `primary_ip4`/`primary_ip6`, attaches the device's `PyatsCredential`, and **flags unsupported platforms gracefully** (`os = "unsupported - no parser"`) rather than crashing batch runs.
-- **CRUD + REST + GraphQL** for credentials, all under `/plugins/pyats/`.
+- **`PyatsSnapshot` model + `capture_snapshot` RQ job** — click "Capture snapshot" on a device's PyATS tab and the worker connects via Unicon, runs `Genie.learn` (state) and/or parser-based config capture, and stores the result as JSONB. Devices without Genie parser support are surfaced as `unsupported` in the history (a row is still created) rather than failing the run. Capture errors are recorded as `error` rows with the exception text in `parser_warnings`.
+- **Dedicated `pyats` RQ queue + worker** — pyATS/Genie work runs on its own queue (declared via `NetBoxPyATSConfig.queues`), isolated from NetBox's default workers. The default NetBox worker does not need pyATS installed; run a second worker pointed at `pyats` (see `dev/Dockerfile.pyats-worker` and [docs/workers.md](docs/workers.md)).
+- **Device-page "PyATS" tab** — capture button (config / state / full) + the most recent snapshots for the device, with status badges and a warnings indicator.
+- **CRUD + REST + GraphQL** for credentials and snapshots, all under `/plugins/pyats/`.
 
 ## Compatibility matrix
 
@@ -56,19 +59,22 @@ sudo systemctl restart netbox netbox-rq
 
 ### Installing pyATS on the worker (required for snapshots)
 
-The plugin's web UI (credential CRUD, list/detail views) works without pyATS. To actually capture snapshots (Phase 2), the RQ worker that runs pyATS jobs needs pyATS installed:
+The plugin's web UI (credential CRUD, list/detail views, snapshot list) works without pyATS. To actually capture snapshots, the RQ worker that runs pyATS jobs needs pyATS installed. The plugin declares a dedicated `pyats` RQ queue (via `NetBoxPyATSConfig.queues`) so pyATS work is isolated from NetBox's default workers — run a second worker pointed at the `pyats` queue:
 
 ```bash
+# On the worker host (or build the worker image — see dev/Dockerfile.pyats-worker):
 pip install netbox-pyats[pyats]   # pulls pyats[full] >= 26.0
+python manage.py rqworker pyats
 ```
 
-See the worker Dockerfile and deployment docs in a later phase.
+See [docs/workers.md](docs/workers.md) for the full worker deployment guide, and `dev/Dockerfile.pyats-worker` for a ready-to-build worker image.
 
-## Usage (Phase 1)
+## Usage (Phase 2)
 
 1. **Add a credential** at **Plugins → PyATS → Add Credential**. Pick a device, enter username + password (+ optional enable secret). The secrets are encrypted with Fernet before they hit the database.
-2. **List and inspect credentials** under **Plugins → PyATS → PyATS Credentials**. The detail page shows whether a password/enable secret is set (badge), never the value.
-3. **Build a testbed programmatically** (used by Phase 2's snapshot pipeline):
+2. **Capture a snapshot** from a device's detail page → **PyATS** tab → pick a kind (config / state / full) → **Capture**. The job is enqueued on the `pyats` queue; the snapshot appears in the tab's recent-snapshots list when the worker finishes.
+3. **Browse snapshots** under **Plugins → PyATS → PyATS Snapshots** (filterable by device, kind, status). The detail view renders the JSONB payload and any parser warnings.
+4. **Build a testbed programmatically** (the snapshot pipeline does this internally):
 
 ```python
 from netbox_pyats.testbed import build_testbed
@@ -81,6 +87,8 @@ for entry in report.unsupported:
     print(entry["name"], entry["reason"])
 # pyATS Testbed is ready for `testbed.connect()` / `Genie(device).learn(...)`.
 ```
+
+Unsupported platforms (no Genie parser) are surfaced as `unsupported` snapshot rows in the device-page history rather than failing the capture; capture errors are recorded as `error` rows with the exception text in `parser_warnings`.
 
 ## Credential encryption
 
