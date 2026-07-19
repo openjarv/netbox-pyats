@@ -1,6 +1,6 @@
 from netbox.filtersets import NetBoxModelFilterSet
 
-from .models import PyatsCredential, PyatsSnapshot
+from .models import PyatsCredential, PyatsSnapshot, PyatsSnapshotDiff
 
 
 class PyatsCredentialFilterSet(NetBoxModelFilterSet):
@@ -36,4 +36,24 @@ class PyatsSnapshotFilterSet(NetBoxModelFilterSet):
             "status",
             "triggered_by",
             "captured_at",
+        ]
+
+
+class PyatsSnapshotDiffFilterSet(NetBoxModelFilterSet):
+    """FilterSet for the PyatsSnapshotDiff model (Phase 3, ATW-14).
+
+    Lets the diff list view be filtered by device, status, and the before/after
+    snapshot ids — the axes the device-page history and the compliance picker
+    (Phase 4) will query on.
+    """
+
+    class Meta:
+        model = PyatsSnapshotDiff
+        fields = [
+            "id",
+            "device_id",
+            "status",
+            "before_id",
+            "after_id",
+            "created",
         ]

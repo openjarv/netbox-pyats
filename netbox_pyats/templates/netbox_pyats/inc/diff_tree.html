@@ -1,0 +1,45 @@
+{% load helpers %}
+{# Recursive partial rendering a PyatsSnapshotDiff diff node as a collapsible tree.
+   Called with `node` = one node dict from netbox_pyats.diff:
+     {"type": "dict"|"list"|"leaf"|<scalar-tag>, "status": "added"|"removed"|"changed"|"unchanged",
+      "children": {...} (containers) | "before"/"after"/"value" (leaves)}
+   Server-rendered <details> — no JS dependency. Changed subtrees are open by
+   default; unchanged ones collapsed, so the operator sees the differences
+   without expanding everything. #}
+{% with status=node.status type=node.type %}
+  <details{% if status == 'changed' or status == 'added' or status == 'removed' %} open{% endif %} class="diff-node diff-{{ status }}">
+    <summary>
+      <span class="badge bg-{% if status == 'added' %}success{% elif status == 'removed' %}danger{% elif status == 'changed' %}warning{% else %}secondary{% endif %}">{{ status }}</span>
+      <span class="badge bg-light text-dark ms-1">{{ type }}</span>
+      {% if node.name %}<span class="ms-1">{{ node.name }}</span>{% endif %}
+    </summary>
+    <div class="ms-3">
+      {% if type == 'dict' or type == 'list' %}
+        {% if node.children %}
+          {% for key, child in node.children.items %}
+            <div class="diff-entry">
+              <span class="text-muted small">{{ key }}:</span>
+              {% include 'netbox_pyats/inc/diff_tree.html' with node=child %}
+            </div>
+          {% endfor %}
+        {% else %}
+          <span class="text-muted small">(empty)</span>
+        {% endif %}
+      {% else %}
+        {# Leaf: render before/after/value depending on status. #}
+        {% if status == 'added' %}
+          <span class="text-success"><pre class="mb-0">{{ node.after|json }}</pre></span>
+        {% elif status == 'removed' %}
+          <span class="text-danger"><pre class="mb-0">{{ node.before|json }}</pre></span>
+        {% elif status == 'changed' %}
+          <div class="row">
+            <div class="col-md-6"><span class="text-danger small">before</span><pre class="mb-0">{{ node.before|json }}</pre></div>
+            <div class="col-md-6"><span class="text-success small">after</span><pre class="mb-0">{{ node.after|json }}</pre></div>
+          </div>
+        {% else %}
+          <span class="text-muted"><pre class="mb-0">{{ node.value|json }}</pre></span>
+        {% endif %}
+      {% endif %}
+    </div>
+  </details>
+{% endwith %}

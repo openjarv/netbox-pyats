@@ -67,3 +67,20 @@ class SnapshotStatusChoices(models.TextChoices):
     STATUS_SUCCESS = "success", "Success"
     STATUS_UNSUPPORTED = "unsupported", "Unsupported platform"
     STATUS_ERROR = "error", "Error"
+
+
+class DiffStatusChoices(models.TextChoices):
+    """Outcome of a snapshot diff (Phase 3, ATW-14).
+
+    ``success`` means a structured diff JSONB tree was produced (it may be
+    empty of changes — ``summary`` records the counts). ``empty`` means both
+    input snapshots had no data (e.g. two unsupported-platform rows being
+    diffed for completeness); the row is still created so the operator sees the
+    outcome in-line, with a neutral badge rather than red. ``error`` means the
+    diff inputs were malformed (non-dict top-level payloads) or the job raised;
+    the exception message is stored in ``parser_warnings``.
+    """
+
+    STATUS_SUCCESS = "success", "Success"
+    STATUS_EMPTY = "empty", "Empty inputs"
+    STATUS_ERROR = "error", "Error"

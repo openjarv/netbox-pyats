@@ -1,7 +1,7 @@
 from netbox.api.serializers import NetBoxModelSerializer
 from rest_framework import serializers
 
-from netbox_pyats.models import PyatsCredential, PyatsSnapshot
+from netbox_pyats.models import PyatsCredential, PyatsSnapshot, PyatsSnapshotDiff
 
 
 class PyatsCredentialSerializer(NetBoxModelSerializer):
@@ -107,6 +107,45 @@ class PyatsSnapshotSerializer(NetBoxModelSerializer):
             "parser_warnings",
             "genie_version",
             "pyats_version",
+            "size_bytes",
+            "created",
+            "last_updated",
+        )
+
+
+class PyatsSnapshotDiffSerializer(NetBoxModelSerializer):
+    """Serializer for the PyatsSnapshotDiff model.
+
+    Diffs are read-only via the REST API in v1 — they are produced by the
+    ``run_diff`` RQ job, not by direct API writes. The full JSONB ``diff``
+    tree and ``summary`` are returned (they are the diff), along with
+    ``parser_warnings`` and ``size_bytes``.
+    """
+
+    class Meta:
+        model = PyatsSnapshotDiff
+        fields = [
+            "id",
+            "url",
+            "device",
+            "before",
+            "after",
+            "status",
+            "diff",
+            "summary",
+            "parser_warnings",
+            "size_bytes",
+            "tags",
+            "created",
+            "last_updated",
+        ]
+        read_only_fields = (
+            "id",
+            "url",
+            "status",
+            "diff",
+            "summary",
+            "parser_warnings",
             "size_bytes",
             "created",
             "last_updated",

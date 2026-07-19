@@ -17,4 +17,9 @@ menu_items = [
         link_text=_("PyATS Snapshots"),
         permissions=["netbox_pyats.view_pyatssnapshot"],
     ),
+    PluginMenuItem(
+        link="plugins:netbox_pyats:pyatssnapshotdiff_list",
+        link_text=_("PyATS Snapshot Diffs"),
+        permissions=["netbox_pyats.view_pyatssnapshotdiff"],
+    ),
 ]

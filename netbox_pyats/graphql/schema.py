@@ -1,6 +1,6 @@
 from netbox.graphql.types import NetBoxObjectType
 
-from netbox_pyats.models import PyatsCredential, PyatsSnapshot
+from netbox_pyats.models import PyatsCredential, PyatsSnapshot, PyatsSnapshotDiff
 
 
 class PyatsCredentialType(NetBoxObjectType):
@@ -48,6 +48,32 @@ class PyatsSnapshotType(NetBoxObjectType):
             "parser_warnings",
             "genie_version",
             "pyats_version",
+            "size_bytes",
+            "tags",
+            "created",
+            "last_updated",
+        )
+
+
+class PyatsSnapshotDiffType(NetBoxObjectType):
+    """GraphQL type for the PyatsSnapshotDiff model (Phase 3, ATW-14).
+
+    Exposes the full JSONB ``diff`` tree and ``summary`` counts (they are the
+    diff) plus the before/after snapshot links and metadata. Read-only by
+    nature (diffs are produced by the ``run_diff`` job).
+    """
+
+    class Meta:
+        model = PyatsSnapshotDiff
+        fields = (
+            "id",
+            "device",
+            "before",
+            "after",
+            "status",
+            "diff",
+            "summary",
+            "parser_warnings",
             "size_bytes",
             "tags",
             "created",
