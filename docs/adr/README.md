@@ -14,6 +14,7 @@ ADRs are short, dated records of structural decisions that are expensive to reve
 |---|---|---|---|
 | [0001](0001-plugin-layout.md) | Plugin package layout | Accepted | 2026-07-19 |
 | [0002](0002-graceful-degradation.md) | Multi-vendor graceful degradation pattern | Accepted | 2026-07-19 |
+| [0003](0003-netbox46-migration-and-worker-toolchain.md) | NetBox 4.6 migration dependencies and worker build toolchain | Accepted | 2026-07-19 |
 
 ## When to write an ADR
 

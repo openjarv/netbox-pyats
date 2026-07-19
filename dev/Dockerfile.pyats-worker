@@ -17,6 +17,14 @@
 
 FROM docker.io/netboxcommunity/netbox:v4.6-5.0.2
 
+# Dev-only: install Python headers + gcc so ruamel-yaml-clib (transitive via
+# pyats[full] -> genie -> genie-libs-sdk -> ruamel-yaml-clib) can build its
+# C extension on NetBox 4.6's Python 3.14 slim image. The supported runtime
+# matrix (README: NetBox 4.6.x x Python 3.10-3.12 x pyATS 26.x worker-only)
+# is unchanged; production operators targeting Python <=3.12 do not need this
+# (a cp312 wheel exists). See ATW-25 / ADR-0003.
+RUN apt-get update && apt-get install -y --no-install-recommends python3.14-dev gcc && rm -rf /var/lib/apt/lists/*
+
 # Install pyats[full] and genie into NetBox's venv. pyats[full] pulls the
 # parser packages, unicon, and the connection plugins needed for SSH/Telnet
 # to real devices. We pin to a 26.x release to match the compatibility matrix
@@ -24,13 +32,7 @@ FROM docker.io/netboxcommunity/netbox:v4.6-5.0.2
 # different PYATS_VERSION build arg.
 #
 # NetBox 4.6 ships `uv` (not pip); use `uv pip install --python <venv>` to
-# target the NetBox venv. Note: pyats 26.6 against NetBox 4.6's Python 3.14
-# venv currently fails to build ruamel-yaml-clib (no Python.h headers in the
-# slim image). That is a compatibility-matrix decision (CTO/CEO), tracked
-# separately — see the ATW-24 dev-env comment. Swapping pip→uv here does not
-# resolve the C-extension build; it only aligns the install tool with the
-# image's package manager so the failure mode is accurate and the path is
-# correct once the matrix is adjusted.
+# target the NetBox venv.
 ARG PYATS_VERSION=26.6
 RUN uv pip install --python /opt/netbox/venv/bin/python --no-cache "pyats[full]==${PYATS_VERSION}"
 
