@@ -15,6 +15,7 @@ from rest_framework import status
 from netbox_pyats import crypto
 from netbox_pyats.choices import CredentialScopeChoices
 from netbox_pyats.models import PyatsCredential
+from users.models import User
 
 
 class PyatsCredentialAPITest(TestCase):
@@ -25,6 +26,13 @@ class PyatsCredentialAPITest(TestCase):
         cls.device_type = DeviceType.objects.create(model="Catalyst 9300", slug="catalyst-9300", manufacturer=cls.mfr)
         cls.role = DeviceRole.objects.create(name="Router", slug="router")
         cls.device = Device.objects.create(name="rtr01", site=cls.site, device_type=cls.device_type, role=cls.role)
+
+    def setUp(self):
+        # NetBox 4.6 rejects anonymous API requests (403). Authenticate the
+        # client as a superuser so the credential endpoints are reachable,
+        # matching the pattern NetBox's own plugin tests use.
+        self.user = User.objects.create_user(username="api-test", is_superuser=True, is_staff=True)
+        self.client.force_login(self.user)
 
     def test_list_credentials(self):
         url = "/api/plugins/pyats/pyats-credentials/"

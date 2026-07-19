@@ -62,7 +62,7 @@ services:
       # Loopback-only publish. Do NOT widen to 0.0.0.0 or drop the IP prefix —
       # the dev server must not be reachable on the host's public IP. Use SSH
       # port forwarding (`ssh -L 8000:127.0.0.1:8000 <host>`) for remote access.
-      - "127.0.0.1:8000:8080"
+      - "127.0.0.1:8002:8080"
     networks:
       - devnet
     volumes:

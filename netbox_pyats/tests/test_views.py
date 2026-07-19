@@ -14,6 +14,7 @@ from django.urls import reverse
 
 from netbox_pyats.choices import CredentialScopeChoices
 from netbox_pyats.models import PyatsCredential
+from users.models import User
 
 
 class PyatsCredentialViewTest(TestCase):
@@ -24,6 +25,13 @@ class PyatsCredentialViewTest(TestCase):
         cls.device_type = DeviceType.objects.create(model="Catalyst 9300", slug="catalyst-9300", manufacturer=cls.mfr)
         cls.role = DeviceRole.objects.create(name="Router", slug="router")
         cls.device = Device.objects.create(name="rtr01", site=cls.site, device_type=cls.device_type, role=cls.role)
+
+    def setUp(self):
+        # NetBox 4.6 requires authentication for UI views (anonymous → 302 to
+        # login). Authenticate as a superuser so the credential views are
+        # reachable, matching the pattern NetBox's own plugin tests use.
+        self.user = User.objects.create_user(username="view-test", is_superuser=True, is_staff=True)
+        self.client.force_login(self.user)
 
     def test_list_view(self):
         url = reverse("plugins:netbox_pyats:pyatscredential_list")
