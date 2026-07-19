@@ -10,7 +10,7 @@ import pytest
 pytest.importorskip("netbox")
 
 from dcim.models import Device, DeviceRole, DeviceType, Manufacturer, Site
-from django.test import TestCase
+from utilities.testing import TestCase
 
 from netbox_pyats.choices import DiffStatusChoices, SnapshotKindChoices, SnapshotStatusChoices, SnapshotTriggerChoices
 from netbox_pyats.models import PyatsSnapshot, PyatsSnapshotDiff

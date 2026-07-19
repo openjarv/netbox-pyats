@@ -16,6 +16,7 @@ diff between two :class:`PyatsSnapshot` rows of the same device, written by the
 `run_diff` RQ job.
 """
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
 from netbox.models import NetBoxModel
@@ -149,9 +150,9 @@ class PyatsCredential(NetBoxModel):
         super().clean()
         # A device-scoped credential must point at a Device; a global one must not.
         if self.scope == CredentialScopeChoices.SCOPE_DEVICE and not self.device_id:
-            raise models.ValidationError({"device": "A per-device credential must have a device assigned."})
+            raise ValidationError({"device": "A per-device credential must have a device assigned."})
         if self.scope == CredentialScopeChoices.SCOPE_GLOBAL and self.device_id:
-            raise models.ValidationError({"device": "A global credential must not be bound to a specific device."})
+            raise ValidationError({"device": "A global credential must not be bound to a specific device."})
 
 
 class PyatsSnapshot(NetBoxModel):

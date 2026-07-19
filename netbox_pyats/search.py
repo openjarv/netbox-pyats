@@ -16,14 +16,15 @@ class PyatsCredentialIndex(SearchIndex):
 class PyatsSnapshotIndex(SearchIndex):
     """Search index for PyatsSnapshot.
 
-    Indexes the device name (via the FK) and the kind/status labels so global
-    search can surface snapshots. The JSONB ``data`` payload is not indexed
-    (too large and not user-facing search terms).
+    Indexes the device (FK stringified to its ``__str__``, which is the
+    device name) and the kind/status labels so global search can surface
+    snapshots. The JSONB ``data`` payload is not indexed (too large and
+    not user-facing search terms).
     """
 
     model = PyatsSnapshot
     fields = (
-        ("device__name", 100),
+        ("device", 100),
         ("kind", 200),
         ("status", 300),
     )
@@ -33,13 +34,14 @@ class PyatsSnapshotIndex(SearchIndex):
 class PyatsSnapshotDiffIndex(SearchIndex):
     """Search index for PyatsSnapshotDiff (Phase 3, ATW-14).
 
-    Indexes the device name (via the FK) and the status label so global search
-    can surface diffs. The JSONB ``diff`` tree is not indexed (too large and not
-    user-facing search terms).
+    Indexes the device (FK stringified to its ``__str__``, which is the
+    device name) and the status label so global search can surface diffs.
+    The JSONB ``diff`` tree is not indexed (too large and not user-facing
+    search terms).
     """
 
     model = PyatsSnapshotDiff
     fields = (
-        ("device__name", 100),
+        ("device", 100),
         ("status", 200),
     )
