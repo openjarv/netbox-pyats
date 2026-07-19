@@ -7,9 +7,13 @@ ciphertext is ever persisted to the database.
 
 Phase 2 (ATW-13) adds :class:`PyatsSnapshot`, a JSONB-backed row per captured
 config/state/full snapshot, written by the `capture_snapshot` RQ job. Later
-phases add :class:`PyatsSnapshotDiff`, :class:`PyatsGoldenConfig`,
-:class:`PyatsComplianceRun`, and :class:`PyatsJob` (see the ATW-10 build plan,
-§3) — each in its own migration, in the phase that introduces it.
+phases add :class:`PyatsGoldenConfig`, :class:`PyatsComplianceRun`,
+and :class:`PyatsJob` (see the ATW-10 build plan, §3) — each in its own
+migration, in the phase that introduces it.
+
+Phase 3 (ATW-14) adds :class:`PyatsSnapshotDiff`, a JSONB-backed structured
+diff between two :class:`PyatsSnapshot` rows of the same device, written by the
+`run_diff` RQ job.
 """
 
 from django.db import models
@@ -20,6 +24,7 @@ from . import crypto
 from .choices import (
     CredentialProtocolChoices,
     CredentialScopeChoices,
+    DiffStatusChoices,
     SnapshotKindChoices,
     SnapshotStatusChoices,
     SnapshotTriggerChoices,
@@ -276,4 +281,147 @@ class PyatsSnapshot(NetBoxModel):
     @property
     def has_warnings(self) -> bool:
         """True if this snapshot row carries parser warnings / error context."""
+        return bool(self.parser_warnings)
+
+
+class PyatsSnapshotDiff(NetBoxModel):
+    """One structured diff between two :class:`PyatsSnapshot` rows of a device.
+
+    Populated by the ``run_diff`` RQ job (see ``netbox_pyats.jobs``). The job
+    loads two snapshots of the same device, runs
+    :func:`netbox_pyats.diff.diff_snapshots` over their ``data`` JSONB, and
+    stores the structured diff tree plus a flat summary of counts (added /
+    removed / changed / unchanged) on this row.
+
+    Why a recursive JSONB diff rather than ``Genie.diff``: the stored snapshots
+    are *already-serialized* JSONB (the output of ``device.parse(...)``), detached
+    from the live Genie object model. ``Genie.diff`` operates on Genie's own
+    runtime objects; by the time a diff is requested the worker only has the
+    persisted JSONB. A recursive diff over the JSONB is portable, deterministic,
+    and testable without Genie installed (see ``netbox_pyats.diff``). This
+    mirrors the Phase 2 decision to use ``device.parse(...)`` rather than the
+    non-existent top-level ``genie.learn``.
+
+    Multi-vendor graceful degradation carries through from Phase 2: diffing two
+    empty (unsupported-platform) snapshots yields ``status="empty"`` with a
+    neutral badge rather than erroring; diffing two snapshots whose data is
+    malformed yields ``status="error"`` with a warning. The row is still created
+    so the operator sees the outcome in-line, consistent with Phase 2's
+    unsupported/error snapshot rows.
+
+    The ``diff`` payload shape is::
+
+        {
+          "name": "root",
+          "type": "dict",
+          "status": "changed" | "unchanged",
+          "children": {
+            <key>: {
+              "type": "dict" | "list" | "leaf" | "string" | ...,
+              "status": "added" | "removed" | "changed" | "unchanged",
+              # container nodes: "children": {<nested>}
+              # added leaf: "after": <value>
+              # removed leaf: "before": <value>
+              # changed leaf: "before": <v1>, "after": <v2>
+              # unchanged leaf: "value": <v>
+            },
+            ...
+          }
+        }
+    """
+
+    device = models.ForeignKey(
+        to="dcim.Device",
+        on_delete=models.CASCADE,
+        related_name="pyats_snapshot_diffs",
+        help_text="NetBox device whose snapshots were diffed (must match both before and after).",
+    )
+    before = models.ForeignKey(
+        to="netbox_pyats.PyatsSnapshot",
+        on_delete=models.CASCADE,
+        related_name="diffs_as_before",
+        help_text="The earlier snapshot (the 'before' side of the diff).",
+    )
+    after = models.ForeignKey(
+        to="netbox_pyats.PyatsSnapshot",
+        on_delete=models.CASCADE,
+        related_name="diffs_as_after",
+        help_text="The later snapshot (the 'after' side of the diff).",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=DiffStatusChoices,
+        default=DiffStatusChoices.STATUS_SUCCESS,
+        help_text="Outcome of the diff: success, empty inputs, or error.",
+    )
+    diff = models.JSONField(
+        blank=True,
+        default=dict,
+        help_text=(
+            "Structured diff tree as JSON. Root is a dict node with children "
+            "keyed by snapshot key; each child is an added/removed/changed/"
+            "unchanged leaf or a nested container. Rendered as a collapsible "
+            "tree in the diff viewer."
+        ),
+    )
+    summary = models.JSONField(
+        blank=True,
+        default=dict,
+        help_text=(
+            "Flat counts per status: {added, removed, changed, unchanged}. "
+            "Surfaced as a compact summary in the diff list and viewer header."
+        ),
+    )
+    parser_warnings = models.JSONField(
+        blank=True,
+        default=list,
+        help_text=(
+            "List of human-readable warnings/errors from the diff: malformed "
+            "input payloads, etc. Empty for clean diffs."
+        ),
+    )
+    size_bytes = models.PositiveBigIntegerField(
+        default=0,
+        help_text="Size of the JSON-serialized `diff` payload in bytes (set by the job).",
+    )
+
+    clone_fields = ("device",)
+
+    class Meta:
+        ordering = ("-created",)
+        verbose_name = "PyATS Snapshot Diff"
+        verbose_name_plural = "PyATS Snapshot Diffs"
+        indexes = [
+            # Most common queries: "recent diffs for this device" and
+            # "diffs between snapshots of this device by status".
+            models.Index(fields=("device", "-created")),
+            models.Index(fields=("device", "status", "-created")),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.device} · diff {self.before_id}→{self.after_id} · "
+            f"{self.get_status_display()} · {self.created:%Y-%m-%d %H:%M:%S}"
+        )
+
+    def get_absolute_url(self):
+        return reverse("plugins:netbox_pyats:pyatssnapshotdiff", kwargs={"pk": self.pk})
+
+    def get_status_color(self):
+        """Map status to a NetBox color label for table badges."""
+        return {
+            DiffStatusChoices.STATUS_SUCCESS: "success",
+            DiffStatusChoices.STATUS_EMPTY: "secondary",
+            DiffStatusChoices.STATUS_ERROR: "danger",
+        }.get(self.status, "secondary")
+
+    @property
+    def has_changes(self) -> bool:
+        """True if the diff found any added/removed/changed leaves."""
+        s = self.summary or {}
+        return bool(s.get("added") or s.get("removed") or s.get("changed"))
+
+    @property
+    def has_warnings(self) -> bool:
+        """True if this diff row carries warnings / error context."""
         return bool(self.parser_warnings)

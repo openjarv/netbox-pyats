@@ -4,11 +4,12 @@ from netbox.forms import NetBoxModelFilterSetForm, NetBoxModelForm
 from .choices import (
     CredentialProtocolChoices,
     CredentialScopeChoices,
+    DiffStatusChoices,
     SnapshotKindChoices,
     SnapshotStatusChoices,
     SnapshotTriggerChoices,
 )
-from .models import PyatsCredential, PyatsSnapshot
+from .models import PyatsCredential, PyatsSnapshot, PyatsSnapshotDiff
 
 
 class PyatsCredentialForm(NetBoxModelForm):
@@ -136,3 +137,31 @@ class DeviceCaptureForm(forms.Form):
         required=True,
         label="Capture kind",
     )
+
+
+class DeviceDiffForm(forms.Form):
+    """Form backing the device-page "Diff two snapshots" picker (Phase 3).
+
+    Posted to the ``device_diff`` view. The operator selects two snapshots of
+    the same device; the view enqueues :func:`jobs.enqueue_diff`. The device is
+    in the URL; ``before_id`` and ``after_id`` are validated by the view to
+    belong to that device.
+    """
+
+    before_id = forms.IntegerField(required=True, label="Before snapshot")
+    after_id = forms.IntegerField(required=True, label="After snapshot")
+
+
+class PyatsSnapshotDiffFilterForm(NetBoxModelFilterSetForm):
+    """Filter form for the PyatsSnapshotDiff list view."""
+
+    model = PyatsSnapshotDiff
+
+    q = forms.CharField(required=False, label="Search")
+    device = forms.IntegerField(required=False, label="Device ID")
+    status = forms.ChoiceField(
+        required=False,
+        choices=[("", "---------")] + DiffStatusChoices.choices,
+    )
+    has_changes = forms.BooleanField(required=False, label="Only diffs with changes")
+    has_warnings = forms.BooleanField(required=False, label="Only diffs with warnings")

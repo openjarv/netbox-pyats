@@ -11,6 +11,17 @@ Phase 2 (ATW-13) adds:
   queue and redirects back to the device page. The view requires
   ``netbox_pyats.add_pyatssnapshot`` so only authorized operators can
   trigger captures.
+
+Phase 3 (ATW-14) adds:
+
+- Standard NetBox list/detail views for :class:`PyatsSnapshotDiff` (the
+  JSONB ``diff`` tree is rendered server-side as a collapsible tree via the
+  diff detail template — no JS dependency).
+- A ``device_diff`` view that the device-page PyATS panel POSTs to; it
+  enqueues a :func:`run_diff_job` on the dedicated ``pyats`` RQ queue and
+  redirects back to the device page. The view requires
+  ``netbox_pyats.add_pyatssnapshotdiff`` so only authorized operators can
+  trigger diffs.
 """
 
 from django.contrib import messages
@@ -21,7 +32,7 @@ from netbox.views import generic
 
 from . import filtersets, forms, jobs, tables
 from .choices import SnapshotKindChoices, SnapshotTriggerChoices
-from .models import PyatsCredential, PyatsSnapshot
+from .models import PyatsCredential, PyatsSnapshot, PyatsSnapshotDiff
 
 
 class PyatsCredentialListView(generic.ObjectListView):
@@ -119,5 +130,95 @@ class DeviceCaptureView(PermissionRequiredMixin, View):
         messages.success(
             request,
             f"PyATS {kind} snapshot queued for {device}. It will appear in the PyATS tab when the worker finishes.",
+        )
+        return redirect(device.get_absolute_url())
+
+
+# --------------------------------------------------------------------------- #
+# Diff views (Phase 3, ATW-14)
+# --------------------------------------------------------------------------- #
+
+
+class PyatsSnapshotDiffListView(generic.ObjectListView):
+    """List of all PyATS snapshot diffs across all devices.
+
+    Filterable by device, status, and whether the diff has changes/warnings.
+    The device-page PyATS panel links here with ``?device_id=<pk>`` for the
+    per-device diff history.
+    """
+
+    queryset = PyatsSnapshotDiff.objects.all()
+    table = tables.PyatsSnapshotDiffTable
+    filterset = filtersets.PyatsSnapshotDiffFilterSet
+    filterset_form = forms.PyatsSnapshotDiffFilterForm
+
+
+class PyatsSnapshotDiffView(generic.ObjectView):
+    """Detail view for a single snapshot diff.
+
+    Renders the JSONB ``diff`` tree, the ``summary`` counts, and
+    ``parser_warnings`` via the diff detail template (a server-side collapsible
+    tree — no JS dependency). The ``before``/``after`` snapshot rows are linked
+    so the operator can drill into either side.
+    """
+
+    queryset = PyatsSnapshotDiff.objects.all()
+
+
+class PyatsSnapshotDiffDeleteView(generic.ObjectDeleteView):
+    queryset = PyatsSnapshotDiff.objects.all()
+
+
+class PyatsSnapshotDiffBulkDeleteView(generic.BulkDeleteView):
+    queryset = PyatsSnapshotDiff.objects.all()
+    table = tables.PyatsSnapshotDiffTable
+
+
+class DeviceDiffView(PermissionRequiredMixin, View):
+    """Endpoint the device-page PyATS panel POSTs to.
+
+    Accepts ``before_id`` and ``after_id`` (snapshot pks), validates they both
+    belong to the device in the URL, enqueues a :func:`run_diff_job` on the
+    ``pyats`` RQ queue via :func:`jobs.enqueue_diff`, flashes a "diff queued"
+    message, and redirects back to the device page. The actual diff runs on the
+    worker; the diff row appears in the device-page diff history once the job
+    completes and the page is refreshed.
+    """
+
+    permission_required = "netbox_pyats.add_pyatssnapshotdiff"
+
+    def post(self, request, device_id):
+        from dcim.models import Device
+
+        device = get_object_or_404(Device, pk=device_id)
+        form = forms.DeviceDiffForm(request.POST)
+        if not form.is_valid():
+            messages.error(request, f"Invalid diff request: {form.errors}")
+            return redirect(device.get_absolute_url())
+
+        before_id = form.cleaned_data["before_id"]
+        after_id = form.cleaned_data["after_id"]
+
+        # Validate both snapshots exist and belong to this device. We do this
+        # in the view (not the job) so the operator gets immediate feedback if
+        # they stale-pick a snapshot that was just deleted, or if a malformed
+        # request tries to diff snapshots across devices.
+        before = PyatsSnapshot.objects.filter(pk=before_id, device=device).first()
+        after = PyatsSnapshot.objects.filter(pk=after_id, device=device).first()
+        if before is None or after is None:
+            messages.error(
+                request,
+                "Both snapshots must exist and belong to this device. " f"(before_id={before_id}, after_id={after_id})",
+            )
+            return redirect(device.get_absolute_url())
+        if before_id == after_id:
+            messages.error(request, "Cannot diff a snapshot against itself.")
+            return redirect(device.get_absolute_url())
+
+        jobs.enqueue_diff(device, before_id=before_id, after_id=after_id, user=request.user)
+        messages.success(
+            request,
+            f"PyATS diff queued for {device} ({before_id}→{after_id}). "
+            "It will appear in the PyATS tab when the worker finishes.",
         )
         return redirect(device.get_absolute_url())

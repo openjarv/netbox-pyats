@@ -66,5 +66,71 @@
     {% else %}
       <p class="text-muted">No snapshots captured yet for this device.</p>
     {% endif %}
+
+    {% if snapshots and snapshots|length >= 2 %}
+      <hr>
+
+      <h6>Diff two snapshots</h6>
+      <form method="post" action="{{ diff_url }}">
+        {% csrf_token %}
+        <div class="row mb-3">
+          <div class="col col-md-5">
+            <label class="form-label" for="id_before_id">Before snapshot</label>
+            <select name="before_id" id="id_before_id" class="form-select">
+              {% for snap in snapshots %}
+                <option value="{{ snap.pk }}">{{ snap.get_kind_display }} · {{ snap.captured_at|date:'Y-m-d H:i:s' }} · #{{ snap.pk }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col col-md-5">
+            <label class="form-label" for="id_after_id">After snapshot</label>
+            <select name="after_id" id="id_after_id" class="form-select">
+              {% for snap in snapshots %}
+                <option value="{{ snap.pk }}">{{ snap.get_kind_display }} · {{ snap.captured_at|date:'Y-m-d H:i:s' }} · #{{ snap.pk }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col col-md-2 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary w-100">
+              <i class="mdi mdi-compare"></i> Diff
+            </button>
+          </div>
+        </div>
+        <p class="text-muted small mb-0">
+          Queues a structured diff on the dedicated <code>pyats</code> RQ worker. The result appears in the diff list when the worker finishes.
+        </p>
+      </form>
+    {% elif snapshots and snapshots|length == 1 %}
+      <hr>
+      <h6>Diff two snapshots</h6>
+      <p class="text-muted small mb-0">Capture at least two snapshots of this device to diff them.</p>
+    {% endif %}
+
+    {% if diffs %}
+      <hr>
+      <h6>Recent diffs</h6>
+      <table class="table table-sm table-hover">
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Changes</th>
+            <th>Before → After</th>
+            <th>Created at</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in diffs %}
+            <tr>
+              <td><span class="badge bg-{{ d.get_status_color }}">{{ d.get_status_display }}</span></td>
+              <td>{% if d.has_changes %}<i class="mdi mdi-check text-warning"></i>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+              <td><a href="{{ d.before.get_absolute_url }}">#{{ d.before_id }}</a> → <a href="{{ d.after.get_absolute_url }}">#{{ d.after_id }}</a></td>
+              <td>{{ d.created|date:'Y-m-d H:i' }}</td>
+              <td><a href="{{ d.get_absolute_url }}" class="btn btn-sm btn-outline-primary">View</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
   </div>
 </div>

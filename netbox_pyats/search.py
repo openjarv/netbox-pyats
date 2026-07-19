@@ -1,6 +1,6 @@
 from netbox.search import SearchIndex, register_search
 
-from .models import PyatsCredential, PyatsSnapshot
+from .models import PyatsCredential, PyatsSnapshot, PyatsSnapshotDiff
 
 
 @register_search
@@ -26,4 +26,20 @@ class PyatsSnapshotIndex(SearchIndex):
         ("device__name", 100),
         ("kind", 200),
         ("status", 300),
+    )
+
+
+@register_search
+class PyatsSnapshotDiffIndex(SearchIndex):
+    """Search index for PyatsSnapshotDiff (Phase 3, ATW-14).
+
+    Indexes the device name (via the FK) and the status label so global search
+    can surface diffs. The JSONB ``diff`` tree is not indexed (too large and not
+    user-facing search terms).
+    """
+
+    model = PyatsSnapshotDiff
+    fields = (
+        ("device__name", 100),
+        ("status", 200),
     )

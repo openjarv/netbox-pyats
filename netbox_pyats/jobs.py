@@ -5,18 +5,26 @@ Phase 2 (ATW-13) ships the ``capture_snapshot`` RQ job, which runs
 NetBox Device and persists the result as a
 :class:`netbox_pyats.models.PyatsSnapshot` row.
 
-Queue isolation: the job is enqueued on the dedicated ``pyats`` RQ queue
-(declared via :attr:`NetBoxPyATSConfig.queues`), so pyATS/Genie work — which
-requires ``pyats[full]`` installed on the worker — does not block NetBox's
-default RQ workers. Operators run a second worker pointed at the ``pyats``
-queue (see the worker Dockerfile and ``docs/workers.md``); the default NetBox
-worker container does not need pyATS installed.
+Phase 3 (ATW-14) adds the ``run_diff`` RQ job, which loads two
+:class:`PyatsSnapshot` rows of the same device, runs
+:func:`netbox_pyats.diff.diff_snapshots` over their ``data`` JSONB, and
+persists the structured diff as a :class:`PyatsSnapshotDiff` row.
 
-The web process enqueues via :func:`enqueue_capture`, passing the NetBox
-Device instance and the capture ``kind``. NetBox's :class:`core.models.Job`
-tracks the run (status, log entries, notifications); the actual RQ work is
-the module-level :func:`capture_snapshot_job` callable, which the worker
-invokes with the Job row plus the capture kwargs.
+Queue isolation: both jobs run on the dedicated ``pyats`` RQ queue (declared
+via :attr:`NetBoxPyATSConfig.queues`), so pyATS/Genie work — which requires
+``pyats[full]`` installed on the worker — does not block NetBox's default RQ
+workers. The diff job itself does not need pyATS installed (the diff engine is
+pure-Python and operates on persisted JSONB), but it still runs on the
+``pyats`` queue for isolation and so a single worker image services all plugin
+work; an operator who only wants diffs can run the default worker if they
+prefer (no pyATS install needed for diffs alone).
+
+The web process enqueues via :func:`enqueue_capture` / :func:`enqueue_diff`,
+passing the NetBox Device and capture/diff kwargs. NetBox's
+:class:`core.models.Job` tracks the run (status, log entries, notifications);
+the actual RQ work is the module-level :func:`capture_snapshot_job` /
+:func:`run_diff_job` callable, which the worker invokes with the Job row plus
+the kwargs.
 """
 
 from __future__ import annotations
@@ -149,8 +157,158 @@ def capture_snapshot_job(
     return snapshot.pk
 
 
+# --------------------------------------------------------------------------- #
+# Diff job (Phase 3, ATW-14)
+# --------------------------------------------------------------------------- #
+
+
+def enqueue_diff(device, *, before_id, after_id, user=None):
+    """Enqueue a snapshot diff job on the dedicated ``pyats`` RQ queue.
+
+    This is the entry point the device-page PyATS panel calls when the operator
+    picks two snapshots and clicks "Diff". It creates a NetBox
+    :class:`core.models.Job` row (for status tracking in the NetBox jobs UI)
+    and enqueues the actual RQ work on the ``pyats`` queue.
+
+    Args:
+        device: the NetBox ``dcim.Device`` the two snapshots belong to. Used as
+            the :class:`Job` instance for status linkage; the job re-loads the
+            snapshots by id.
+        before_id: primary key of the earlier :class:`PyatsSnapshot`.
+        after_id: primary key of the later :class:`PyatsSnapshot`.
+        user: the NetBox user initiating the diff (for the Job row).
+
+    Returns:
+        The NetBox :class:`core.models.Job` row tracking this diff.
+    """
+    from core.models import Job
+
+    return Job.enqueue(
+        run_diff_job,
+        instance=device,
+        name=f"PyATS diff: {device} ({before_id}→{after_id})",
+        user=user,
+        queue_name=PYATS_QUEUE,
+        before_id=before_id,
+        after_id=after_id,
+    )
+
+
+def run_diff_job(job, before_id: int, after_id: int, **kwargs):
+    """RQ worker entry point — diff two snapshots and persist the result.
+
+    NetBox's :class:`core.models.Job.enqueue` calls this with ``job`` (the
+    tracking :class:`core.models.Job` row) plus the kwargs passed through from
+    :func:`enqueue_diff`. ``job.object`` is the NetBox Device (passed as
+    ``instance`` for status linkage); we re-load the two snapshots by id.
+
+    The diff logic lives in :mod:`netbox_pyats.diff`; this function only handles
+    the NetBox-side plumbing (load the snapshots, run the diff, write the
+    :class:`PyatsSnapshotDiff` row, log to the Job). Graceful degradation is
+    enforced in :func:`diff.diff_snapshots` — empty inputs and malformed
+    payloads still produce a row so the operator sees the outcome in-line,
+    mirroring Phase 2's unsupported/error snapshot rows.
+    """
+    from dcim.models import Device
+
+    from .diff import diff_snapshots
+    from .models import PyatsSnapshot, PyatsSnapshotDiff
+
+    device: Device = job.object
+    logger.info("Diffing snapshots %s → %s for device %s", before_id, after_id, device)
+
+    try:
+        before_snap = PyatsSnapshot.objects.get(pk=before_id)
+        after_snap = PyatsSnapshot.objects.get(pk=after_id)
+    except PyatsSnapshot.DoesNotExist as exc:
+        # Snapshot was deleted between the user clicking "Diff" and the worker
+        # picking up the job. Write an error row so the operator sees it.
+        diff_row = PyatsSnapshotDiff(
+            device=device,
+            before_id=before_id,
+            after_id=after_id,
+            status="error",
+            diff={},
+            summary={},
+            parser_warnings=[f"snapshot missing: {exc}"],
+            size_bytes=0,
+        )
+        diff_row.full_clean()
+        diff_row.save()
+        raise
+
+    # Enforce same-device invariant: a diff across two different devices is a
+    # programmer error (the picker only offers snapshots of one device), but
+    # the worker must still produce a row rather than crash silently.
+    if before_snap.device_id != device.pk or after_snap.device_id != device.pk:
+        diff_row = PyatsSnapshotDiff(
+            device=device,
+            before=before_snap,
+            after=after_snap,
+            status="error",
+            diff={},
+            summary={},
+            parser_warnings=[
+                f"device mismatch: before.device_id={before_snap.device_id}, "
+                f"after.device_id={after_snap.device_id}, job.device_id={device.pk}"
+            ],
+            size_bytes=0,
+        )
+        diff_row.full_clean()
+        diff_row.save()
+        raise ValueError("diff inputs belong to different devices")
+
+    try:
+        result = diff_snapshots(before_snap.data, after_snap.data, name=str(device))
+    except Exception as exc:  # noqa: BLE001 - any uncaught error → error row + job failure
+        try:
+            diff_row = PyatsSnapshotDiff(
+                device=device,
+                before=before_snap,
+                after=after_snap,
+                status="error",
+                diff={},
+                summary={},
+                parser_warnings=[f"diff error: {exc}", traceback.format_exc()],
+                size_bytes=0,
+            )
+            diff_row.full_clean()
+            diff_row.save()
+        except Exception:  # noqa: BLE001 - never mask the original error
+            logger.exception("netbox_pyats: failed to persist error-row diff")
+        raise
+
+    diff_row = PyatsSnapshotDiff(
+        device=device,
+        before=before_snap,
+        after=after_snap,
+        status=result.status,
+        diff=result.diff,
+        summary=result.summary,
+        parser_warnings=result.warnings,
+        size_bytes=result.size_bytes,
+    )
+    diff_row.full_clean()
+    diff_row.save()
+
+    logger.info(
+        "Diff %s stored (status=%s, %d bytes, summary=%s)",
+        diff_row.pk,
+        result.status,
+        result.size_bytes,
+        result.summary,
+    )
+    if result.warnings:
+        for w in result.warnings[:5]:  # keep the job log readable
+            logger.warning("diff warning: %s", w)
+
+    return diff_row.pk
+
+
 __all__ = (
     "PYATS_QUEUE",
     "capture_snapshot_job",
     "enqueue_capture",
+    "enqueue_diff",
+    "run_diff_job",
 )

@@ -1,7 +1,7 @@
 import django_tables2 as tables
 from netbox.tables import NetBoxTable
 
-from .models import PyatsCredential, PyatsSnapshot
+from .models import PyatsCredential, PyatsSnapshot, PyatsSnapshotDiff
 
 
 class PyatsCredentialTable(NetBoxTable):
@@ -88,4 +88,54 @@ class PyatsSnapshotTable(NetBoxTable):
             "size_bytes",
             "has_warnings",
             "captured_at",
+        )
+
+
+class PyatsSnapshotDiffTable(NetBoxTable):
+    """Table configuration for the PyatsSnapshotDiff list view.
+
+    Renders the diff's device, before/after snapshot links, status (as a
+    colored badge), a compact summary of added/removed/changed counts, size,
+    creation time, and a warnings indicator. The `id` column links to the diff
+    detail view (which renders the structured diff tree).
+    """
+
+    id = tables.LinkColumn(verbose_name="ID")
+    device = tables.Column(linkify=True)
+    before = tables.Column(linkify=True, verbose_name="Before")
+    after = tables.Column(linkify=True, verbose_name="After")
+    status = tables.TemplateColumn(
+        template_code=(
+            "{% load helpers %}"
+            '<span class="badge bg-{{ record.get_status_color }}">{{ record.get_status_display }}</span>'
+        ),
+        verbose_name="Status",
+    )
+    has_changes = tables.BooleanColumn(verbose_name="Changes")
+    size_bytes = tables.Column(verbose_name="Size (bytes)")
+    has_warnings = tables.BooleanColumn(verbose_name="Warnings")
+    created = tables.DateTimeColumn(verbose_name="Created at")
+
+    class Meta(NetBoxTable.Meta):
+        model = PyatsSnapshotDiff
+        fields = (
+            "id",
+            "device",
+            "before",
+            "after",
+            "status",
+            "has_changes",
+            "size_bytes",
+            "has_warnings",
+            "created",
+        )
+        default_columns = (
+            "id",
+            "device",
+            "before",
+            "after",
+            "status",
+            "has_changes",
+            "size_bytes",
+            "created",
         )
