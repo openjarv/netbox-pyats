@@ -51,6 +51,13 @@ services:
       - netbox-reports:/opt/netbox/netbox/reports:rw
       - netbox-scripts:/opt/netbox/netbox/scripts:rw
     entrypoint: ["/usr/bin/tini", "--", "/opt/netbox/pyats-entrypoint.sh"]
+    # The image's default CMD (/opt/netbox/launch-netbox.sh) is dropped by the
+    # entrypoint override above, so the netbox web server (granian) would never
+    # start without this explicit command. Without it, pyats-entrypoint.sh runs
+    # `exec /opt/netbox/docker-entrypoint.sh "$@"` with empty $@, does init only
+    # (migrate + superuser + search index), and exits — leaving the healthcheck
+    # unable to reach /login/ and the container in a restart loop.
+    command: ["/opt/netbox/launch-netbox.sh"]
 
   netbox-worker:
     image: docker.io/netboxcommunity/netbox:v4.6-5.0.2
