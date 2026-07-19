@@ -43,3 +43,10 @@ PLUGINS_CONFIG = {
         "credential_key": "",
     },
 }
+
+# v2 API tokens require at least one pepper. NetBox's APITestCase creates a
+# Token in setUp, which calls get_current_pepper() and raises ValueError if
+# API_TOKEN_PEPPERS is unset. Dev-only; never ship this key in production.
+API_TOKEN_PEPPERS = {
+    1: "dev-only-not-for-production-CHANGE-ME-test-pepper-0123456789-abcdefghij",
+}

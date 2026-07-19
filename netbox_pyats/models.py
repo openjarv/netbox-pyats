@@ -16,6 +16,7 @@ diff between two :class:`PyatsSnapshot` rows of the same device, written by the
 `run_diff` RQ job.
 """
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
 from netbox.models import NetBoxModel
@@ -149,9 +150,9 @@ class PyatsCredential(NetBoxModel):
         super().clean()
         # A device-scoped credential must point at a Device; a global one must not.
         if self.scope == CredentialScopeChoices.SCOPE_DEVICE and not self.device_id:
-            raise models.ValidationError({"device": "A per-device credential must have a device assigned."})
+            raise ValidationError({"device": "A per-device credential must have a device assigned."})
         if self.scope == CredentialScopeChoices.SCOPE_GLOBAL and self.device_id:
-            raise models.ValidationError({"device": "A global credential must not be bound to a specific device."})
+            raise ValidationError({"device": "A global credential must not be bound to a specific device."})
 
 
 class PyatsSnapshot(NetBoxModel):
@@ -260,8 +261,10 @@ class PyatsSnapshot(NetBoxModel):
         indexes = [
             # Most common queries: "recent snapshots for this device" and
             # "snapshots of this kind for this device" (diff/compliance pickers).
-            models.Index(fields=("device", "-captured_at")),
-            models.Index(fields=("device", "kind", "-captured_at")),
+            # Explicit names match 0002_pyatssnapshot and pin the indexes against
+            # Django 5.x auto-rename suggestions (see ATW-32).
+            models.Index(fields=("device", "-captured_at"), name="pyats_snap_dev_capt_idx"),
+            models.Index(fields=("device", "kind", "-captured_at"), name="pyats_snap_dev_kind_idx"),
         ]
 
     def __str__(self):
@@ -394,8 +397,10 @@ class PyatsSnapshotDiff(NetBoxModel):
         indexes = [
             # Most common queries: "recent diffs for this device" and
             # "diffs between snapshots of this device by status".
-            models.Index(fields=("device", "-created")),
-            models.Index(fields=("device", "status", "-created")),
+            # Explicit names match 0003_pyatssnapshotdiff and pin the indexes
+            # against Django 5.x auto-rename suggestions (see ATW-32).
+            models.Index(fields=("device", "-created"), name="pyats_diff_dev_created_idx"),
+            models.Index(fields=("device", "status", "-created"), name="pyats_diff_dev_status_idx"),
         ]
 
     def __str__(self):

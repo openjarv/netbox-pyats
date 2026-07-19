@@ -64,6 +64,15 @@ Follow the pattern of `PyatsCredential`:
 10. Navigation entries in `navigation.py`.
 11. Tests: pure-Python where possible (skip with `pytest.importorskip("netbox")` for NetBox-dependent cases).
 
+## Architectural decisions (ADRs)
+
+Structural changes (package layout, background-work patterns, new model storage strategies, release process) are recorded as short ADRs in `docs/adr/`. See `docs/adr/README.md` for when an ADR is required and the format. The current locked ADRs are:
+
+- [ADR-0001 — Plugin package layout](docs/adr/0001-plugin-layout.md)
+- [ADR-0002 — Multi-vendor graceful degradation pattern](docs/adr/0002-graceful-degradation.md)
+
+The architectural baseline is the [architecture overview](https://github.com/openjarv/netbox-pyats) tracked on ATW-23. Non-trivial PRs must fit the locked structure; if a PR would change it, open an ADR first and get CTO sign-off.
+
 ## Branch / PR conventions
 
 - Branch off `main`; name branches `<scope>-<topic>` (e.g. `plugin-scaffold-credential-testbed`).

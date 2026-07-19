@@ -33,3 +33,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - NetBox 4.6.x (current: 4.6.5)
 - Python 3.10, 3.11, 3.12
 - pyATS 26.x (worker only; not required for the web UI)
+
+### Fixed
+
+- Dropped bogus `("dcim", "0050_custom_field_choice_set_remove")` dependency from all three plugin migrations (`0001_initial`, `0002_pyatssnapshot`, `0003_pyatssnapshotdiff`). That dcim migration does not exist in any released NetBox 4.6.x image and raised `NodeNotFoundError` on `manage.py migrate netbox_pyats`. Initial migration now uses `dependencies = []`; later migrations depend only on the prior `netbox_pyats` migration — the NetBox reference-plugin convention (no coupling to NetBox's dcim migration history, which NetBox periodically squashes). See ATW-25 and [ADR-0003](docs/adr/0003-netbox46-migration-and-worker-toolchain.md).
+- Added `0004_reconcile_netboxmodel_fields` migration to reconcile the three plugin models with NetBox's `NetBoxModel` base classes, so `manage.py makemigrations netbox_pyats --check --dry-run` reports `No changes` inside NetBox 4.6. The initial migrations (0001-0003) were authored outside a NetBox context and were missing attributes NetBox adds to the inherited `created` / `last_updated` / `custom_field_data` fields (`null=True`, `CustomFieldJSONEncoder`). They also declared `tags` as a plain `ManyToManyField` (auto through-table `netbox_pyats_<model>_tags`) instead of NetBox's `TaggableManager` backed by `extras.TaggedItem`; the new migration swaps the field via `RemoveField`+`AddField` (an `AlterField` cannot change M2M to `TaggableManager`). The Django 5.x cosmetic index-rename suggestions are intentionally NOT applied — the explicit `name=` on the original indexes (now mirrored on the model `Meta`) is the durable form and suppresses the rename suggestions. No model behavior changes. See ATW-32.
+
+### Dev
+
+- `dev/Dockerfile.pyats-worker`: install `python3.14-dev` + `gcc` before `uv pip install pyats[full]` so `ruamel-yaml-clib`'s C extension can build on NetBox 4.6's Python 3.14 slim image. Dev-only build-dep install; the supported runtime matrix (Python 3.10–3.12) is unchanged (cp312 wheel exists for production). See ATW-25 and [ADR-0003](docs/adr/0003-netbox46-migration-and-worker-toolchain.md).
