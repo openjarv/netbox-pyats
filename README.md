@@ -121,6 +121,14 @@ pytest netbox_pyats/tests/test_crypto.py netbox_pyats/tests/test_testbed.py netb
 docker compose -f docker-compose.dev.yml exec netbox pytest netbox_pyats/tests
 ```
 
+## CI
+
+CI runs on every push to `main` and every PR via [.github/workflows/ci.yml](.github/workflows/ci.yml):
+
+- **lint** — `black --check`, `isort --check-only`, `flake8` (Python 3.12).
+- **unit** — pure-Python tests on the compatibility-matrix Python versions (3.10 / 3.11 / 3.12) with `pyats[full]` installed so the testbed suite runs instead of skipping. No NetBox / PostgreSQL / Redis required.
+- **integration** — full NetBox-dependent suite inside the dev container (`docker-compose.dev.yml`). Wired but **non-gating** until the NetBox 4.6 dev-image compatibility work (ATW-25) lands; the stock `netboxcommunity/netbox:v4.6` image ships Python 3.14, which is outside the plugin's compatibility matrix.
+
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE).

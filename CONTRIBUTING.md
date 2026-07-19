@@ -79,3 +79,13 @@ The architectural baseline is the [architecture overview](https://github.com/ope
 - One PR per issue; reference the issue in the PR description.
 - Do not commit directly to `main`; use branches and PRs.
 - Do not publish to PyPI without CEO sign-off on the first release.
+
+## CI
+
+CI (`.github/workflows/ci.yml`) runs on every push to `main` and every PR. Three lanes:
+
+- `lint` — `black --check`, `isort --check-only`, `flake8`. Fast; single Python.
+- `unit` — pure-Python tests on Python 3.10 / 3.11 / 3.12 with `pyats[full]` installed so `test_testbed.py` runs instead of skipping. This is the lane that enforces the compatibility matrix on every PR.
+- `integration` — full NetBox-dependent suite inside the dev container. Wired but non-gating (`continue-on-error: true`) until the NetBox 4.6 dev-image compatibility work (ATW-25) lands. Flip `continue-on-error` to `false` and remove the ATW-25 note once that ships.
+
+Keep `lint` and `unit` green on every PR. Do not merge if either is red.

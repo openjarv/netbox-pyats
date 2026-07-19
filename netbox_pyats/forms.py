@@ -38,7 +38,9 @@ class PyatsCredentialForm(NetBoxModelForm):
     # FieldSet instance (with a .items attribute), not the legacy
     # ("name", (fields...)) tuple.
     fieldsets = (
-        FieldSet("name", "scope", "device", "username", "plaintext_password", "plaintext_enable_secret", name="Credential"),
+        FieldSet(
+            "name", "scope", "device", "username", "plaintext_password", "plaintext_enable_secret", name="Credential"
+        ),
         FieldSet("protocol", "ssh_port", name="Connection"),
         FieldSet("tags", name="Tags"),
     )

@@ -54,7 +54,14 @@ services:
       SKIP_SUPERUSER: "false"
     healthcheck:
       test: curl -f http://localhost:8080/login/ || exit 1
-      start_period: 180s
+      # NetBox 4.6 cold start runs ~200 migrations + trace_paths + reindex +
+      # superuser before granian binds :8080. On a constrained CPU (the dev
+      # `cpus: 1.0` cap, or a GitHub Actions runner under load) this routinely
+      # takes 6-9 minutes; the stock 180s start_period is too short and docker
+      # marks the container unhealthy before granian ever starts. 600s gives
+      # the cold start enough headroom while still failing a genuinely stuck
+      # container within the workflow's `docker compose up --wait` window.
+      start_period: 600s
       timeout: 3s
       interval: 15s
       retries: 5

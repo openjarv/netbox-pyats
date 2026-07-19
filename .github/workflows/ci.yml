@@ -1,0 +1,139 @@
+name: CI
+
+# CI for netbox-pyats. Three lanes, mirroring the dual-mode test setup in
+# conftest.py and the compatibility matrix in README.md (NetBox 4.6.x ×
+# Python 3.10/3.11/3.12 × pyATS 26.x worker-only):
+#
+#   lint        - black / isort / flake8 (single Python; fast).
+#   unit        - pure-Python tests on plain Python (matrix 3.10/3.11/3.12)
+#                 with pyats[full] installed so test_testbed.py runs instead
+#                 of skipping. No NetBox / PostgreSQL / Redis required.
+#   integration - full suite inside the dev NetBox container via
+#                 docker-compose.dev.yml. Gating since ATW-38 resolved the
+#                 NetBox 4.6.5 compatibility bugs (PR #15) and the dev image
+#                 now builds pyats[full] and applies the plugin migrations.
+#
+# References:
+#   - Architecture decision D-7 (ATW-23 architecture document, §4/§5).
+#   - ATW-38: NetBox 4.6.5 compatibility fixes (PR #15).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint (black / isort / flake8)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install dev deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: black --check
+        run: black --check netbox_pyats
+
+      - name: isort --check-only
+        run: isort --check-only netbox_pyats
+
+      - name: flake8
+        run: flake8 netbox_pyats
+
+  unit:
+    name: Unit tests (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install plugin (dev) + pyats[full]
+        # pyats[full] is installed so test_testbed.py runs instead of skipping
+        # via pytest.importorskip("pyats"). NetBox is intentionally NOT
+        # installed here: the model/view/api suites skip themselves via
+        # pytest.importorskip("netbox") and are exercised by the integration
+        # job below.
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,pyats]"
+
+      - name: Run pure-Python tests
+        run: |
+          pytest netbox_pyats/tests/test_crypto.py \
+                 netbox_pyats/tests/test_testbed.py \
+                 netbox_pyats/tests/test_diff.py \
+                 netbox_pyats/tests/test_capture.py \
+                 -v
+
+  integration:
+    name: Integration tests (NetBox 4.6 container)
+    runs-on: ubuntu-latest
+    # Gating since ATW-38 (PR #15) fixed the NetBox 4.6.5 compatibility
+    # bugs; the full NetBox-dependent suite (41 passed, 3 skipped) passes
+    # against netboxcommunity/netbox:v4.6-5.0.2.
+    continue-on-error: false
+    # Cold start (migrations + reindex + granian spawn) takes ~6-9 min on a
+    # GitHub Actions runner, and the test suite itself runs ~9 min. 45 min
+    # gives headroom for the buildx build, cold start, and full suite.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Bring up NetBox dev stack
+        # NETBOX_MEM=2g gives the migration + granian + pytest test runner enough
+        # headroom; the default 1g cap OOM-kills the test suite. The netbox
+        # healthcheck's start_period (600s in docker-compose.dev.yml) covers the
+        # ~6-9 min cold-start migration window on a constrained CPU.
+        env:
+          NETBOX_MEM: 2g
+        run: |
+          docker compose -f docker-compose.dev.yml up -d --wait
+          docker compose -f docker-compose.dev.yml ps
+
+      - name: Run NetBox-dependent suite
+        # The netbox container's working dir is /opt/netbox/netbox (granian's
+        # cwd), not the bind-mounted plugin source, so `pytest netbox_pyats/tests`
+        # would find no tests. Run from the mounted source dir instead.
+        run: |
+          docker compose -f docker-compose.dev.yml exec -T \
+            -w /opt/netbox/netbox/netbox_pyats_src netbox \
+            pytest netbox_pyats/tests -v
+
+      - name: Dump NetBox logs on failure
+        if: failure()
+        run: |
+          docker compose -f docker-compose.dev.yml logs netbox || true
+          docker compose -f docker-compose.dev.yml logs netbox-worker || true
+
+      - name: Tear down dev stack
+        if: always()
+        run: |
+          docker compose -f docker-compose.dev.yml down -v || true
