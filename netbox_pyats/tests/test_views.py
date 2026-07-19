@@ -43,12 +43,19 @@ class PyatsCredentialViewTest(TestCase):
         cred = PyatsCredential.objects.create(
             name="rtr01-ssh", device=self.device, scope=CredentialScopeChoices.SCOPE_DEVICE, username="admin"
         )
+        cred.set_password("hunter2")
+        cred.set_enable_secret("enablepass")
+        cred.save()
         url = reverse("plugins:netbox_pyats:pyatscredential", kwargs={"pk": cred.pk})
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "rtr01-ssh")
-        # The ciphertext must never be rendered in the detail page.
+        # The ciphertext must never be rendered in the detail page. Assert
+        # against the actual stored ciphertext (not an empty string, which
+        # trivially matches any response).
         self.assertNotContains(response, cred.password)
+        self.assertNotContains(response, cred.enable_secret)
+        self.assertNotContains(response, "hunter2")
 
     def test_add_view_creates_encrypted_credential(self):
         from netbox_pyats import crypto
