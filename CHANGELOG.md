@@ -26,7 +26,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `PyatsSnapshotDiff` list/detail/delete/bulk-delete views + REST API viewset (read-only in v1) + GraphQL type + search index + filterset + table + nav menu entry.
 - Unit tests: crypto round-trip + key resolution + rotation contract; testbed builder covering platform mapping, mgmt IP resolution, credential attachment, unsupported-flag vs skip, report summary; capture logic covering unsupported/config/state/full/error paths with a stubbed genie; diff engine covering added/removed/changed/unchanged, nested dicts, positional lists, empty/error inputs, JSON-serializability, realistic snapshot payloads. NetBox-dependent model/view/API/snapshot/diff tests skip cleanly when NetBox is absent.
 - Local dev environment via `docker-compose.dev.yml` (NetBox 4.6 + PostgreSQL + Redis + dedicated pyats worker).
-- CI workflow (GitHub Actions) running the test matrix.
+- CI workflow (`.github/workflows/ci.yml`, GitHub Actions): three lanes — `lint` (black/isort/flake8), `unit` (pure-Python tests on Python 3.10/3.11/3.12 with `pyats[full]` installed so the testbed suite runs), and `integration` (full NetBox-dependent suite inside the dev container). The integration lane is wired but non-gating (`continue-on-error`) until the NetBox 4.6 dev-image compatibility work lands; see ATW-25.
 
 ### Compatibility
 
@@ -37,6 +37,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - Dropped bogus `("dcim", "0050_custom_field_choice_set_remove")` dependency from all three plugin migrations (`0001_initial`, `0002_pyatssnapshot`, `0003_pyatssnapshotdiff`). That dcim migration does not exist in any released NetBox 4.6.x image and raised `NodeNotFoundError` on `manage.py migrate netbox_pyats`. Initial migration now uses `dependencies = []`; later migrations depend only on the prior `netbox_pyats` migration — the NetBox reference-plugin convention (no coupling to NetBox's dcim migration history, which NetBox periodically squashes). See ATW-25 and [ADR-0003](docs/adr/0003-netbox46-migration-and-worker-toolchain.md).
+- Added `0004_reconcile_netboxmodel_fields` migration to reconcile the three plugin models with NetBox's `NetBoxModel` base classes, so `manage.py makemigrations netbox_pyats --check --dry-run` reports `No changes` inside NetBox 4.6. The initial migrations (0001-0003) were authored outside a NetBox context and were missing attributes NetBox adds to the inherited `created` / `last_updated` / `custom_field_data` fields (`null=True`, `CustomFieldJSONEncoder`). They also declared `tags` as a plain `ManyToManyField` (auto through-table `netbox_pyats_<model>_tags`) instead of NetBox's `TaggableManager` backed by `extras.TaggedItem`; the new migration swaps the field via `RemoveField`+`AddField` (an `AlterField` cannot change M2M to `TaggableManager`). The Django 5.x cosmetic index-rename suggestions are intentionally NOT applied — the explicit `name=` on the original indexes (now mirrored on the model `Meta`) is the durable form and suppresses the rename suggestions. No model behavior changes. See ATW-32.
 
 ### Dev
 

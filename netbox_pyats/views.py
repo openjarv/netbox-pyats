@@ -29,6 +29,7 @@ from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.shortcuts import get_object_or_404, redirect
 from django.views import View
 from netbox.views import generic
+from utilities.views import register_model_view
 
 from . import filtersets, forms, jobs, tables
 from .choices import SnapshotKindChoices, SnapshotTriggerChoices
@@ -42,15 +43,18 @@ class PyatsCredentialListView(generic.ObjectListView):
     filterset_form = forms.PyatsCredentialFilterForm
 
 
+@register_model_view(PyatsCredential)
 class PyatsCredentialView(generic.ObjectView):
     queryset = PyatsCredential.objects.all()
 
 
+@register_model_view(PyatsCredential, "edit")
 class PyatsCredentialEditView(generic.ObjectEditView):
     queryset = PyatsCredential.objects.all()
     form = forms.PyatsCredentialForm
 
 
+@register_model_view(PyatsCredential, "delete")
 class PyatsCredentialDeleteView(generic.ObjectDeleteView):
     queryset = PyatsCredential.objects.all()
 
@@ -78,6 +82,7 @@ class PyatsSnapshotListView(generic.ObjectListView):
     filterset_form = forms.PyatsSnapshotFilterForm
 
 
+@register_model_view(PyatsSnapshot)
 class PyatsSnapshotView(generic.ObjectView):
     """Detail view for a single snapshot.
 
@@ -89,6 +94,7 @@ class PyatsSnapshotView(generic.ObjectView):
     queryset = PyatsSnapshot.objects.all()
 
 
+@register_model_view(PyatsSnapshot, "delete")
 class PyatsSnapshotDeleteView(generic.ObjectDeleteView):
     queryset = PyatsSnapshot.objects.all()
 
@@ -153,6 +159,7 @@ class PyatsSnapshotDiffListView(generic.ObjectListView):
     filterset_form = forms.PyatsSnapshotDiffFilterForm
 
 
+@register_model_view(PyatsSnapshotDiff)
 class PyatsSnapshotDiffView(generic.ObjectView):
     """Detail view for a single snapshot diff.
 
@@ -165,6 +172,7 @@ class PyatsSnapshotDiffView(generic.ObjectView):
     queryset = PyatsSnapshotDiff.objects.all()
 
 
+@register_model_view(PyatsSnapshotDiff, "delete")
 class PyatsSnapshotDiffDeleteView(generic.ObjectDeleteView):
     queryset = PyatsSnapshotDiff.objects.all()
 

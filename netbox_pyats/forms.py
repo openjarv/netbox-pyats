@@ -1,5 +1,6 @@
 from django import forms
 from netbox.forms import NetBoxModelFilterSetForm, NetBoxModelForm
+from utilities.forms.rendering import FieldSet
 
 from .choices import (
     CredentialProtocolChoices,
@@ -33,10 +34,15 @@ class PyatsCredentialForm(NetBoxModelForm):
         help_text="Enable/privileged password. Optional. Stored encrypted (Fernet).",
     )
 
+    # NetBox 4.6's render_fieldset tag expects each fieldset entry to be a
+    # FieldSet instance (with a .items attribute), not the legacy
+    # ("name", (fields...)) tuple.
     fieldsets = (
-        ("Credential", ("name", "scope", "device", "username", "plaintext_password", "plaintext_enable_secret")),
-        ("Connection", ("protocol", "ssh_port")),
-        ("Tags", ("tags",)),
+        FieldSet(
+            "name", "scope", "device", "username", "plaintext_password", "plaintext_enable_secret", name="Credential"
+        ),
+        FieldSet("protocol", "ssh_port", name="Connection"),
+        FieldSet("tags", name="Tags"),
     )
 
     class Meta:

@@ -9,15 +9,26 @@ import pytest
 pytest.importorskip("netbox")
 
 from dcim.models import Device, DeviceRole, DeviceType, Manufacturer, Site
-from django.test import TestCase
 from rest_framework import status
+from utilities.testing.api import APITestCase
 
 from netbox_pyats import crypto
 from netbox_pyats.choices import CredentialScopeChoices
 from netbox_pyats.models import PyatsCredential
 
 
-class PyatsCredentialAPITest(TestCase):
+class PyatsCredentialAPITest(APITestCase):
+    # NetBox's APITestCase.setUp creates a user + token and configures the
+    # bearer-auth header (self.header). The listed permissions are granted to
+    # the user via add_permissions(). The full CRUD cycle is exercised here,
+    # so the user needs view/add/change/delete on PyatsCredential.
+    user_permissions = (
+        "netbox_pyats.view_pyatscredential",
+        "netbox_pyats.add_pyatscredential",
+        "netbox_pyats.change_pyatscredential",
+        "netbox_pyats.delete_pyatscredential",
+    )
+
     @classmethod
     def setUpTestData(cls):
         cls.site = Site.objects.create(name="AMS01", slug="ams01")
@@ -28,7 +39,7 @@ class PyatsCredentialAPITest(TestCase):
 
     def test_list_credentials(self):
         url = "/api/plugins/pyats/pyats-credentials/"
-        response = self.client.get(url)
+        response = self.client.get(url, **self.header)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_create_credential_encrypts_password(self):
@@ -43,7 +54,7 @@ class PyatsCredentialAPITest(TestCase):
             "plaintext_password": "hunter2",
             "plaintext_enable_secret": "enablepass",
         }
-        response = self.client.post(url, data, format="json")
+        response = self.client.post(url, data, format="json", **self.header)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         cred = PyatsCredential.objects.get(name="rtr01-ssh")
         self.assertTrue(crypto.is_encrypted_token(cred.password))
@@ -61,7 +72,7 @@ class PyatsCredentialAPITest(TestCase):
         cred.set_password("hunter2")
         cred.save()
         url = f"/api/plugins/pyats/pyats-credentials/{cred.pk}/"
-        response = self.client.get(url)
+        response = self.client.get(url, **self.header)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         # Ciphertext and plaintext must never appear.
         self.assertNotIn("password", response.data)
@@ -75,12 +86,13 @@ class PyatsCredentialAPITest(TestCase):
         cred.set_password("hunter2")
         cred.set_enable_secret("enablepass")
         cred.save()
-        # PUT without plaintext_password: keep the existing ciphertext.
+        # PATCH without plaintext_password: keep the existing ciphertext.
         url = f"/api/plugins/pyats/pyats-credentials/{cred.pk}/"
         response = self.client.patch(
             url,
             {"username": "admin2"},
             format="json",
+            **self.header,
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         cred.refresh_from_db()
@@ -94,6 +106,6 @@ class PyatsCredentialAPITest(TestCase):
         )
         pk = cred.pk
         url = f"/api/plugins/pyats/pyats-credentials/{pk}/"
-        response = self.client.delete(url)
+        response = self.client.delete(url, **self.header)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(PyatsCredential.objects.filter(pk=pk).exists())
