@@ -26,7 +26,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `PyatsSnapshotDiff` list/detail/delete/bulk-delete views + REST API viewset (read-only in v1) + GraphQL type + search index + filterset + table + nav menu entry.
 - Unit tests: crypto round-trip + key resolution + rotation contract; testbed builder covering platform mapping, mgmt IP resolution, credential attachment, unsupported-flag vs skip, report summary; capture logic covering unsupported/config/state/full/error paths with a stubbed genie; diff engine covering added/removed/changed/unchanged, nested dicts, positional lists, empty/error inputs, JSON-serializability, realistic snapshot payloads. NetBox-dependent model/view/API/snapshot/diff tests skip cleanly when NetBox is absent.
 - Local dev environment via `docker-compose.dev.yml` (NetBox 4.6 + PostgreSQL + Redis + dedicated pyats worker).
-- CI workflow (GitHub Actions) running the test matrix.
+- CI workflow (`.github/workflows/ci.yml`, GitHub Actions): three lanes — `lint` (black/isort/flake8), `unit` (pure-Python tests on Python 3.10/3.11/3.12 with `pyats[full]` installed so the testbed suite runs), and `integration` (full NetBox-dependent suite inside the dev container). The integration lane is wired but non-gating (`continue-on-error`) until the NetBox 4.6 dev-image compatibility work lands; see ATW-25.
 
 ### Compatibility
 
