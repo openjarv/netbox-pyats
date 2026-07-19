@@ -36,7 +36,10 @@ services:
       timeout: 3s
       interval: 15s
     ports:
-      - "8000:8080"
+      # Bind to localhost only — the dev server must not be reachable on the
+      # host's public IP. Operators who need remote access should tunnel over
+      # SSH rather than widen this binding.
+      - "127.0.0.1:8000:8080"
     volumes:
       # Mount the plugin source so edits are visible inside the container.
       - .:/opt/netbox/netbox/netbox_pyats_src:rw
@@ -70,7 +73,7 @@ services:
     entrypoint: ["/usr/bin/tini", "--", "/bin/bash", "-c"]
     command:
       - |
-        /opt/netbox/venv/bin/pip install --editable /opt/netbox/netbox/netbox_pyats_src &&
+        /usr/local/bin/uv pip install --python /opt/netbox/venv/bin/python --editable /opt/netbox/netbox/netbox_pyats_src &&
         /opt/netbox/docker-entrypoint.sh /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py rqworker
 
   # Dedicated pyats RQ worker. Runs the `pyats` queue only (not NetBox's

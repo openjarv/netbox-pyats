@@ -7,9 +7,12 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-        ("dcim", "0050_custom_field_choice_set_remove"),
-    ]
+    # NetBox plugin convention: do not pin to a specific dcim migration.
+    # The previous pin to dcim.0050_custom_field_choice_set_remove referenced
+    # a migration that does not exist in any released NetBox 4.6.x image, which
+    # broke `manage.py migrate` (NodeNotFoundError). `dependencies = []` is the
+    # durable form (matches netbox/netbox/tests/dummy_plugin). See ATW-25 / ADR-0003.
+    dependencies = []
 
     operations = [
         migrations.CreateModel(

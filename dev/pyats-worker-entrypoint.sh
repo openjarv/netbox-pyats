@@ -8,7 +8,8 @@
 # picked up on container restart.
 set -euo pipefail
 
-pip install --editable /opt/netbox/netbox/netbox_pyats_src
+# NetBox 4.6 ships `uv` (not pip) in the venv.
+uv pip install --python /opt/netbox/venv/bin/python --editable /opt/netbox/netbox/netbox_pyats_src
 
 # Hand off to NetBox's own entrypoint so the Django environment, settings,
 # and RQ configuration are loaded exactly as the default worker loads them.

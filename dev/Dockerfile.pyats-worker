@@ -17,18 +17,32 @@
 
 FROM docker.io/netboxcommunity/netbox:v4.6-5.0.2
 
+# Dev-only: install Python headers + gcc so ruamel-yaml-clib (transitive via
+# pyats[full] -> genie -> genie-libs-sdk -> ruamel-yaml-clib) can build its
+# C extension on NetBox 4.6's Python 3.14 slim image. The supported runtime
+# matrix (README: NetBox 4.6.x x Python 3.10-3.12 x pyATS 26.x worker-only)
+# is unchanged; production operators targeting Python <=3.12 do not need this
+# (a cp312 wheel exists). See ATW-25 / ADR-0003.
+RUN apt-get update && apt-get install -y --no-install-recommends python3.14-dev gcc && rm -rf /var/lib/apt/lists/*
+
 # Install pyats[full] and genie into NetBox's venv. pyats[full] pulls the
 # parser packages, unicon, and the connection plugins needed for SSH/Telnet
 # to real devices. We pin to a 26.x release to match the compatibility matrix
 # in the README; operators can override the version by rebuilding with a
 # different PYATS_VERSION build arg.
+#
+# NetBox 4.6 ships `uv` (not pip); use `uv pip install --python <venv>` to
+# target the NetBox venv.
 ARG PYATS_VERSION=26.6
-RUN /opt/netbox/venv/bin/pip install --no-cache-dir "pyats[full]==${PYATS_VERSION}"
+RUN uv pip install --python /opt/netbox/venv/bin/python --no-cache "pyats[full]==${PYATS_VERSION}"
 
 # The plugin source is bind-mounted at runtime (see docker-compose.dev.yml),
-# so we don't COPY it here. The entrypoint pip-installs the plugin editable
+# so we don't COPY it here. The entrypoint uv-installs the plugin editable
 # before starting the worker so NetBox's plugin registry picks it up.
-COPY pyats-worker-entrypoint.sh /opt/netbox/pyats-worker-entrypoint.sh
+#
+# Build context is the repo root (see docker-compose.dev.yml → build.context),
+# so COPY paths are relative to the repo root, not to this Dockerfile.
+COPY dev/pyats-worker-entrypoint.sh /opt/netbox/pyats-worker-entrypoint.sh
 RUN chmod +x /opt/netbox/pyats-worker-entrypoint.sh
 
 # The queue name is passed as the command arg (`pyats`) by docker-compose.
