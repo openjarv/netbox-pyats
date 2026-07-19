@@ -94,10 +94,13 @@ jobs:
     name: Integration tests (NetBox 4.6 container)
     runs-on: ubuntu-latest
     # Gating since ATW-38 (PR #15) fixed the NetBox 4.6.5 compatibility
-    # bugs; all 31 NetBox-dependent tests pass against
-    # netboxcommunity/netbox:v4.6-5.0.2.
+    # bugs; the full NetBox-dependent suite (41 passed, 3 skipped) passes
+    # against netboxcommunity/netbox:v4.6-5.0.2.
     continue-on-error: false
-    timeout-minutes: 30
+    # Cold start (migrations + reindex + granian spawn) takes ~6-9 min on a
+    # GitHub Actions runner, and the test suite itself runs ~9 min. 45 min
+    # gives headroom for the buildx build, cold start, and full suite.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -105,13 +108,23 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Bring up NetBox dev stack
+        # NETBOX_MEM=2g gives the migration + granian + pytest test runner enough
+        # headroom; the default 1g cap OOM-kills the test suite. The netbox
+        # healthcheck's start_period (600s in docker-compose.dev.yml) covers the
+        # ~6-9 min cold-start migration window on a constrained CPU.
+        env:
+          NETBOX_MEM: 2g
         run: |
           docker compose -f docker-compose.dev.yml up -d --wait
           docker compose -f docker-compose.dev.yml ps
 
       - name: Run NetBox-dependent suite
+        # The netbox container's working dir is /opt/netbox/netbox (granian's
+        # cwd), not the bind-mounted plugin source, so `pytest netbox_pyats/tests`
+        # would find no tests. Run from the mounted source dir instead.
         run: |
-          docker compose -f docker-compose.dev.yml exec -T netbox \
+          docker compose -f docker-compose.dev.yml exec -T \
+            -w /opt/netbox/netbox/netbox_pyats_src netbox \
             pytest netbox_pyats/tests -v
 
       - name: Dump NetBox logs on failure

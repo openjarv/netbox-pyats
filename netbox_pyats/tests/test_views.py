@@ -91,7 +91,11 @@ class PyatsCredentialViewTest(TestCase):
             },
         )
         # NetBox's ObjectEditView redirects on success (302).
-        self.assertEqual(response.status_code, 302, msg=f"form errors: {response.context['form'].errors if response.context else 'no context'}")
+        self.assertEqual(
+            response.status_code,
+            302,
+            msg=f"form errors: {response.context['form'].errors if response.context else 'no context'}",
+        )
         cred = PyatsCredential.objects.get(name="rtr01-ssh")
         self.assertNotEqual(cred.password, "hunter2")
         self.assertTrue(crypto.is_encrypted_token(cred.password))

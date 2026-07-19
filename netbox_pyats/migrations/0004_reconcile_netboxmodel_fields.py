@@ -24,7 +24,6 @@ import taggit.managers
 import utilities.json
 from django.db import migrations, models
 
-
 _TAG_FIELD = taggit.managers.TaggableManager(through="extras.TaggedItem", to="extras.Tag")
 
 
