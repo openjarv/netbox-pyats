@@ -9,18 +9,13 @@ name: CI
 #                 with pyats[full] installed so test_testbed.py runs instead
 #                 of skipping. No NetBox / PostgreSQL / Redis required.
 #   integration - full suite inside the dev NetBox container via
-#                 docker-compose.dev.yml. Gated by the dev-env compatibility
-#                 work tracked in ATW-25 (NetBox 4.6 ships Python 3.14 in the
-#                 stock image, which is outside the plugin's compatibility
-#                 matrix and currently fails to build pyats[full]). The job
-#                 is wired and runs, but is non-gating (continue-on-error)
-#                 until ATW-25 lands a Python 3.10-3.12 dev image pin or an
-#                 equivalent compat decision. Flip continue-on-error to false
-#                 and remove the ATW-25 note once that ships.
+#                 docker-compose.dev.yml. Gating since ATW-38 resolved the
+#                 NetBox 4.6.5 compatibility bugs (PR #15) and the dev image
+#                 now builds pyats[full] and applies the plugin migrations.
 #
 # References:
 #   - Architecture decision D-7 (ATW-23 architecture document, §4/§5).
-#   - ATW-25: NetBox 4.6 dev-env compatibility blockers.
+#   - ATW-38: NetBox 4.6.5 compatibility fixes (PR #15).
 
 on:
   push:
@@ -98,14 +93,10 @@ jobs:
   integration:
     name: Integration tests (NetBox 4.6 container)
     runs-on: ubuntu-latest
-    # Non-gating until ATW-25 lands a Python 3.10-3.12 dev image pin (or
-    # equivalent compat decision). The stock netboxcommunity/netbox:v4.6-5.0.2
-    # image ships Python 3.14, which is outside the plugin's compatibility
-    # matrix and currently fails to build pyats[full] (ruamel-yaml-clib needs
-    # Python.h) and to apply the plugin migrations (dcim.0050 dependency
-    # missing). Keep the job wired so the moment ATW-25 ships we flip
-    # continue-on-error to false and CI enforces the full suite.
-    continue-on-error: true
+    # Gating since ATW-38 (PR #15) fixed the NetBox 4.6.5 compatibility
+    # bugs; all 31 NetBox-dependent tests pass against
+    # netboxcommunity/netbox:v4.6-5.0.2.
+    continue-on-error: false
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
