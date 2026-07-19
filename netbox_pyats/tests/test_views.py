@@ -23,6 +23,11 @@ class PyatsCredentialViewTest(TestCase):
     user_permissions = (
         "netbox_pyats.view_pyatscredential",
         "netbox_pyats.add_pyatscredential",
+        # NetBox 4.6 restricts the device ModelChoiceField queryset to
+        # devices the user can view. Without dcim.view_device the add
+        # form's device field has no valid choices and the POST fails
+        # validation ("Select a valid choice").
+        "dcim.view_device",
     )
 
     @classmethod
@@ -86,7 +91,7 @@ class PyatsCredentialViewTest(TestCase):
             },
         )
         # NetBox's ObjectEditView redirects on success (302).
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 302, msg=f"form errors: {response.context['form'].errors if response.context else 'no context'}")
         cred = PyatsCredential.objects.get(name="rtr01-ssh")
         self.assertNotEqual(cred.password, "hunter2")
         self.assertTrue(crypto.is_encrypted_token(cred.password))
