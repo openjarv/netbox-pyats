@@ -39,6 +39,7 @@ pyats = [
 ]
 dev = [
     "black>=24.0,<25",
+    "django>=4.2,<6",
     "flake8>=7.0,<8",
     "isort>=5.13,<6",
     "pytest>=8.0,<9",

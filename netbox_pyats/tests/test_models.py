@@ -9,7 +9,7 @@ import pytest
 
 pytest.importorskip("netbox")
 
-from django.test import TestCase
+from utilities.testing import TestCase
 
 from netbox_pyats import crypto
 from netbox_pyats.choices import CredentialProtocolChoices, CredentialScopeChoices
