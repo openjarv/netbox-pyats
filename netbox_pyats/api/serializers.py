@@ -1,7 +1,7 @@
 from netbox.api.serializers import NetBoxModelSerializer
 from rest_framework import serializers
 
-from netbox_pyats.models import PyatsCredential, PyatsSnapshot, PyatsSnapshotDiff
+from netbox_pyats.models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsSnapshot, PyatsSnapshotDiff
 
 
 class PyatsCredentialSerializer(NetBoxModelSerializer):
@@ -156,6 +156,71 @@ class PyatsSnapshotDiffSerializer(NetBoxModelSerializer):
             "id",
             "url",
             "status",
+            "diff",
+            "summary",
+            "parser_warnings",
+            "size_bytes",
+            "created",
+            "last_updated",
+        )
+
+
+class PyatsGoldenConfigSerializer(NetBoxModelSerializer):
+    """Serializer for the PyatsGoldenConfig model (Phase 4, ATW-15).
+
+    Golden configs are fully editable via the REST API in v1 — an operator
+    can create/update/delete a golden config (e.g. to seed it from an external
+    config-management tool) and then run compliance against it from the
+    device page. The full ``config_text`` body is returned (it is the golden).
+    """
+
+    class Meta:
+        model = PyatsGoldenConfig
+        fields = [
+            "id",
+            "url",
+            "device",
+            "name",
+            "config_text",
+            "source",
+            "source_snapshot",
+            "tags",
+            "created",
+            "last_updated",
+        ]
+        read_only_fields = ("id", "url", "created", "last_updated")
+
+
+class PyatsComplianceRunSerializer(NetBoxModelSerializer):
+    """Serializer for the PyatsComplianceRun model (Phase 4, ATW-15).
+
+    Compliance runs are read-only via the REST API in v1 — they are produced
+    by the ``run_compliance`` RQ job, not by direct API writes. The full JSONB
+    ``diff`` tree and ``summary`` are returned (they are the compliance result),
+    along with ``parser_warnings`` and ``size_bytes``.
+    """
+
+    class Meta:
+        model = PyatsComplianceRun
+        fields = [
+            "id",
+            "url",
+            "device",
+            "golden",
+            "snapshot",
+            "result",
+            "diff",
+            "summary",
+            "parser_warnings",
+            "size_bytes",
+            "tags",
+            "created",
+            "last_updated",
+        ]
+        read_only_fields = (
+            "id",
+            "url",
+            "result",
             "diff",
             "summary",
             "parser_warnings",
