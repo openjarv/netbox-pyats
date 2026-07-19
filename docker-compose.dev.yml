@@ -1,16 +1,38 @@
 # Dev environment for netbox-pyats.
 #
 # Brings up NetBox 4.6 with the plugin installed editable from the repo, plus
-# PostgreSQL and Redis. The plugin's tests run inside the `netbox` container.
+# PostgreSQL and Redis, and two RQ workers (NetBox housekeeping + a dedicated
+# pyats queue worker). The plugin's tests run inside the `netbox` container.
+#
+# Hardening (ATW-35):
+#   - No service publishes a port on the host's public IP. The only published
+#     port is `127.0.0.1:8000:8080` on `netbox`; postgres/redis/workers expose
+#     nothing to the host. Operators who need remote access should SSH-tunnel
+#     rather than widen this binding.
+#   - All services run on an explicit isolated user-defined bridge network
+#     (`devnet`). The default bridge is not used. Services can reach each other
+#     by name but nothing is reachable from outside the host except the single
+#     loopback-published port above.
+#   - Every service has a CPU and memory cap (`cpus` / `mem_limit`) so a runaway
+#     dev container cannot starve the host or its neighbours. Tune via the
+#     shell-environment overrides (`*_CPUS` / `*_MEM`) noted per service.
+#   - Every service has a healthcheck and a `restart: unless-stopped` policy so
+#     the dev stack self-recovers from transient crashes without manual nudging.
 #
 # Usage:
 #   docker compose -f docker-compose.dev.yml up -d
 #   docker compose -f docker-compose.dev.yml exec netbox pytest netbox_pyats/tests
 #   open http://localhost:8000  (admin / admin)
+#
+# Teardown (also removes volumes):
+#   docker compose -f docker-compose.dev.yml down -v
+#
+# See docs/dev-bringup.md for the full bring-up / troubleshooting walkthrough.
 
 services:
   netbox:
     image: docker.io/netboxcommunity/netbox:v4.6-5.0.2
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
@@ -35,11 +57,14 @@ services:
       start_period: 180s
       timeout: 3s
       interval: 15s
+      retries: 5
     ports:
-      # Bind to localhost only — the dev server must not be reachable on the
-      # host's public IP. Operators who need remote access should tunnel over
-      # SSH rather than widen this binding.
+      # Loopback-only publish. Do NOT widen to 0.0.0.0 or drop the IP prefix —
+      # the dev server must not be reachable on the host's public IP. Use SSH
+      # port forwarding (`ssh -L 8000:127.0.0.1:8000 <host>`) for remote access.
       - "127.0.0.1:8000:8080"
+    networks:
+      - devnet
     volumes:
       # Mount the plugin source so edits are visible inside the container.
       - .:/opt/netbox/netbox/netbox_pyats_src:rw
@@ -51,9 +76,21 @@ services:
       - netbox-reports:/opt/netbox/netbox/reports:rw
       - netbox-scripts:/opt/netbox/netbox/scripts:rw
     entrypoint: ["/usr/bin/tini", "--", "/opt/netbox/pyats-entrypoint.sh"]
+    # The image's default CMD (/opt/netbox/launch-netbox.sh) is dropped by the
+    # entrypoint override above, so the netbox web server (granian) would never
+    # start without this explicit command. Without it, pyats-entrypoint.sh runs
+    # `exec /opt/netbox/docker-entrypoint.sh "$@"` with empty $@, does init only
+    # (migrate + superuser + search index), and exits — leaving the healthcheck
+    # unable to reach /login/ and the container in a restart loop.
+    command: ["/opt/netbox/launch-netbox.sh"]
+    # Dev resource cap. Override via shell env if you need more headroom,
+    # e.g. NETBOX_CPUS=2 NETBOX_MEM=2g docker compose ... up -d
+    cpus: ${NETBOX_CPUS:-1.0}
+    mem_limit: ${NETBOX_MEM:-1g}
 
   netbox-worker:
     image: docker.io/netboxcommunity/netbox:v4.6-5.0.2
+    restart: unless-stopped
     depends_on:
       netbox:
         condition: service_healthy
@@ -66,6 +103,16 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD: ""
       SECRET_KEY: "dev-only-not-for-production-CHANGE-ME"
+    healthcheck:
+      # rqworker has no HTTP port; verify the worker process is alive via
+      # pgrep. pgrep exits 0 when at least one matching process exists.
+      test: pgrep -f "manage.py rqworker" || exit 1
+      start_period: 60s
+      timeout: 5s
+      interval: 30s
+      retries: 3
+    networks:
+      - devnet
     volumes:
       - .:/opt/netbox/netbox/netbox_pyats_src:rw
       - ./dev/configuration:/etc/netbox/config:ro
@@ -75,6 +122,8 @@ services:
       - |
         /usr/local/bin/uv pip install --python /opt/netbox/venv/bin/python --editable /opt/netbox/netbox/netbox_pyats_src &&
         /opt/netbox/docker-entrypoint.sh /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py rqworker
+    cpus: ${WORKER_CPUS:-1.0}
+    mem_limit: ${WORKER_MEM:-1g}
 
   # Dedicated pyats RQ worker. Runs the `pyats` queue only (not NetBox's
   # default queue), with pyats[full] + genie installed so Genie.learn /
@@ -86,6 +135,7 @@ services:
     build:
       context: .
       dockerfile: dev/Dockerfile.pyats-worker
+    restart: unless-stopped
     depends_on:
       netbox:
         condition: service_healthy
@@ -98,6 +148,15 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD: ""
       SECRET_KEY: "dev-only-not-for-production-CHANGE-ME"
+    healthcheck:
+      # Same process-alive check as netbox-worker, scoped to the pyats queue.
+      test: pgrep -f "manage.py rqworker.*pyats" || exit 1
+      start_period: 120s
+      timeout: 5s
+      interval: 30s
+      retries: 3
+    networks:
+      - devnet
     volumes:
       - .:/opt/netbox/netbox/netbox_pyats_src:rw
       - ./dev/configuration:/etc/netbox/config:ro
@@ -107,9 +166,14 @@ services:
     # netbox-worker above. This keeps Genie.learn runs off NetBox's
     # housekeeping workers.
     command: ["pyats"]
+    # pyats[full] + genie are heavier than the default worker; give it a
+    # little more memory headroom by default.
+    cpus: ${PYATS_WORKER_CPUS:-1.5}
+    mem_limit: ${PYATS_WORKER_MEM:-2g}
 
   postgres:
     image: docker.io/postgres:18-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: netbox
       POSTGRES_USER: netbox
@@ -120,11 +184,16 @@ services:
       timeout: 30s
       interval: 10s
       retries: 5
+    networks:
+      - devnet
     volumes:
       - netbox-postgres:/var/lib/postgresql
+    cpus: ${POSTGRES_CPUS:-0.5}
+    mem_limit: ${POSTGRES_MEM:-512m}
 
   redis:
     image: docker.io/valkey/valkey:9.1-alpine
+    restart: unless-stopped
     command: ["valkey-server", "--appendonly", "yes"]
     healthcheck:
       test: valkey-cli ping | grep -q PONG
@@ -132,8 +201,22 @@ services:
       timeout: 3s
       interval: 1s
       retries: 5
+    networks:
+      - devnet
     volumes:
       - netbox-redis:/data
+    cpus: ${REDIS_CPUS:-0.5}
+    mem_limit: ${REDIS_MEM:-256m}
+
+networks:
+  # Explicit isolated user-defined bridge. Services reach each other by name
+  # on this network; nothing on it is published to the host except the single
+  # `127.0.0.1:8000` port on `netbox`. We do NOT use the default bridge
+  # (which would share a subnet with any other compose project on the host).
+  devnet:
+    name: netbox-pyats-devnet
+    driver: bridge
+    internal: false
 
 volumes:
   netbox-media:
