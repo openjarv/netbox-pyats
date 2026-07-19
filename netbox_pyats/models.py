@@ -260,8 +260,10 @@ class PyatsSnapshot(NetBoxModel):
         indexes = [
             # Most common queries: "recent snapshots for this device" and
             # "snapshots of this kind for this device" (diff/compliance pickers).
-            models.Index(fields=("device", "-captured_at")),
-            models.Index(fields=("device", "kind", "-captured_at")),
+            # Explicit names match 0002_pyatssnapshot and pin the indexes against
+            # Django 5.x auto-rename suggestions (see ATW-32).
+            models.Index(fields=("device", "-captured_at"), name="pyats_snap_dev_capt_idx"),
+            models.Index(fields=("device", "kind", "-captured_at"), name="pyats_snap_dev_kind_idx"),
         ]
 
     def __str__(self):
@@ -394,8 +396,10 @@ class PyatsSnapshotDiff(NetBoxModel):
         indexes = [
             # Most common queries: "recent diffs for this device" and
             # "diffs between snapshots of this device by status".
-            models.Index(fields=("device", "-created")),
-            models.Index(fields=("device", "status", "-created")),
+            # Explicit names match 0003_pyatssnapshotdiff and pin the indexes
+            # against Django 5.x auto-rename suggestions (see ATW-32).
+            models.Index(fields=("device", "-created"), name="pyats_diff_dev_created_idx"),
+            models.Index(fields=("device", "status", "-created"), name="pyats_diff_dev_status_idx"),
         ]
 
     def __str__(self):
