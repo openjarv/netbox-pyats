@@ -9,14 +9,22 @@ import pytest
 pytest.importorskip("netbox")
 
 from dcim.models import Device, DeviceRole, DeviceType, Manufacturer, Site
-from django.test import TestCase
 from django.urls import reverse
+from utilities.testing import TestCase
 
 from netbox_pyats.choices import CredentialScopeChoices
 from netbox_pyats.models import PyatsCredential
 
 
 class PyatsCredentialViewTest(TestCase):
+    # NetBox's TestCase.setUp force_logins a user and grants the listed
+    # permissions (format: "<app>.<action>_<model>"). The view tests exercise
+    # list/detail/add, so the user needs view + add on PyatsCredential.
+    user_permissions = (
+        "netbox_pyats.view_pyatscredential",
+        "netbox_pyats.add_pyatscredential",
+    )
+
     @classmethod
     def setUpTestData(cls):
         cls.site = Site.objects.create(name="AMS01", slug="ams01")
@@ -37,7 +45,9 @@ class PyatsCredentialViewTest(TestCase):
         url = reverse("plugins:netbox_pyats:pyatscredential_list")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, str(cred))
+        # The list table's Name column links to the detail page using the
+        # credential's name (not the full __str__, which includes the device).
+        self.assertContains(response, cred.name)
 
     def test_detail_view(self):
         cred = PyatsCredential.objects.create(

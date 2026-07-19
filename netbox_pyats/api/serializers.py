@@ -48,6 +48,19 @@ class PyatsCredentialSerializer(NetBoxModelSerializer):
         ]
         read_only_fields = ("id", "url", "created", "last_updated")
 
+    # Non-model write-only fields that NetBoxModelSerializer.validate would
+    # otherwise pass straight into ``Meta.model(**attrs)`` (raising TypeError
+    # under NetBox 4.6, which stricter-instantiates the model during clean()).
+    # Pop them before delegating to super().validate(), then re-attach so
+    # create()/update() can consume them.
+    _write_only_secret_fields = ("plaintext_password", "plaintext_enable_secret")
+
+    def validate(self, data):
+        secrets = {f: data.pop(f) for f in self._write_only_secret_fields if f in data}
+        data = super().validate(data)
+        data.update(secrets)
+        return data
+
     def create(self, validated_data):
         plaintext_password = validated_data.pop("plaintext_password", "")
         plaintext_enable_secret = validated_data.pop("plaintext_enable_secret", "")
