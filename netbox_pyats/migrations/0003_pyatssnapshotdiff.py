@@ -14,8 +14,10 @@ import netbox_pyats.choices
 
 class Migration(migrations.Migration):
 
+    # See 0001_initial.py for the migration-dependency convention. Follow-up
+    # plugin migrations depend only on the prior plugin migration (no dcim
+    # pin). See ATW-25 / ADR-0003.
     dependencies = [
-        ("dcim", "0050_custom_field_choice_set_remove"),
         ("netbox_pyats", "0002_pyatssnapshot"),
     ]
 
