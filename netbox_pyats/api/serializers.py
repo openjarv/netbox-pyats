@@ -174,6 +174,18 @@ class PyatsGoldenConfigSerializer(NetBoxModelSerializer):
     device page. The full ``config_text`` body is returned (it is the golden).
     """
 
+    # ``config_text`` is a running-config body, not a one-line label: trailing
+    # newlines and indentation are semantically meaningful (Genie's config
+    # parser groups indented lines under `!`-delimited section headers). DRF's
+    # CharField.strip defaults to True, which would silently strip a trailing
+    # newline from a pasted config — so override with strip=False to preserve
+    # the golden exactly as submitted.
+    config_text = serializers.CharField(
+        allow_blank=True,
+        trim_whitespace=False,
+        style={"base_template": "textarea.html", "rows": 20},
+    )
+
     class Meta:
         model = PyatsGoldenConfig
         fields = [

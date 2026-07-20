@@ -189,6 +189,23 @@ class PyatsGoldenConfigForm(NetBoxModelForm):
     ``source_snapshot`` FK is only set when promoting from a snapshot.
     """
 
+    # ``config_text`` is a running-config body, not a one-line label: trailing
+    # newlines and indentation are semantically meaningful (Genie's config
+    # parser groups indented lines under `!`-delimited section headers). The
+    # default CharField strips leading/trailing whitespace, which would silently
+    # corrupt pasted configs — so override with strip=False and a Textarea.
+    config_text = forms.CharField(
+        required=False,
+        strip=False,
+        widget=forms.Textarea(attrs={"rows": 20, "class": "font-monospace"}),
+        help_text=(
+            "Golden running-config text (the 'expected' device config). "
+            "Diffed against a snapshot's parsed config payload by the "
+            "compliance pipeline. May be empty only for a placeholder golden; "
+            "compliance runs against an empty golden classify as 'error'."
+        ),
+    )
+
     fieldsets = (
         FieldSet("name", "device", "source", "source_snapshot", name="Golden Config"),
         FieldSet("config_text", name="Config text"),

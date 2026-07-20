@@ -108,10 +108,6 @@ class Migration(migrations.Migration):
                 "ordering": ("device__name", "name"),
             },
         ),
-        migrations.AddIndex(
-            model_name="pyatsgoldenconfig",
-            index=models.Index(fields=("device", "name"), name="pyats_golden_dev_name_idx"),
-        ),
         migrations.AddConstraint(
             model_name="pyatsgoldenconfig",
             constraint=models.UniqueConstraint(

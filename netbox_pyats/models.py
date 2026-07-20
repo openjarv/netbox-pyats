@@ -505,15 +505,16 @@ class PyatsGoldenConfig(NetBoxModel):
         verbose_name_plural = "PyATS Golden Configs"
         constraints = [
             # A golden config is unique by (device, name) so the compliance
-            # picker can label each golden unambiguously per device.
+            # picker can label each golden unambiguously per device. The
+            # UniqueConstraint implicitly creates a B-tree index on
+            # (device, name), so there is no separate `indexes` entry here —
+            # Django 5.2's models.E041 system check rejects an explicit Index
+            # that overlaps a UniqueConstraint on the same field set, and
+            # Postgres already backs the unique constraint with an index.
             models.UniqueConstraint(
                 fields=("device", "name"),
                 name="netbox_pyats_goldenconfig_unique_per_device",
             ),
-        ]
-        indexes = [
-            # Most common query: "goldens for this device" (compliance picker).
-            models.Index(fields=("device", "name"), name="pyats_golden_dev_name_idx"),
         ]
 
     def __str__(self):
