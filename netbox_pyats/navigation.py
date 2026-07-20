@@ -22,4 +22,14 @@ menu_items = [
         link_text=_("PyATS Snapshot Diffs"),
         permissions=["netbox_pyats.view_pyatssnapshotdiff"],
     ),
+    PluginMenuItem(
+        link="plugins:netbox_pyats:pyatsgoldenconfig_list",
+        link_text=_("PyATS Golden Configs"),
+        permissions=["netbox_pyats.view_pyatsgoldenconfig"],
+    ),
+    PluginMenuItem(
+        link="plugins:netbox_pyats:pyatscompliancerun_list",
+        link_text=_("PyATS Compliance Runs"),
+        permissions=["netbox_pyats.view_pyatscompliancerun"],
+    ),
 ]

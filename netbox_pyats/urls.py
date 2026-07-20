@@ -22,7 +22,41 @@ urlpatterns = [
     path("diffs/", views.PyatsSnapshotDiffListView.as_view(), name="pyatssnapshotdiff_list"),
     path("diffs/delete/", views.PyatsSnapshotDiffBulkDeleteView.as_view(), name="pyatssnapshotdiff_bulk_delete"),
     path("diffs/<int:pk>/", include(get_model_urls("netbox_pyats", "pyatssnapshotdiff"))),
+    # PyATS Golden Configs (Phase 4, ATW-15)
+    path(
+        "golden-configs/",
+        views.PyatsGoldenConfigListView.as_view(),
+        name="pyatsgoldenconfig_list",
+    ),
+    path(
+        "golden-configs/add/",
+        views.PyatsGoldenConfigEditView.as_view(),
+        name="pyatsgoldenconfig_add",
+    ),
+    path(
+        "golden-configs/delete/",
+        views.PyatsGoldenConfigBulkDeleteView.as_view(),
+        name="pyatsgoldenconfig_bulk_delete",
+    ),
+    path("golden-configs/<int:pk>/", include(get_model_urls("netbox_pyats", "pyatsgoldenconfig"))),
+    # PyATS Compliance Runs (Phase 4, ATW-15)
+    path(
+        "compliance-runs/",
+        views.PyatsComplianceRunListView.as_view(),
+        name="pyatscompliancerun_list",
+    ),
+    path(
+        "compliance-runs/delete/",
+        views.PyatsComplianceRunBulkDeleteView.as_view(),
+        name="pyatscompliancerun_bulk_delete",
+    ),
+    path("compliance-runs/<int:pk>/", include(get_model_urls("netbox_pyats", "pyatscompliancerun"))),
     # Device-page endpoints (POST from the PyATS tab on a Device)
     path("devices/<int:device_id>/capture/", views.DeviceCaptureView.as_view(), name="device_capture"),
     path("devices/<int:device_id>/diff/", views.DeviceDiffView.as_view(), name="device_diff"),
+    path(
+        "devices/<int:device_id>/compliance/",
+        views.DeviceComplianceView.as_view(),
+        name="device_compliance",
+    ),
 ]
