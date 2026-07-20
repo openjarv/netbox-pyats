@@ -1,6 +1,6 @@
 from netbox.search import SearchIndex, register_search
 
-from .models import PyatsCredential, PyatsSnapshot, PyatsSnapshotDiff
+from .models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsSnapshot, PyatsSnapshotDiff
 
 
 @register_search
@@ -44,4 +44,36 @@ class PyatsSnapshotDiffIndex(SearchIndex):
     fields = (
         ("device", 100),
         ("status", 200),
+    )
+
+
+@register_search
+class PyatsGoldenConfigIndex(SearchIndex):
+    """Search index for PyatsGoldenConfig (Phase 4, ATW-15).
+
+    Indexes the device and the golden name so global search can surface
+    golden configs. The ``config_text`` body is not indexed (too large and
+    not user-facing search terms).
+    """
+
+    model = PyatsGoldenConfig
+    fields = (
+        ("device", 100),
+        ("name", 200),
+    )
+
+
+@register_search
+class PyatsComplianceRunIndex(SearchIndex):
+    """Search index for PyatsComplianceRun (Phase 4, ATW-15).
+
+    Indexes the device and the result label so global search can surface
+    compliance runs. The JSONB ``diff`` tree is not indexed (too large and
+    not user-facing search terms).
+    """
+
+    model = PyatsComplianceRun
+    fields = (
+        ("device", 100),
+        ("result", 200),
     )

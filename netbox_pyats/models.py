@@ -23,9 +23,11 @@ from netbox.models import NetBoxModel
 
 from . import crypto
 from .choices import (
+    ComplianceResultChoices,
     CredentialProtocolChoices,
     CredentialScopeChoices,
     DiffStatusChoices,
+    GoldenConfigSourceChoices,
     SnapshotKindChoices,
     SnapshotStatusChoices,
     SnapshotTriggerChoices,
@@ -429,4 +431,231 @@ class PyatsSnapshotDiff(NetBoxModel):
     @property
     def has_warnings(self) -> bool:
         """True if this diff row carries warnings / error context."""
+        return bool(self.parser_warnings)
+
+
+class PyatsGoldenConfig(NetBoxModel):
+    """A golden / reference running-config for a NetBox Device (Phase 4, ATW-15).
+
+    The operator's "expected" device config. The compliance pipeline diffs a
+    captured :class:`PyatsSnapshot` against one of these rows and classifies
+    the device as ``compliant`` / ``drift`` / ``error`` (see
+    :class:`PyatsComplianceRun`).
+
+    v1 uses simple Genie abstract-config diff against the snapshot's
+    ``data["config"]`` payload: the golden ``config_text`` is parsed into a
+    JSON-serializable dict (when a snapshot is available to drive the parser)
+    and diffed with :func:`netbox_pyats.diff.diff_snapshots`. Feature-specific
+    compliance rules (e.g. "interface X must be present with MTU 1500") are
+    deferred to v2 — v1 answers "does the running config match the golden?".
+
+    The ``config_text`` is operator-authored free text (or promoted from a
+    snapshot via the "use snapshot as golden" flow). ``source`` records whether
+    it was typed manually or derived from a snapshot, so the compliance history
+    can show provenance without re-deriving it. Multiple golden configs per
+    device are allowed (e.g. "baseline", "post-maintenance-window"); the
+    compliance picker lets the operator choose which golden to compare against.
+    """
+
+    device = models.ForeignKey(
+        to="dcim.Device",
+        on_delete=models.CASCADE,
+        related_name="pyats_golden_configs",
+        help_text="NetBox device this golden config applies to.",
+    )
+    name = models.CharField(
+        max_length=100,
+        help_text="Human-readable label, e.g. 'baseline-rtr01'.",
+    )
+    config_text = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "Golden running-config text (the 'expected' device config). "
+            "Diffed against a snapshot's parsed config payload by the "
+            "compliance pipeline. May be empty only for a placeholder golden; "
+            "compliance runs against an empty golden classify as 'error'."
+        ),
+    )
+    source = models.CharField(
+        max_length=20,
+        choices=GoldenConfigSourceChoices,
+        default=GoldenConfigSourceChoices.SOURCE_MANUAL,
+        help_text="How the golden config was authored: typed manually or promoted from a snapshot.",
+    )
+    source_snapshot = models.ForeignKey(
+        to="netbox_pyats.PyatsSnapshot",
+        on_delete=models.SET_NULL,
+        related_name="golden_configs_promoted_from",
+        blank=True,
+        null=True,
+        help_text=(
+            "When source=snapshot, the PyatsSnapshot row this golden config was "
+            "promoted from. Null for manually-authored goldens. Kept for "
+            "provenance so the compliance history can link back to the "
+            "known-good snapshot."
+        ),
+    )
+
+    clone_fields = ("device", "source")
+
+    class Meta:
+        ordering = ("device__name", "name")
+        verbose_name = "PyATS Golden Config"
+        verbose_name_plural = "PyATS Golden Configs"
+        constraints = [
+            # A golden config is unique by (device, name) so the compliance
+            # picker can label each golden unambiguously per device. The
+            # UniqueConstraint implicitly creates a B-tree index on
+            # (device, name), so there is no separate `indexes` entry here —
+            # Django 5.2's models.E041 system check rejects an explicit Index
+            # that overlaps a UniqueConstraint on the same field set, and
+            # Postgres already backs the unique constraint with an index.
+            models.UniqueConstraint(
+                fields=("device", "name"),
+                name="netbox_pyats_goldenconfig_unique_per_device",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.device})"
+
+    def get_absolute_url(self):
+        return reverse("plugins:netbox_pyats:pyatsgoldenconfig", kwargs={"pk": self.pk})
+
+    @property
+    def is_from_snapshot(self) -> bool:
+        """True if this golden config was promoted from a snapshot row."""
+        return self.source == GoldenConfigSourceChoices.SOURCE_SNAPSHOT
+
+
+class PyatsComplianceRun(NetBoxModel):
+    """One compliance check result: golden config vs. captured snapshot (Phase 4, ATW-15).
+
+    Populated by the ``run_compliance`` RQ job (see ``netbox_pyats.jobs``). The
+    job loads a :class:`PyatsGoldenConfig` and a :class:`PyatsSnapshot` for the
+    same device, diffs the snapshot's parsed config payload against the golden
+    config text (parsed into a comparable dict), and classifies the device as
+    ``compliant`` (no drift), ``drift`` (differences found), or ``error`` (bad
+    inputs / unsupported platform / job raised). The structured diff tree is
+    stored in ``diff`` (same shape as :class:`PyatsSnapshotDiff.diff`) and the
+    flat summary counts in ``summary``, so the compliance run detail page can
+    reuse the Phase 3 diff-tree viewer partial.
+
+    Why JSONB ``diff`` rather than just a pass/fail flag: the operator needs to
+    see *what* drifted, not just that it did. The same recursive JSONB diff
+    engine from Phase 3 (:func:`netbox_pyats.diff.diff_snapshots`) is reused —
+    the snapshot's config payload is already a parsed dict (Genie's structured
+    output of ``show running-config``), and the golden config text is parsed
+    into the same shape on the worker. This keeps the compliance viewer
+    identical to the diff viewer, with zero new rendering code.
+
+    Multi-vendor graceful degradation carries through from Phase 2/3: a
+    compliance run against an unsupported-platform snapshot (empty ``data``)
+    is classified as ``error`` with a warning, not silently skipped — the row
+    is still created so the operator sees the failure in the compliance
+    history, mirroring Phase 2's unsupported/error snapshot rows and Phase 3's
+    empty/error diff rows.
+
+    The ``diff`` payload shape is the same as :class:`PyatsSnapshotDiff.diff`
+    (see that model's docstring) so the ``inc/diff_tree.html`` partial renders
+    it unchanged.
+    """
+
+    device = models.ForeignKey(
+        to="dcim.Device",
+        on_delete=models.CASCADE,
+        related_name="pyats_compliance_runs",
+        help_text="NetBox device this compliance run checked (must match both golden and snapshot).",
+    )
+    golden = models.ForeignKey(
+        to="netbox_pyats.PyatsGoldenConfig",
+        on_delete=models.CASCADE,
+        related_name="compliance_runs",
+        help_text="The golden config this run compared against.",
+    )
+    snapshot = models.ForeignKey(
+        to="netbox_pyats.PyatsSnapshot",
+        on_delete=models.CASCADE,
+        related_name="compliance_runs",
+        help_text="The snapshot this run compared against the golden config.",
+    )
+    result = models.CharField(
+        max_length=20,
+        choices=ComplianceResultChoices,
+        default=ComplianceResultChoices.RESULT_ERROR,
+        help_text="Compliance outcome: compliant, drift, or error.",
+    )
+    diff = models.JSONField(
+        blank=True,
+        default=dict,
+        help_text=(
+            "Structured diff tree as JSON (same shape as PyatsSnapshotDiff.diff) "
+            "showing golden vs. snapshot config differences. Empty for compliant "
+            "and error runs (no tree to render). Rendered with the Phase 3 "
+            "diff-tree viewer partial."
+        ),
+    )
+    summary = models.JSONField(
+        blank=True,
+        default=dict,
+        help_text=(
+            "Flat counts per diff status: {added, removed, changed, unchanged}. "
+            "All zero for compliant runs; non-zero for drift; empty for error."
+        ),
+    )
+    parser_warnings = models.JSONField(
+        blank=True,
+        default=list,
+        help_text=(
+            "List of human-readable warnings/errors from the compliance run: "
+            "unsupported platform, empty golden, snapshot missing config, "
+            "diff engine errors. Empty for clean compliant/drift runs."
+        ),
+    )
+    size_bytes = models.PositiveBigIntegerField(
+        default=0,
+        help_text="Size of the JSON-serialized `diff` payload in bytes (set by the job).",
+    )
+
+    clone_fields = ("device",)
+
+    class Meta:
+        ordering = ("-created",)
+        verbose_name = "PyATS Compliance Run"
+        verbose_name_plural = "PyATS Compliance Runs"
+        indexes = [
+            # Most common queries: "recent compliance runs for this device" and
+            # "runs for this device by result" (compliance history picker).
+            models.Index(fields=("device", "-created"), name="pyats_compl_dev_created_idx"),
+            models.Index(fields=("device", "result", "-created"), name="pyats_compl_dev_result_idx"),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.device} · {self.get_result_display()} · "
+            f"golden #{self.golden_id} vs snapshot #{self.snapshot_id} · "
+            f"{self.created:%Y-%m-%d %H:%M:%S}"
+        )
+
+    def get_absolute_url(self):
+        return reverse("plugins:netbox_pyats:pyatscompliancerun", kwargs={"pk": self.pk})
+
+    def get_result_color(self):
+        """Map result to a NetBox color label for table badges."""
+        return {
+            ComplianceResultChoices.RESULT_COMPLIANT: "success",
+            ComplianceResultChoices.RESULT_DRIFT: "warning",
+            ComplianceResultChoices.RESULT_ERROR: "danger",
+        }.get(self.result, "secondary")
+
+    @property
+    def has_drift(self) -> bool:
+        """True if the diff found any added/removed/changed leaves (drift)."""
+        s = self.summary or {}
+        return bool(s.get("added") or s.get("removed") or s.get("changed"))
+
+    @property
+    def has_warnings(self) -> bool:
+        """True if this compliance run row carries warnings / error context."""
         return bool(self.parser_warnings)

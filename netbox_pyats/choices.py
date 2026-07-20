@@ -75,12 +75,46 @@ class DiffStatusChoices(models.TextChoices):
     ``success`` means a structured diff JSONB tree was produced (it may be
     empty of changes — ``summary`` records the counts). ``empty`` means both
     input snapshots had no data (e.g. two unsupported-platform rows being
-    diffed for completeness); the row is still created so the operator sees the
-    outcome in-line, with a neutral badge rather than red. ``error`` means the
-    diff inputs were malformed (non-dict top-level payloads) or the job raised;
-    the exception message is stored in ``parser_warnings``.
+    diffed for completeness); the row is still created so the operator sees
+    the outcome in-line, with a neutral badge rather than red. ``error`` means
+    the diff inputs were malformed (non-dict top-level payloads) or the job
+    raised; the exception message is stored in ``parser_warnings``.
     """
 
     STATUS_SUCCESS = "success", "Success"
     STATUS_EMPTY = "empty", "Empty inputs"
     STATUS_ERROR = "error", "Error"
+
+
+class GoldenConfigSourceChoices(models.TextChoices):
+    """How a :class:`PyatsGoldenConfig` row was authored (Phase 4, ATW-15).
+
+    ``manual`` means an operator typed/pasted the golden config text directly
+    in the NetBox UI (the common case — the "expected" running config). ``snapshot``
+    means the golden config text was promoted from a captured snapshot's
+    config payload, so the golden tracks a known-good device state. The
+    distinction is recorded so the compliance history can show "golden authored
+    by hand" vs "golden derived from snapshot #N" without re-deriving it.
+    """
+
+    SOURCE_MANUAL = "manual", "Manual"
+    SOURCE_SNAPSHOT = "snapshot", "From snapshot"
+
+
+class ComplianceResultChoices(models.TextChoices):
+    """Outcome of a compliance run (Phase 4, ATW-15).
+
+    ``compliant`` means the device's snapshot matched the golden config (the
+    structured diff had no added/removed/changed leaves — ``summary`` counts
+    are all zero for changes). ``drift`` means the structured diff found
+    differences (added/removed/changed > 0); the operator sees the diff tree
+    inline on the compliance run detail page. ``error`` means the inputs were
+    malformed or the job raised (e.g. snapshot was unsupported/error, golden
+    config was empty, or the diff engine returned an error status); the
+    exception message is stored in ``parser_warnings`` and the row is still
+    created so the operator sees the failure in-line, consistent with Phase 2/3.
+    """
+
+    RESULT_COMPLIANT = "compliant", "Compliant"
+    RESULT_DRIFT = "drift", "Drift"
+    RESULT_ERROR = "error", "Error"
