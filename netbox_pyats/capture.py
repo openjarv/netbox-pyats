@@ -107,34 +107,58 @@ def _worker_versions() -> tuple[str, str]:
 
 
 def _capture_config(pyats_device) -> dict:
-    """Run parser-based config capture on a connected pyATS Device.
+    """Run config capture on a connected pyATS Device.
 
-    Uses ``pyats.utils.parser`` to parse ``show running-config`` into a
-    structured dict. Falls back to a raw-text capture if the parser is
-    unavailable for this os (recorded as a warning by the caller). The
-    returned dict is JSON-serializable.
+    Captures the **raw** ``show running-config`` text first via
+    ``execute("show running-config")`` and stores it under
+    ``data["config_raw"]`` (the authoritative side for v1 compliance — see
+    ADR-0004 Option 3). Then attempts a best-effort structured parse via
+    ``pyats_device.parse("show running-config")``; on success the Genie
+    abstract-config dict is stored under ``data["config"]`` (useful for
+    Phase 3 snapshot-vs-snapshot diffs where both sides went through the same
+    path). On parser failure (``ParserNotFound`` or any other exception —
+    common for iosxe/ios in Genie 26.6, which has no bare
+    ``show running-config`` parser), ``data["config"]`` falls back to
+    ``{"raw": <text>, "_parser_error": <exc>}`` so the structured side is
+    still populated with the raw text and a recorded warning. The returned
+    dict is JSON-serializable.
+
+    The raw-text capture is the **first** action so a parser failure cannot
+    cause the raw text to be lost — the compliance engine relies on
+    ``config_raw`` being present on every config/full capture.
     """
-    # Local import: genie/pyats.parser is heavy and worker-only.
-    from pyats.connections import BaseConnection  # noqa: F401 - ensures connection plugin registry loaded
+    # Local import: ensures the pyats connection plugin registry is loaded so
+    # ``execute`` and ``parse`` are bound on the device. Worker-only.
+    from pyats.connections import BaseConnection  # noqa: F401 - registry side effect
 
-    config = {}
+    # 1) Grab the raw text first — it is the authoritative side for v1
+    #    compliance (ADR-0004 Option 3) and must be present on every
+    #    config/full capture even when the structured parser fails.
     try:
-        # The canonical "show running-config" parser exists for every os we
-        # map in testbed.PLATFORM_SLUG_TO_PYATS_OS. We use the parser util so
-        # the output is structured (Genie abstract config) rather than raw
-        # text, which is what makes later diffing meaningful.
+        raw_text = pyats_device.execute("show running-config")
+        if not isinstance(raw_text, str):
+            raw_text = str(raw_text)
+    except Exception as exc:  # noqa: BLE001 - execute failure is fatal for config capture
+        raise RuntimeError(f"config capture failed: execute('show running-config') raised: {exc}") from exc
+
+    # 2) Best-effort structured parse. A ParserNotFound (or any other parser
+    #    failure) is non-fatal — we already have the raw text. The structured
+    #    side is useful for Phase 3 snapshot-vs-snapshot diffs (both sides
+    #    went through the same path), so we still populate it as a fallback.
+    config: dict
+    try:
         output = pyats_device.parse("show running-config")
         config = output if isinstance(output, dict) else {"raw": str(output)}
     except Exception as exc:  # noqa: BLE001 - parser failures are surfaced as warnings
-        logger.warning("netbox_pyats: parse('show running-config') failed for %s: %s", pyats_device.name, exc)
-        # Fallback: grab the raw text so the snapshot is still useful, and
-        # let the caller record the parser failure as a warning.
-        try:
-            raw = pyats_device.execute("show running-config")
-            config = {"raw": str(raw), "_parser_error": str(exc)}
-        except Exception as exc2:  # noqa: BLE001 - both parser and execute failed
-            raise RuntimeError(f"config capture failed: parser={exc}; execute={exc2}") from exc2
-    return config
+        logger.warning(
+            "netbox_pyats: parse('show running-config') failed for %s: %s; "
+            "falling back to raw-text config (compliance uses config_raw)",
+            pyats_device.name,
+            exc,
+        )
+        config = {"raw": raw_text, "_parser_error": str(exc)}
+
+    return {"config": config, "config_raw": raw_text}
 
 
 def _capture_state(pyats_device) -> dict:
@@ -229,10 +253,17 @@ def capture_snapshot(pyats_device, *, kind: str = SnapshotKindChoices.KIND_FULL)
     try:
         if kind in (SnapshotKindChoices.KIND_CONFIG, SnapshotKindChoices.KIND_FULL):
             try:
-                data["config"] = _capture_config(pyats_device)
+                captured = _capture_config(pyats_device)
+                # ``_capture_config`` returns ``{"config": <dict>, "config_raw": <str>}``;
+                # merge both keys into ``data`` so the snapshot row carries
+                # the structured side (for Phase 3 snapshot-vs-snapshot diffs)
+                # and the raw text (for v1 compliance — ADR-0004 Option 3).
+                data["config"] = captured["config"]
+                data["config_raw"] = captured["config_raw"]
             except Exception as exc:  # noqa: BLE001 - config capture failure is a warning, not fatal
                 warnings.append(f"config capture failed: {exc}")
                 data["config"] = {}
+                data["config_raw"] = ""
         if kind in (SnapshotKindChoices.KIND_STATE, SnapshotKindChoices.KIND_FULL):
             try:
                 state = _capture_state(pyats_device)

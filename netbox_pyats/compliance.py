@@ -1,42 +1,62 @@
-"""Compliance engine — golden config vs. snapshot diff (Phase 4, ATW-15).
+"""Compliance engine — golden config vs. snapshot raw-text diff (Phase 4, ATW-15).
 
-:func:`run_compliance` is the Phase 4 counterpart to
-:func:`netbox_pyats.diff.diff_snapshots`. It takes a parsed golden-config
-dict (produced by :func:`netbox_pyats.golden_parse.parse_golden_config_text`
-on the worker, using the same Genie parser the snapshot used) and a captured
-snapshot's ``data["config"]`` payload, diffs them using the Phase 3
-:func:`netbox_pyats.diff.diff_snapshots` engine, and returns a
-:class:`ComplianceResult` classified as ``compliant`` / ``drift`` / ``error``.
+:func:`run_compliance` is the Phase 4 compliance core. It compares the
+**raw text** of an operator-authored golden running-config against the
+**raw text** of a snapshot's running config (``snapshot.data["config_raw"]``),
+both as plain strings, via a line-set diff. This is Option 3 of ADR-0004:
+Option 1 (Genie parser harness on the worker) is structurally unachievable in
+Genie 26.6 — there is no bare ``show running-config`` parser registered for
+``iosxe``/``ios`` (verified three ways; see ADR-0004 "Empirical finding"). The
+snapshot side is also raw text in practice (``_capture_config`` falls through
+to the ``execute("show running-config")`` fallback), so a line-set diff on
+both sides is the honest v1 comparison.
 
-Why reuse the Phase 3 diff engine instead of a new diff path: the snapshot's
-``data["config"]`` is *already* a parsed dict (Genie's structured output of
-``show running-config`` via ``device.parse(...)``). The golden config text is
-parsed into the same shape on the worker via
-:func:`netbox_pyats.golden_parse.parse_golden_config_text` — the same Genie
-parser, fed the golden text instead of a live device's output. This keeps
-both sides in the same structured shape so the Phase 3 diff tree and
-``inc/diff_tree.html`` partial render unchanged. This module is pure-Python
-and NetBox/RQ/Genie-free so it is unit-testable without a device: the caller
-passes the already-parsed ``golden_config`` dict and the snapshot's
-``data["config"]`` dict, and this function only classifies + packages the diff.
+The module is pure-Python and NetBox/RQ/Genie-free so it is unit-testable
+without a device, without Genie installed, and without a live connection.
+The caller passes the already-captured raw text strings; this function only
+normalizes, diffs, and classifies.
+
+Normalization (v1, order-independent):
+
+- Both texts are split into lines.
+- Blank lines and lone ``!`` delimiters are dropped (they carry no config
+  semantics and would otherwise inflate the diff).
+- Trailing whitespace is stripped from each line.
+- The remaining lines form a set per side. Set diff classifies lines present
+  only in the golden as ``removed`` (the device is missing them), lines
+  present only in the snapshot as ``added`` (the device has extra config),
+  and lines present in both as ``unchanged``.
 
 Classification rules (v1):
 
-- If either input is missing/empty (no golden config, snapshot has no
-  ``config`` key, snapshot is unsupported/error) → ``error`` with a warning
-  naming the missing input. The row is still created so the operator sees the
-  failure in-line (same UX contract as Phase 2/3).
-- If the structured diff has no added/removed/changed leaves → ``compliant``
-  (the device matches the golden).
-- If the structured diff has any added/removed/changed leaves → ``drift`` (the
-  device diverges from the golden; the diff tree shows *what* drifted).
+- If either input is missing/empty (no golden text, snapshot has no
+  ``config_raw``) → ``error`` with a warning naming the missing input. The
+  row is still created so the operator sees the failure in-line (same UX
+  contract as Phase 2/3).
+- If the line-set diff has no added/removed lines → ``compliant`` (the device
+  carries the golden lines; order-independent — see "Documented v1
+  limitation" below).
+- If the line-set diff has any added/removed lines → ``drift`` (the device
+  diverges from the golden; the diff tree shows *what* drifted, keyed by
+  line).
+
+Documented v1 limitation: line-set diff is order-independent — a re-ordered
+config classifies as ``compliant``. This is correct for the common "does the
+device carry the golden lines?" question but misses order-sensitive drift
+(e.g. ACL entry order). Ordered/structured compliance is v2 — it requires
+either a Genie version with a bare config parser, a standalone config parser
+outside Genie, or an ordered line-diff. v2 is explicitly out of scope for the
+re-land (ADR-0004).
 
 The returned :class:`ComplianceResult` is JSON-serializable end-to-end so the
 RQ job can store it directly on the
 :class:`~netbox_pyats.models.PyatsComplianceRun` row's JSONB ``diff`` /
-``summary`` / ``parser_warnings`` columns. The ``diff`` tree has the same shape
-as :class:`~netbox_pyats.models.PyatsSnapshotDiff.diff` so the Phase 3
-``inc/diff_tree.html`` partial renders it unchanged.
+``summary`` / ``parser_warnings`` columns. The ``diff`` tree has the same
+``{name, type, status, children}`` shape as
+:class:`~netbox_pyats.models.PyatsSnapshotDiff.diff` so the Phase 3
+``inc/diff_tree.html`` partial renders it unchanged — the root is a ``dict``
+node whose ``children`` are leaf nodes keyed by line, each tagged
+``added`` / ``removed`` / ``unchanged``.
 """
 
 from __future__ import annotations
@@ -44,11 +64,21 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
+from typing import Any
 
-from .choices import ComplianceResultChoices, DiffStatusChoices
-from .diff import diff_snapshots
+from .choices import ComplianceResultChoices
 
 logger = logging.getLogger(__name__)
+
+# Node "type" / "status" tags — kept as strings (not an enum) because the tree
+# is serialized to JSONB and rendered in the Phase 3 viewer; string tags keep
+# the JSONB human-readable and match :mod:`netbox_pyats.diff`.
+_NODE_TYPE_DICT = "dict"
+_NODE_TYPE_LEAF = "leaf"
+_STATUS_ADDED = "added"
+_STATUS_REMOVED = "removed"
+_STATUS_CHANGED = "changed"
+_STATUS_UNCHANGED = "unchanged"
 
 
 @dataclass
@@ -76,99 +106,145 @@ class ComplianceResult:
 
     @property
     def has_drift(self) -> bool:
-        """True if the diff found any added/removed/changed leaves (drift)."""
+        """True if the line-set diff found any added/removed lines (drift)."""
         s = self.summary or {}
         return bool(s.get("added") or s.get("removed") or s.get("changed"))
 
 
+def _normalize_lines(text: str) -> set[str]:
+    """Normalize raw config text into a set of meaningful lines.
+
+    Drops blank lines and lone ``!`` delimiters (they carry no config
+    semantics and would otherwise inflate the diff), and strips trailing
+    whitespace per line. Leading whitespace is **preserved** — indented
+    sub-mode lines (e.g. `` ip address ...``) are semantically distinct
+    from top-level lines and must compare as such.
+
+    Args:
+        text: the raw running-config text (golden or snapshot).
+
+    Returns:
+        A set of normalized lines. Empty if ``text`` is empty/whitespace-only.
+    """
+    if not text:
+        return set()
+    lines: set[str] = set()
+    for raw in text.splitlines():
+        line = raw.rstrip()
+        if not line:
+            continue
+        # Lone ``!`` is a section delimiter in IOS-style configs — it carries
+        # no config semantics and its presence/absence varies between capture
+        # paths (e.g. `execute` vs a parser's text output). Drop it so it
+        # doesn't inflate the diff.
+        if line == "!":
+            continue
+        lines.add(line)
+    return lines
+
+
 def run_compliance(
-    golden_config: dict | None,
-    snapshot_config: dict | None,
+    golden_text: str | None,
+    snapshot_text: str | None,
     *,
     name: str = "compliance",
 ) -> ComplianceResult:
-    """Compare a golden config dict against a snapshot's config dict and classify.
+    """Compare golden config text against snapshot config text and classify.
 
     This is the pure-Python core. The caller (the RQ job) is responsible for
-    loading the :class:`PyatsGoldenConfig` row, parsing its ``config_text`` into
-    a Genie abstract-config dict on the worker via
-    :func:`netbox_pyats.golden_parse.parse_golden_config_text` (same Genie
-    parser the snapshot used, no live device), loading the
-    :class:`PyatsSnapshot` row, extracting its ``data["config"]`` payload, and
-    persisting the returned :class:`ComplianceResult`. This function only runs
-    the diff + classification.
+    loading the :class:`PyatsGoldenConfig` row's ``config_text``, loading the
+    :class:`PyatsSnapshot` row, extracting its ``data["config_raw"]`` payload,
+    and persisting the returned :class:`ComplianceResult`. This function only
+    normalizes, diffs, and classifies.
 
-    Graceful degradation: missing/empty inputs are classified as ``error`` with
-    a warning naming the missing side, not silently skipped — the caller still
-    writes a row so the operator sees the failure in-line, mirroring Phase 2/3.
+    Graceful degradation: missing/empty inputs are classified as ``error``
+    with a warning naming the missing side, not silently skipped — the caller
+    still writes a row so the operator sees the failure in-line, mirroring
+    Phase 2/3.
 
     Args:
-        golden_config: the parsed golden config dict (the "expected" config).
-            ``None`` / empty dict means the golden was empty/unparseable.
-        snapshot_config: the snapshot's parsed config payload (the "actual"
-            config, i.e. ``snapshot.data["config"]``). ``None`` / empty dict
-            means the snapshot had no config (unsupported platform, error
-            snapshot, or a state-only capture).
+        golden_text: the raw golden running-config text (the "expected"
+            config). ``None`` / empty string means the golden was empty.
+        snapshot_text: the snapshot's raw running-config text (the "actual"
+            config, i.e. ``snapshot.data["config_raw"]``). ``None`` / empty
+            string means the snapshot had no raw config (unsupported platform,
+            error snapshot, or a state-only capture).
         name: the label for the root diff node (shown in the viewer header).
 
     Returns:
         A :class:`ComplianceResult` with ``result`` (``compliant`` / ``drift``
-        / ``error``), the nested ``diff`` tree (same shape as
-        :func:`netbox_pyats.diff.diff_snapshots`), a flat ``summary`` of counts,
-        and any ``warnings``. Never raises for bad input — missing inputs are
-        recorded as ``result="error"`` with a warning so the compliance row is
-        still created and the operator sees the failure in-line.
+        / ``error``), the nested ``diff`` tree (same ``{name, type, status,
+        children}`` shape as :func:`netbox_pyats.diff.diff_snapshots`, with
+        leaves keyed by line), a flat ``summary`` of counts (``added`` /
+        ``removed`` / ``unchanged`` — ``changed`` is always 0 for a line-set
+        diff), and any ``warnings``. Never raises for bad input — missing
+        inputs are recorded as ``result="error"`` with a warning so the
+        compliance row is still created and the operator sees the failure
+        in-line.
     """
-    golden_config = golden_config or {}
-    snapshot_config = snapshot_config or {}
+    golden_lines = _normalize_lines(golden_text)
+    snapshot_lines = _normalize_lines(snapshot_text)
 
-    if not golden_config:
+    if not golden_lines:
         return ComplianceResult(
             result=ComplianceResultChoices.RESULT_ERROR,
             diff={},
             summary={},
-            warnings=["golden config is empty; cannot run compliance"],
+            warnings=["golden config text is empty; cannot run compliance"],
         )
-    if not snapshot_config:
+    if not snapshot_lines:
         return ComplianceResult(
             result=ComplianceResultChoices.RESULT_ERROR,
             diff={},
             summary={},
             warnings=[
-                "snapshot config is empty (unsupported platform, error snapshot, "
-                "or state-only capture); cannot run compliance"
+                "snapshot config text is empty (unsupported platform, error "
+                "snapshot, or state-only capture); cannot run compliance"
             ],
         )
 
-    diff_result = diff_snapshots(golden_config, snapshot_config, name=name)
+    added = snapshot_lines - golden_lines
+    removed = golden_lines - snapshot_lines
+    unchanged = golden_lines & snapshot_lines
 
-    # The diff engine itself reported an error (malformed inputs). Surface as
-    # compliance error with the engine's warnings so the row is still created.
-    if diff_result.status == DiffStatusChoices.STATUS_ERROR:
-        return ComplianceResult(
-            result=ComplianceResultChoices.RESULT_ERROR,
-            diff=diff_result.diff,
-            summary=diff_result.summary,
-            warnings=diff_result.warnings or ["diff engine returned an error"],
-        )
+    summary = {
+        "added": len(added),
+        "removed": len(removed),
+        "changed": 0,
+        "unchanged": len(unchanged),
+    }
 
-    # Empty-inputs diff (both sides empty) is unreachable here because we
-    # already rejected empty golden/snapshot above, but guard anyway: an empty
-    # diff with both sides non-empty would mean both are empty dicts, which we
-    # already short-circuited. Treat as compliant (no drift).
-    if not diff_result.has_changes:
+    children: dict[str, Any] = {}
+    # Sort for deterministic JSONB; the diff is order-independent semantically
+    # but the stored tree must be stable across runs.
+    for line in sorted(added):
+        children[line] = {"type": _NODE_TYPE_LEAF, "status": _STATUS_ADDED, "after": line}
+    for line in sorted(removed):
+        children[line] = {"type": _NODE_TYPE_LEAF, "status": _STATUS_REMOVED, "before": line}
+    for line in sorted(unchanged):
+        children[line] = {"type": _NODE_TYPE_LEAF, "status": _STATUS_UNCHANGED, "value": line}
+
+    root_status = _STATUS_CHANGED if (added or removed) else _STATUS_UNCHANGED
+    diff_tree = {
+        "name": name,
+        "type": _NODE_TYPE_DICT,
+        "status": root_status,
+        "children": children,
+    }
+
+    if not added and not removed:
         return ComplianceResult(
             result=ComplianceResultChoices.RESULT_COMPLIANT,
-            diff=diff_result.diff,
-            summary=diff_result.summary,
-            warnings=diff_result.warnings,
+            diff=diff_tree,
+            summary=summary,
+            warnings=[],
         )
 
     return ComplianceResult(
         result=ComplianceResultChoices.RESULT_DRIFT,
-        diff=diff_result.diff,
-        summary=diff_result.summary,
-        warnings=diff_result.warnings,
+        diff=diff_tree,
+        summary=summary,
+        warnings=[],
     )
 
 

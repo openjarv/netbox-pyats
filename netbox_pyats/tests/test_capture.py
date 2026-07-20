@@ -113,7 +113,9 @@ class TestConfigCapture:
         d = FakePyatsDevice(os="iosxe", config_output={"hostname": "rtr01"})
         result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_CONFIG)
         assert result.status == SnapshotStatusChoices.STATUS_SUCCESS
-        assert result.data == {"config": {"hostname": "rtr01"}}
+        assert result.data["config"] == {"hostname": "rtr01"}
+        # Raw text is always populated on config captures (ADR-0004 Option 3).
+        assert result.data["config_raw"] == "!\nversion 15.6\n!\nend\n"
         assert result.warnings == []
 
     def test_config_parse_failure_falls_back_to_execute(self):
@@ -128,6 +130,8 @@ class TestConfigCapture:
         assert result.status == SnapshotStatusChoices.STATUS_SUCCESS
         assert "raw" in result.data["config"]
         assert "_parser_error" in result.data["config"]
+        # config_raw is still populated (it's captured before the parse attempt).
+        assert result.data["config_raw"] == "!\nversion 15.6\n!\nend\n"
 
     def test_config_parse_and_execute_both_fail(self):
         d = FakePyatsDevice(
@@ -138,7 +142,7 @@ class TestConfigCapture:
         result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_CONFIG)
         # Both halves failed → error status, empty config, warning recorded.
         assert result.status == SnapshotStatusChoices.STATUS_ERROR
-        assert result.data == {"config": {}}
+        assert result.data == {"config": {}, "config_raw": ""}
         assert any("config capture failed" in w for w in result.warnings)
 
 
@@ -197,8 +201,10 @@ class TestFullCapture:
         result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_FULL)
         assert result.status == SnapshotStatusChoices.STATUS_SUCCESS
         assert "config" in result.data
+        assert "config_raw" in result.data
         assert "state" in result.data
         assert result.data["config"] == {"hostname": "rtr01"}
+        assert result.data["config_raw"] == "!\nversion 15.6\n!\nend\n"
         assert "show version" in result.data["state"]
 
 
@@ -208,7 +214,7 @@ class TestCaptureError:
         # empty halves and warnings for each. The row is still created so the
         # operator sees the failure in the device-page history.
         # parse_exc applies to every parse() call (config + state), and
-        # execute_exc applies to the config fallback path.
+        # execute_exc applies to the config raw-text capture path.
         d = FakePyatsDevice(
             os="iosxe",
             parse_exc=RuntimeError("parse boom"),
@@ -216,7 +222,7 @@ class TestCaptureError:
         )
         result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_FULL)
         assert result.status == SnapshotStatusChoices.STATUS_ERROR
-        assert result.data == {"config": {}, "state": {}}
+        assert result.data == {"config": {}, "config_raw": "", "state": {}}
         assert any("config capture failed" in w for w in result.warnings)
         assert any("state capture failed" in w for w in result.warnings)
 

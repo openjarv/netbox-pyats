@@ -12,22 +12,22 @@ persists the structured diff as a :class:`PyatsSnapshotDiff` row.
 
 Phase 4 (ATW-15) adds the ``run_compliance`` RQ job, which loads a
 :class:`PyatsGoldenConfig` row and a :class:`PyatsSnapshot` row for the same
-device, parses the golden ``config_text`` into the same Genie abstract-config
-dict shape the snapshot used (via :func:`netbox_pyats.golden_parse.parse_golden_config_text`
-on the worker — same Genie parser, no live device), runs
-:func:`netbox_pyats.compliance.run_compliance` over golden vs. snapshot
-config, and persists the classified result as a :class:`PyatsComplianceRun`
-row. The diff tree has the same shape as :class:`PyatsSnapshotDiff.diff`, so
-the Phase 3 diff-tree viewer partial renders it unchanged.
+device, feeds the golden ``config_text`` (raw text) and the snapshot's
+``data["config_raw"]`` (raw text) into
+:func:`netbox_pyats.compliance.run_compliance` (a line-set diff — see
+ADR-0004 Option 3), and persists the classified result as a
+:class:`PyatsComplianceRun` row. The diff tree has the same
+``{name, type, status, children}`` shape as :class:`PyatsSnapshotDiff.diff`,
+so the Phase 3 diff-tree viewer partial renders it unchanged.
 
 Queue isolation: all three jobs run on the dedicated ``pyats`` RQ queue
 (declared via :attr:`NetBoxPyATSConfig.queues`), so pyATS/Genie work — which
 requires ``pyats[full]`` installed on the worker — does not block NetBox's
-default RQ workers. The diff job operates on persisted JSONB and needs no
-pyATS, but runs on the ``pyats`` queue for isolation and a single worker
-image. The compliance job needs Genie installed (to re-parse the golden text
-with the same parser the snapshot used) and runs on the ``pyats`` queue where
-``pyats[full]`` is installed.
+default RQ workers. The diff and compliance jobs operate on persisted JSONB
+/ text and need no pyATS at run time, but run on the ``pyats`` queue for
+isolation and a single worker image. (v1 compliance is a line-set diff over
+raw text — ADR-0004 Option 3 — so Genie is no longer a compliance-job hard
+dependency; a future v2 structured compliance path may re-introduce it.)
 
 The web process enqueues via :func:`enqueue_capture` / :func:`enqueue_diff`
 / :func:`enqueue_compliance`, passing the NetBox Device and capture/diff/
@@ -356,23 +356,6 @@ def enqueue_compliance(device, *, golden_id, snapshot_id, user=None):
     )
 
 
-def _resolve_snapshot_os(snapshot) -> str:
-    """Resolve the pyATS os string for a snapshot for the golden parser.
-
-    Prefers the stored ``parsed_os`` field (set at capture time); falls back
-    to deriving it from ``snapshot.device.platform`` via the testbed mapping
-    (for snapshots captured before the ``parsed_os`` field existed).
-    Returns the unsupported sentinel if neither path resolves a supported os.
-    """
-    os_value = getattr(snapshot, "parsed_os", "") or ""
-    if os_value:
-        return os_value
-    # Fallback: derive from the device's platform (pre-parsed_os snapshots).
-    from .testbed import platform_to_pyats_os
-
-    return platform_to_pyats_os(getattr(snapshot, "device", None) and snapshot.device.platform)
-
-
 def run_compliance_job(job, golden_id: int, snapshot_id: int, **kwargs):
     """RQ worker entry point — run compliance and persist the result.
 
@@ -382,18 +365,17 @@ def run_compliance_job(job, golden_id: int, snapshot_id: int, **kwargs):
     ``instance`` for status linkage); we re-load the golden + snapshot by id.
 
     The compliance logic lives in :mod:`netbox_pyats.compliance`; this function
-    only handles the NetBox-side plumbing (load the golden + snapshot, parse
-    the golden text into a Genie abstract-config dict on the worker via
-    :func:`netbox_pyats.golden_parse.parse_golden_config_text`, run the
-    compliance, write the :class:`PyatsComplianceRun` row, log to the Job).
-    Graceful degradation is enforced in :func:`compliance.run_compliance` —
-    empty/unsupported inputs still produce a row so the operator sees the
-    outcome in-line, mirroring Phase 2/3's unsupported/error/diff rows.
+    only handles the NetBox-side plumbing (load the golden + snapshot, extract
+    the golden's raw ``config_text`` and the snapshot's raw ``config_raw``,
+    run the line-set diff, write the :class:`PyatsComplianceRun` row, log to
+    the Job). Graceful degradation is enforced in
+    :func:`compliance.run_compliance` — empty/unsupported inputs still produce
+    a row so the operator sees the outcome in-line, mirroring Phase 2/3's
+    unsupported/error/diff rows.
     """
     from dcim.models import Device
 
     from .compliance import run_compliance
-    from .golden_parse import GoldenParseError, parse_golden_config_text
     from .models import PyatsComplianceRun, PyatsGoldenConfig, PyatsSnapshot
 
     device: Device = job.object
@@ -443,39 +425,15 @@ def run_compliance_job(job, golden_id: int, snapshot_id: int, **kwargs):
         run_row.save()
         raise ValueError("compliance inputs belong to different devices")
 
-    # Extract the snapshot's parsed config payload (the "actual" config). For
-    # a config or full snapshot, this is data["config"]; for a state-only
-    # snapshot there is no config key and the compliance engine will classify
-    # as error with a warning.
-    snapshot_config = (snapshot.data or {}).get("config") or {}
-
-    # Resolve the snapshot's os so the golden is parsed with the same Genie
-    # parser the snapshot used.
-    snapshot_os = _resolve_snapshot_os(snapshot)
-
-    # Parse the golden config text into a comparable Genie abstract-config
-    # dict on the worker, using the same Genie parser the snapshot used.
-    # No live device connection — the parser harness feeds the text directly.
-    try:
-        golden_config = parse_golden_config_text(golden.config_text or "", os=snapshot_os)
-    except GoldenParseError as exc:
-        # Golden parse failure → error row with the parse failure recorded.
-        run_row = PyatsComplianceRun(
-            device=device,
-            golden=golden,
-            snapshot=snapshot,
-            result="error",
-            diff={},
-            summary={},
-            parser_warnings=[f"golden parse failed: {exc}"],
-            size_bytes=0,
-        )
-        run_row.full_clean()
-        run_row.save()
-        return run_row.pk
+    # Extract the snapshot's raw running-config text (the "actual" config).
+    # ``config_raw`` is populated by ``_capture_config`` via
+    # ``execute("show running-config")`` on config/full captures. For a
+    # state-only snapshot there is no ``config_raw`` key and the compliance
+    # engine classifies as error with a warning.
+    snapshot_text = (snapshot.data or {}).get("config_raw", "") or ""
 
     try:
-        result = run_compliance(golden_config, snapshot_config, name=str(device))
+        result = run_compliance(golden.config_text or "", snapshot_text, name=str(device))
     except Exception as exc:  # noqa: BLE001 - any uncaught error → error row + job failure
         try:
             run_row = PyatsComplianceRun(
