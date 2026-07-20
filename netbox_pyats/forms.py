@@ -3,16 +3,14 @@ from netbox.forms import NetBoxModelFilterSetForm, NetBoxModelForm
 from utilities.forms.rendering import FieldSet
 
 from .choices import (
-    ComplianceResultChoices,
     CredentialProtocolChoices,
     CredentialScopeChoices,
     DiffStatusChoices,
-    GoldenConfigSourceChoices,
     SnapshotKindChoices,
     SnapshotStatusChoices,
     SnapshotTriggerChoices,
 )
-from .models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsSnapshot, PyatsSnapshotDiff
+from .models import PyatsCredential, PyatsSnapshot, PyatsSnapshotDiff
 
 
 class PyatsCredentialForm(NetBoxModelForm):
@@ -173,93 +171,3 @@ class PyatsSnapshotDiffFilterForm(NetBoxModelFilterSetForm):
     )
     has_changes = forms.BooleanField(required=False, label="Only diffs with changes")
     has_warnings = forms.BooleanField(required=False, label="Only diffs with warnings")
-
-
-# --------------------------------------------------------------------------- #
-# Compliance forms (Phase 4, ATW-15)
-# --------------------------------------------------------------------------- #
-
-
-class PyatsGoldenConfigForm(NetBoxModelForm):
-    """Create/edit form for a PyATS Golden Config (Phase 4, ATW-15).
-
-    The operator types/pastes the golden ``config_text`` directly, or — via the
-    "promote from snapshot" flow — the form is pre-filled from a snapshot's
-    parsed config. ``source`` records provenance (manual vs. snapshot); the
-    ``source_snapshot`` FK is only set when promoting from a snapshot.
-    """
-
-    # ``config_text`` is a running-config body, not a one-line label: trailing
-    # newlines and indentation are semantically meaningful (Genie's config
-    # parser groups indented lines under `!`-delimited section headers). The
-    # default CharField strips leading/trailing whitespace, which would silently
-    # corrupt pasted configs — so override with strip=False and a Textarea.
-    config_text = forms.CharField(
-        required=False,
-        strip=False,
-        widget=forms.Textarea(attrs={"rows": 20, "class": "font-monospace"}),
-        help_text=(
-            "Golden running-config text (the 'expected' device config). "
-            "Diffed against a snapshot's parsed config payload by the "
-            "compliance pipeline. May be empty only for a placeholder golden; "
-            "compliance runs against an empty golden classify as 'error'."
-        ),
-    )
-
-    fieldsets = (
-        FieldSet("name", "device", "source", "source_snapshot", name="Golden Config"),
-        FieldSet("config_text", name="Config text"),
-        FieldSet("tags", name="Tags"),
-    )
-
-    class Meta:
-        model = PyatsGoldenConfig
-        fields = (
-            "name",
-            "device",
-            "config_text",
-            "source",
-            "source_snapshot",
-            "tags",
-        )
-
-
-class PyatsGoldenConfigFilterForm(NetBoxModelFilterSetForm):
-    """Filter form for the PyatsGoldenConfig list view."""
-
-    model = PyatsGoldenConfig
-
-    q = forms.CharField(required=False, label="Search")
-    device = forms.IntegerField(required=False, label="Device ID")
-    source = forms.ChoiceField(
-        required=False,
-        choices=[("", "---------")] + GoldenConfigSourceChoices.choices,
-    )
-
-
-class DeviceComplianceForm(forms.Form):
-    """Form backing the device-page "Run compliance" picker (Phase 4).
-
-    Posted to the ``device_compliance`` view. The operator selects a golden
-    config and a snapshot of the same device; the view enqueues
-    :func:`jobs.enqueue_compliance`. The device is in the URL; ``golden_id``
-    and ``snapshot_id`` are validated by the view to belong to that device.
-    """
-
-    golden_id = forms.IntegerField(required=True, label="Golden config")
-    snapshot_id = forms.IntegerField(required=True, label="Snapshot")
-
-
-class PyatsComplianceRunFilterForm(NetBoxModelFilterSetForm):
-    """Filter form for the PyatsComplianceRun list view."""
-
-    model = PyatsComplianceRun
-
-    q = forms.CharField(required=False, label="Search")
-    device = forms.IntegerField(required=False, label="Device ID")
-    result = forms.ChoiceField(
-        required=False,
-        choices=[("", "---------")] + ComplianceResultChoices.choices,
-    )
-    has_drift = forms.BooleanField(required=False, label="Only runs with drift")
-    has_warnings = forms.BooleanField(required=False, label="Only runs with warnings")

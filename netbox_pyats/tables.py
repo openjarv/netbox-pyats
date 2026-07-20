@@ -1,7 +1,7 @@
 import django_tables2 as tables
 from netbox.tables import NetBoxTable
 
-from .models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsSnapshot, PyatsSnapshotDiff
+from .models import PyatsCredential, PyatsSnapshot, PyatsSnapshotDiff
 
 
 class PyatsCredentialTable(NetBoxTable):
@@ -136,90 +136,6 @@ class PyatsSnapshotDiffTable(NetBoxTable):
             "after",
             "status",
             "has_changes",
-            "size_bytes",
-            "created",
-        )
-
-
-class PyatsGoldenConfigTable(NetBoxTable):
-    """Table configuration for the PyatsGoldenConfig list view (Phase 4).
-
-    Renders the golden's device, name, source badge (manual vs. snapshot), a
-    config-text size indicator, and creation time. The `id` column links to the
-    golden detail view (which renders the full config text).
-    """
-
-    id = tables.LinkColumn(verbose_name="ID")
-    device = tables.Column(linkify=True)
-    name = tables.Column(linkify=True, verbose_name="Name")
-    source = tables.Column(verbose_name="Source")
-    source_snapshot = tables.Column(linkify=True, verbose_name="Promoted from")
-    created = tables.DateTimeColumn(verbose_name="Created at")
-
-    class Meta(NetBoxTable.Meta):
-        model = PyatsGoldenConfig
-        fields = (
-            "id",
-            "device",
-            "name",
-            "source",
-            "source_snapshot",
-            "created",
-        )
-        default_columns = (
-            "id",
-            "device",
-            "name",
-            "source",
-            "created",
-        )
-
-
-class PyatsComplianceRunTable(NetBoxTable):
-    """Table configuration for the PyatsComplianceRun list view (Phase 4).
-
-    Renders the compliance run's device, golden + snapshot links, result (as a
-    colored badge), a drift indicator, size, creation time, and a warnings
-    indicator. The `id` column links to the compliance run detail view (which
-    renders the structured diff tree using the Phase 3 diff-tree partial).
-    """
-
-    id = tables.LinkColumn(verbose_name="ID")
-    device = tables.Column(linkify=True)
-    golden = tables.Column(linkify=True, verbose_name="Golden")
-    snapshot = tables.Column(linkify=True, verbose_name="Snapshot")
-    result = tables.TemplateColumn(
-        template_code=(
-            "{% load helpers %}"
-            '<span class="badge bg-{{ record.get_result_color }}">{{ record.get_result_display }}</span>'
-        ),
-        verbose_name="Result",
-    )
-    has_drift = tables.BooleanColumn(verbose_name="Drift")
-    size_bytes = tables.Column(verbose_name="Size (bytes)")
-    has_warnings = tables.BooleanColumn(verbose_name="Warnings")
-    created = tables.DateTimeColumn(verbose_name="Created at")
-
-    class Meta(NetBoxTable.Meta):
-        model = PyatsComplianceRun
-        fields = (
-            "id",
-            "device",
-            "golden",
-            "snapshot",
-            "result",
-            "has_drift",
-            "size_bytes",
-            "has_warnings",
-            "created",
-        )
-        default_columns = (
-            "id",
-            "device",
-            "golden",
-            "snapshot",
-            "result",
-            "has_drift",
             "size_bytes",
             "created",
         )

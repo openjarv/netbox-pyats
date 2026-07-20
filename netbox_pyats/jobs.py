@@ -10,35 +10,21 @@ Phase 3 (ATW-14) adds the ``run_diff`` RQ job, which loads two
 :func:`netbox_pyats.diff.diff_snapshots` over their ``data`` JSONB, and
 persists the structured diff as a :class:`PyatsSnapshotDiff` row.
 
-Phase 4 (ATW-15) adds the ``run_compliance`` RQ job, which loads a
-:class:`PyatsGoldenConfig` row and a :class:`PyatsSnapshot` row for the same
-device, parses the golden ``config_text`` into a comparable dict on the
-worker (using the snapshot's own parsed config as the parsing scaffold, so
-no extra device connection is needed), runs
-:func:`netbox_pyats.compliance.run_compliance` over golden vs. snapshot
-config, and persists the classified result as a :class:`PyatsComplianceRun`
-row. The diff tree has the same shape as :class:`PyatsSnapshotDiff.diff`, so
-the Phase 3 diff-tree viewer partial renders it unchanged.
+Queue isolation: both jobs run on the dedicated ``pyats`` RQ queue (declared
+via :attr:`NetBoxPyATSConfig.queues`), so pyATS/Genie work — which requires
+``pyats[full]`` installed on the worker — does not block NetBox's default RQ
+workers. The diff job itself does not need pyATS installed (the diff engine is
+pure-Python and operates on persisted JSONB), but it still runs on the
+``pyats`` queue for isolation and so a single worker image services all plugin
+work; an operator who only wants diffs can run the default worker if they
+prefer (no pyATS install needed for diffs alone).
 
-Queue isolation: all three jobs run on the dedicated ``pyats`` RQ queue
-(declared via :attr:`NetBoxPyATSConfig.queues`), so pyATS/Genie work — which
-requires ``pyats[full]`` installed on the worker — does not block NetBox's
-default RQ workers. The diff and compliance jobs themselves do not need
-pyATS installed (they operate on persisted JSONB), but they still run on the
-``pyats`` queue for isolation and so a single worker image services all
-plugin work; an operator who only wants diffs/compliance can run the default
-worker if they prefer (no pyATS install needed for diffs/compliance alone
-when the golden config is already parsed — v1 parses the golden text using
-the snapshot's parsed config as a scaffold, so no live device connection is
-required for compliance).
-
-The web process enqueues via :func:`enqueue_capture` / :func:`enqueue_diff`
-/ :func:`enqueue_compliance`, passing the NetBox Device and capture/diff/
-compliance kwargs. NetBox's :class:`core.models.Job` tracks the run (status,
-log entries, notifications); the actual RQ work is the module-level
-:func:`capture_snapshot_job` / :func:`run_diff_job` /
-:func:`run_compliance_job` callable, which the worker invokes with the Job
-row plus the kwargs.
+The web process enqueues via :func:`enqueue_capture` / :func:`enqueue_diff`,
+passing the NetBox Device and capture/diff kwargs. NetBox's
+:class:`core.models.Job` tracks the run (status, log entries, notifications);
+the actual RQ work is the module-level :func:`capture_snapshot_job` /
+:func:`run_diff_job` callable, which the worker invokes with the Job row plus
+the kwargs.
 """
 
 from __future__ import annotations
@@ -319,230 +305,10 @@ def run_diff_job(job, before_id: int, after_id: int, **kwargs):
     return diff_row.pk
 
 
-# --------------------------------------------------------------------------- #
-# Compliance job (Phase 4, ATW-15)
-# --------------------------------------------------------------------------- #
-
-
-def enqueue_compliance(device, *, golden_id, snapshot_id, user=None):
-    """Enqueue a compliance run job on the dedicated ``pyats`` RQ queue.
-
-    This is the entry point the device-page PyATS compliance sub-tab calls
-    when the operator picks a golden config + snapshot and clicks "Run
-    compliance". It creates a NetBox :class:`core.models.Job` row (for status
-    tracking in the NetBox jobs UI) and enqueues the actual RQ work on the
-    ``pyats`` queue.
-
-    Args:
-        device: the NetBox ``dcim.Device`` the golden + snapshot belong to.
-            Used as the :class:`Job` instance for status linkage; the job
-            re-loads the golden + snapshot by id.
-        golden_id: primary key of the :class:`PyatsGoldenConfig` to compare.
-        snapshot_id: primary key of the :class:`PyatsSnapshot` to compare.
-        user: the NetBox user initiating the compliance run (for the Job row).
-
-    Returns:
-        The NetBox :class:`core.models.Job` row tracking this compliance run.
-    """
-    from core.models import Job
-
-    return Job.enqueue(
-        run_compliance_job,
-        instance=device,
-        name=f"PyATS compliance: {device} (golden #{golden_id} vs snapshot #{snapshot_id})",
-        user=user,
-        queue_name=PYATS_QUEUE,
-        golden_id=golden_id,
-        snapshot_id=snapshot_id,
-    )
-
-
-def _golden_text_to_config_dict(golden_text: str) -> dict:
-    """Parse golden config text into a comparable dict.
-
-    v1 uses a lightweight line-oriented parse of the golden config text into a
-    dict keyed by section header, so it can be diffed against the snapshot's
-    parsed ``data["config"]`` payload without requiring a live pyATS device
-    connection to drive the Genie parser. This keeps the compliance job
-    runnable on the ``pyats`` worker with no extra device round-trip — the
-    snapshot already carries the parsed "actual" config, and the golden text
-    is the "expected" config.
-
-    The parse is intentionally simple and documented as a v1 limitation: it
-    groups indented lines under the most recent non-indented section header
-    (the Cisco running-config convention). A ``!`` delimiter flushes the
-    current section. Lines that appear before any section header are grouped
-    under a synthetic ``"_preamble"`` key. Feature-specific compliance (e.g.
-    "the BGP section must contain neighbor 10.0.0.1") is deferred to v2, where
-    the golden config can be parsed with the same Genie parser the snapshot
-    used (requiring a device connection or a parser-only harness).
-
-    The empty-golden case is handled by the caller (compliance engine returns
-    ``error`` with a "golden config is empty" warning).
-    """
-    config: dict = {}
-    if not golden_text:
-        return config
-    current_section: str | None = None
-    current_lines: list = []
-
-    def _flush():
-        nonlocal current_section, current_lines
-        if current_section is not None or current_lines:
-            key = current_section if current_section is not None else "_preamble"
-            config.setdefault(key, []).extend(current_lines)
-        current_section = None
-        current_lines = []
-
-    for raw_line in golden_text.splitlines():
-        line = raw_line.rstrip()
-        if line == "!":
-            _flush()
-            continue
-        is_indented = line.startswith(" ") or line.startswith("\t")
-        if not is_indented and line:
-            # A new top-level (non-indented) line: flush the previous section
-            # first, then treat this line as the new section header.
-            _flush()
-            current_section = line
-        else:
-            current_lines.append(line)
-    # Flush any trailing section (no trailing "!" in the config text).
-    _flush()
-    return config
-
-
-def run_compliance_job(job, golden_id: int, snapshot_id: int, **kwargs):
-    """RQ worker entry point — run compliance and persist the result.
-
-    NetBox's :class:`core.models.Job.enqueue` calls this with ``job`` (the
-    tracking :class:`core.models.Job` row) plus the kwargs passed through from
-    :func:`enqueue_compliance`. ``job.object`` is the NetBox Device (passed as
-    ``instance`` for status linkage); we re-load the golden + snapshot by id.
-
-    The compliance logic lives in :mod:`netbox_pyats.compliance`; this function
-    only handles the NetBox-side plumbing (load the golden + snapshot, parse
-    the golden text into a comparable dict, run the compliance, write the
-    :class:`PyatsComplianceRun` row, log to the Job). Graceful degradation is
-    enforced in :func:`compliance.run_compliance` — empty/unsupported inputs
-    still produce a row so the operator sees the outcome in-line, mirroring
-    Phase 2/3's unsupported/error/diff rows.
-    """
-    from dcim.models import Device
-
-    from .compliance import run_compliance
-    from .models import PyatsComplianceRun, PyatsGoldenConfig, PyatsSnapshot
-
-    device: Device = job.object
-    logger.info("Compliance run for device %s: golden=%s snapshot=%s", device, golden_id, snapshot_id)
-
-    try:
-        golden = PyatsGoldenConfig.objects.get(pk=golden_id)
-        snapshot = PyatsSnapshot.objects.get(pk=snapshot_id)
-    except (PyatsGoldenConfig.DoesNotExist, PyatsSnapshot.DoesNotExist) as exc:
-        # Golden or snapshot was deleted between the user clicking "Run
-        # compliance" and the worker picking up the job. Write an error row so
-        # the operator sees it.
-        run_row = PyatsComplianceRun(
-            device=device,
-            golden_id=golden_id,
-            snapshot_id=snapshot_id,
-            result="error",
-            diff={},
-            summary={},
-            parser_warnings=[f"golden or snapshot missing: {exc}"],
-            size_bytes=0,
-        )
-        run_row.full_clean()
-        run_row.save()
-        raise
-
-    # Enforce same-device invariant: a compliance run across golden + snapshot
-    # of different devices is a programmer error (the picker only offers
-    # same-device pairs), but the worker must still produce a row rather than
-    # crash silently.
-    if golden.device_id != device.pk or snapshot.device_id != device.pk:
-        run_row = PyatsComplianceRun(
-            device=device,
-            golden=golden,
-            snapshot=snapshot,
-            result="error",
-            diff={},
-            summary={},
-            parser_warnings=[
-                f"device mismatch: golden.device_id={golden.device_id}, "
-                f"snapshot.device_id={snapshot.device_id}, job.device_id={device.pk}"
-            ],
-            size_bytes=0,
-        )
-        run_row.full_clean()
-        run_row.save()
-        raise ValueError("compliance inputs belong to different devices")
-
-    # Extract the snapshot's parsed config payload (the "actual" config). For
-    # a config or full snapshot, this is data["config"]; for a state-only
-    # snapshot there is no config key and the compliance engine will classify
-    # as error with a warning.
-    snapshot_config = (snapshot.data or {}).get("config") or {}
-
-    # Parse the golden config text into a comparable dict. v1 uses a
-    # lightweight line-oriented parse (see _golden_text_to_config_dict) so the
-    # compliance job runs on the worker with no extra device connection.
-    golden_config = _golden_text_to_config_dict(golden.config_text or "")
-
-    try:
-        result = run_compliance(golden_config, snapshot_config, name=str(device))
-    except Exception as exc:  # noqa: BLE001 - any uncaught error → error row + job failure
-        try:
-            run_row = PyatsComplianceRun(
-                device=device,
-                golden=golden,
-                snapshot=snapshot,
-                result="error",
-                diff={},
-                summary={},
-                parser_warnings=[f"compliance error: {exc}", traceback.format_exc()],
-                size_bytes=0,
-            )
-            run_row.full_clean()
-            run_row.save()
-        except Exception:  # noqa: BLE001 - never mask the original error
-            logger.exception("netbox_pyats: failed to persist error-row compliance run")
-        raise
-
-    run_row = PyatsComplianceRun(
-        device=device,
-        golden=golden,
-        snapshot=snapshot,
-        result=result.result,
-        diff=result.diff,
-        summary=result.summary,
-        parser_warnings=result.warnings,
-        size_bytes=result.size_bytes,
-    )
-    run_row.full_clean()
-    run_row.save()
-
-    logger.info(
-        "Compliance run %s stored (result=%s, %d bytes, summary=%s)",
-        run_row.pk,
-        result.result,
-        result.size_bytes,
-        result.summary,
-    )
-    if result.warnings:
-        for w in result.warnings[:5]:  # keep the job log readable
-            logger.warning("compliance warning: %s", w)
-
-    return run_row.pk
-
-
 __all__ = (
     "PYATS_QUEUE",
     "capture_snapshot_job",
     "enqueue_capture",
-    "enqueue_compliance",
     "enqueue_diff",
-    "run_compliance_job",
     "run_diff_job",
 )

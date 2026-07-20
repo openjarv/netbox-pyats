@@ -1,6 +1,6 @@
 from netbox.filtersets import NetBoxModelFilterSet
 
-from .models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsSnapshot, PyatsSnapshotDiff
+from .models import PyatsCredential, PyatsSnapshot, PyatsSnapshotDiff
 
 
 class PyatsCredentialFilterSet(NetBoxModelFilterSet):
@@ -55,43 +55,5 @@ class PyatsSnapshotDiffFilterSet(NetBoxModelFilterSet):
             "status",
             "before_id",
             "after_id",
-            "created",
-        ]
-
-
-class PyatsGoldenConfigFilterSet(NetBoxModelFilterSet):
-    """FilterSet for the PyatsGoldenConfig model (Phase 4, ATW-15).
-
-    Lets the golden config list view be filtered by device and source — the
-    axes the device-page compliance picker queries on.
-    """
-
-    class Meta:
-        model = PyatsGoldenConfig
-        fields = [
-            "id",
-            "name",
-            "device_id",
-            "source",
-            "created",
-        ]
-
-
-class PyatsComplianceRunFilterSet(NetBoxModelFilterSet):
-    """FilterSet for the PyatsComplianceRun model (Phase 4, ATW-15).
-
-    Lets the compliance run list view be filtered by device, result, and the
-    golden/snapshot ids — the axes the device-page compliance history and the
-    compliance picker query on.
-    """
-
-    class Meta:
-        model = PyatsComplianceRun
-        fields = [
-            "id",
-            "device_id",
-            "result",
-            "golden_id",
-            "snapshot_id",
             "created",
         ]
