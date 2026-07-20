@@ -77,7 +77,9 @@ class DevicePyATSPanel(PluginTemplateExtension):
 
         # Compliance picker needs at least one golden config and at least one
         # snapshot whose data carries a config payload (config or full kind).
-        config_snapshots = [s for s in snapshots if s.kind in ("config", "full")]
+        config_snapshots = [
+            s for s in snapshots if s.kind in (SnapshotKindChoices.KIND_CONFIG, SnapshotKindChoices.KIND_FULL)
+        ]
 
         return self.render(
             "netbox_pyats/inc/device_panel.html",

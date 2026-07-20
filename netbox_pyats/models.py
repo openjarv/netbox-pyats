@@ -177,12 +177,20 @@ class PyatsSnapshot(NetBoxModel):
 
     The ``data`` payload shape depends on ``kind``:
 
-    - ``config``: ``{"config": {<parsed show-running-config output>}}``
+    - ``config``: ``{"config": {<parsed show-running-config output>},
+                     "config_raw": "<raw show-running-config text>"}``
     - ``state``:  ``{"state": {<command: <parsed output>, ...>}}`` — one entry
       per command in :data:`netbox_pyats.capture.STATE_COMMANDS`; commands
       whose parser is missing for the device's os are recorded as ``None``
       with a warning.
-    - ``full``:   ``{"config": {...}, "state": {...}}``
+    - ``full``:   ``{"config": {...}, "config_raw": "...", "state": {...}}``
+
+    ``data["config"]`` is the Genie abstract-config structured dict (used by
+    the Phase 3 snapshot-vs-snapshot diff). ``data["config_raw"]`` is the raw
+    ``show running-config`` text captured alongside the structured dict —
+    used by the Phase 4 compliance engine, which does a line-oriented
+    golden-vs-snapshot text diff (see :mod:`netbox_pyats.compliance`). Both
+    are empty strings/dicts on unsupported/error captures.
 
     ``size_bytes`` is the length of the JSON-serialized ``data`` payload, set
     by the job so the UI can render it without re-serializing. ``genie_version``
@@ -224,8 +232,8 @@ class PyatsSnapshot(NetBoxModel):
         default=dict,
         help_text=(
             "Captured snapshot payload as JSON. Shape depends on kind: "
-            "config → {config: ...}, state → {state: ...}, full → {config, state}. "
-            "Empty for unsupported/error rows."
+            "config → {config, config_raw}, state → {state}, "
+            "full → {config, config_raw, state}. Empty for unsupported/error rows."
         ),
     )
     parser_warnings = models.JSONField(
@@ -442,12 +450,14 @@ class PyatsGoldenConfig(NetBoxModel):
     the device as ``compliant`` / ``drift`` / ``error`` (see
     :class:`PyatsComplianceRun`).
 
-    v1 uses simple Genie abstract-config diff against the snapshot's
-    ``data["config"]`` payload: the golden ``config_text`` is parsed into a
-    JSON-serializable dict (when a snapshot is available to drive the parser)
-    and diffed with :func:`netbox_pyats.diff.diff_snapshots`. Feature-specific
-    compliance rules (e.g. "interface X must be present with MTU 1500") are
-    deferred to v2 — v1 answers "does the running config match the golden?".
+    v1 compliance is **line-oriented text diff**: the golden ``config_text``
+    is compared line-by-line against the snapshot's raw running-config text
+    (``data["config_raw"]``). A matching golden against a matching snapshot
+    classifies as ``compliant``. The line-set diff is order-independent (a
+    re-ordered config is still compliant) and drops blank/``!`` delimiter
+    lines as noise. Feature-specific compliance (e.g. "interface X must be
+    present with MTU 1500", ACL order) is deferred to v2 — v1 answers "does
+    the running config text match the golden?".
 
     The ``config_text`` is operator-authored free text (or promoted from a
     snapshot via the "use snapshot as golden" flow). ``source`` records whether
@@ -534,28 +544,43 @@ class PyatsComplianceRun(NetBoxModel):
 
     Populated by the ``run_compliance`` RQ job (see ``netbox_pyats.jobs``). The
     job loads a :class:`PyatsGoldenConfig` and a :class:`PyatsSnapshot` for the
-    same device, diffs the snapshot's parsed config payload against the golden
-    config text (parsed into a comparable dict), and classifies the device as
-    ``compliant`` (no drift), ``drift`` (differences found), or ``error`` (bad
-    inputs / unsupported platform / job raised). The structured diff tree is
-    stored in ``diff`` (same shape as :class:`PyatsSnapshotDiff.diff`) and the
-    flat summary counts in ``summary``, so the compliance run detail page can
-    reuse the Phase 3 diff-tree viewer partial.
+    same device, diffs the snapshot's raw running-config text
+    (``data["config_raw"]``) against the golden config text line-by-line (a
+    line-set diff — see :mod:`netbox_pyats.compliance`), and classifies the
+    device as ``compliant`` (no drift), ``drift`` (differences found), or
+    ``error`` (bad inputs / unsupported platform / job raised). The structured
+    diff tree is stored in ``diff`` (same shape as
+    :class:`PyatsSnapshotDiff.diff`) and the flat summary counts in
+    ``summary``, so the compliance run detail page can reuse the Phase 3
+    diff-tree viewer partial.
 
     Why JSONB ``diff`` rather than just a pass/fail flag: the operator needs to
-    see *what* drifted, not just that it did. The same recursive JSONB diff
-    engine from Phase 3 (:func:`netbox_pyats.diff.diff_snapshots`) is reused —
-    the snapshot's config payload is already a parsed dict (Genie's structured
-    output of ``show running-config``), and the golden config text is parsed
-    into the same shape on the worker. This keeps the compliance viewer
-    identical to the diff viewer, with zero new rendering code.
+    see *what* drifted, not just that it did. v1 compliance compares the
+    **raw text** of the golden config against the **raw text** of the
+    snapshot's running config — both stored as plain strings — because there
+    is no worker-only Genie harness to parse a free-text golden into the same
+    abstract-config shape as the snapshot's ``data["config"]`` (the original v1
+    docstring claimed such a scaffold; it was never implemented, and a
+    line-oriented parse into a dict-of-lists produced a shape not comparable to
+    the Genie dict). The ``data["config"]`` Genie structured dict is still
+    captured for Phase 3 snapshot-vs-snapshot diffs; compliance uses the
+    ``data["config_raw"]`` text path. Ordered/structured compliance (e.g. ACL
+    order, interface MTU constraints) is v2.
+
+    The ``golden`` and ``snapshot`` FKs are nullable (``on_delete=SET_NULL``)
+    so a compliance run whose golden or snapshot was deleted between the user
+    clicking "Run compliance" and the worker picking up the job can still
+    write an error row (recording the missing id in ``parser_warnings``) rather
+    than failing ``full_clean()`` on a dangling FK. This matches the Phase 3
+    diff job's error-row contract (``PyatsSnapshotDiff.before`` / ``.after``
+    are also nullable).
 
     Multi-vendor graceful degradation carries through from Phase 2/3: a
-    compliance run against an unsupported-platform snapshot (empty ``data``)
-    is classified as ``error`` with a warning, not silently skipped — the row
-    is still created so the operator sees the failure in the compliance
-    history, mirroring Phase 2's unsupported/error snapshot rows and Phase 3's
-    empty/error diff rows.
+    compliance run against an unsupported-platform snapshot (no
+    ``config_raw``) is classified as ``error`` with a warning, not silently
+    skipped — the row is still created so the operator sees the failure in the
+    compliance history, mirroring Phase 2's unsupported/error snapshot rows
+    and Phase 3's empty/error diff rows.
 
     The ``diff`` payload shape is the same as :class:`PyatsSnapshotDiff.diff`
     (see that model's docstring) so the ``inc/diff_tree.html`` partial renders
@@ -570,15 +595,30 @@ class PyatsComplianceRun(NetBoxModel):
     )
     golden = models.ForeignKey(
         to="netbox_pyats.PyatsGoldenConfig",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="compliance_runs",
-        help_text="The golden config this run compared against.",
+        help_text=(
+            "The golden config this run compared against. Nullable so a "
+            "compliance run whose golden row was deleted between the user "
+            "clicking 'Run compliance' and the worker picking up the job can "
+            "still write an error row (recording the missing id in "
+            "parser_warnings) rather than failing full_clean() on a dangling "
+            "FK. Mirrors the Phase 3 PyatsSnapshotDiff.before/after nullability."
+        ),
     )
     snapshot = models.ForeignKey(
         to="netbox_pyats.PyatsSnapshot",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="compliance_runs",
-        help_text="The snapshot this run compared against the golden config.",
+        help_text=(
+            "The snapshot this run compared against the golden config. "
+            "Nullable for the same reason as `golden` (error-row persistence "
+            "on a dangling snapshot FK)."
+        ),
     )
     result = models.CharField(
         max_length=20,

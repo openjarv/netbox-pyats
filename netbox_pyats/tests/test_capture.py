@@ -113,7 +113,12 @@ class TestConfigCapture:
         d = FakePyatsDevice(os="iosxe", config_output={"hostname": "rtr01"})
         result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_CONFIG)
         assert result.status == SnapshotStatusChoices.STATUS_SUCCESS
-        assert result.data == {"config": {"hostname": "rtr01"}}
+        # Both the structured Genie dict (config) and the raw running-config
+        # text (config_raw) are captured; compliance uses config_raw.
+        assert result.data == {
+            "config": {"hostname": "rtr01"},
+            "config_raw": "!\nversion 15.6\n!\nend\n",
+        }
         assert result.warnings == []
 
     def test_config_parse_failure_falls_back_to_execute(self):
@@ -128,6 +133,8 @@ class TestConfigCapture:
         assert result.status == SnapshotStatusChoices.STATUS_SUCCESS
         assert "raw" in result.data["config"]
         assert "_parser_error" in result.data["config"]
+        # config_raw is still populated from the successful execute() call.
+        assert result.data["config_raw"] == "!\nversion 15.6\n!\nend\n"
 
     def test_config_parse_and_execute_both_fail(self):
         d = FakePyatsDevice(
@@ -137,8 +144,10 @@ class TestConfigCapture:
         )
         result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_CONFIG)
         # Both halves failed → error status, empty config, warning recorded.
+        # config_raw is "" (execute failed) — compliance against this snapshot
+        # classifies as error with "snapshot raw config is empty".
         assert result.status == SnapshotStatusChoices.STATUS_ERROR
-        assert result.data == {"config": {}}
+        assert result.data == {"config": {}, "config_raw": ""}
         assert any("config capture failed" in w for w in result.warnings)
 
 
@@ -199,6 +208,7 @@ class TestFullCapture:
         assert "config" in result.data
         assert "state" in result.data
         assert result.data["config"] == {"hostname": "rtr01"}
+        assert "config_raw" in result.data  # captured for compliance
         assert "show version" in result.data["state"]
 
 
@@ -216,7 +226,9 @@ class TestCaptureError:
         )
         result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_FULL)
         assert result.status == SnapshotStatusChoices.STATUS_ERROR
-        assert result.data == {"config": {}, "state": {}}
+        # config_raw is "" (execute failed) — compliance against this
+        # snapshot classifies as error with "snapshot raw config is empty".
+        assert result.data == {"config": {}, "config_raw": "", "state": {}}
         assert any("config capture failed" in w for w in result.warnings)
         assert any("state capture failed" in w for w in result.warnings)
 
