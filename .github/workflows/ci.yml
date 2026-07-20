@@ -88,6 +88,7 @@ jobs:
                  netbox_pyats/tests/test_testbed.py \
                  netbox_pyats/tests/test_diff.py \
                  netbox_pyats/tests/test_capture.py \
+                 netbox_pyats/tests/test_compliance.py \
                  -v
 
   integration:
