@@ -6,6 +6,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.1.0] - Unreleased
 
+### Added — Phase 4 (compliance engine re-land, ATW-64)
+
+- `PyatsGoldenConfig` model (Phase 4, ATW-15): per-device golden/reference running-config text. `name`, `config_text` (operator-authored free text or promoted from a snapshot), `source` (manual / snapshot), `source_snapshot` FK (`SET_NULL`). Unique by `(device, name)`.
+- `PyatsComplianceRun` model (Phase 4, ATW-15): one compliance-check result (golden vs. snapshot) as JSONB — `diff` (structured tree, same shape as `PyatsSnapshotDiff.diff`), `summary` (added/removed/changed/unchanged counts), `result` (compliant/drift/error), `parser_warnings`, `size_bytes`. `golden`/`snapshot` FKs use `SET_NULL` so compliance history survives golden/snapshot deletion. Indexed by `(device, -created)` and `(device, result, -created)`.
+- `run_compliance` RQ job (`netbox_pyats.jobs`): loads a golden + snapshot of the same device, parses the golden text on the worker with the same Genie parser the snapshot used (via `netbox_pyats.golden_parse.parse_golden_config_text` — no live device), diffs golden vs. snapshot config via `netbox_pyats.compliance.run_compliance`, persists a `PyatsComplianceRun` row. Enqueued on the dedicated `pyats` queue via `enqueue_compliance`. Same-device invariant enforced; missing-golden/snapshot and device-mismatch paths write an error row (without dangling FK objects so `full_clean()` doesn't `ValidationError`).
+- `golden_parse.py` (new module, worker-only): `parse_golden_config_text(text, *, os)` constructs a minimal in-memory `pyats.topology.Device` with `os=<os>` and calls `device.parse("show running-config", output=text)`. Genie parser discovery selects the right parser; no connection is opened. `GoldenParseError` surfaces parse failures. See ADR-0004.
+- `PyatsSnapshot.parsed_os` field (migration `0006`): the pyATS os string used by the Genie parser at capture time, so compliance runs can re-parse a golden config with the same parser even after the device is deleted. Set by `capture_snapshot_job` from `CaptureResult.parsed_os`.
+- `compliance.py` (`run_compliance`): pure-Python compliance engine — takes a parsed golden dict + snapshot config dict, runs `diff_snapshots`, classifies as compliant/drift/error. Graceful degradation: empty/missing inputs → `error` with a warning, row still created.
+- Compliance viewer (`/plugins/pyats/compliance/<pk>/`): reuses the Phase 3 diff-tree viewer partial (`inc/diff_tree.html`) — zero new rendering code.
+- Device-page "PyATS" tab compliance picker: select a golden config + a config/full snapshot → enqueues `run_compliance`. Recent-compliance-runs list with result badges and golden vs snapshot links. `template_content.py` uses `SnapshotKindChoices` constants (not hardcoded strings).
+- Golden config CRUD views + templates + REST API viewset + GraphQL type + search index + filterset + table + nav menu entry.
+- Compliance run list/detail/delete/bulk-delete views + REST API viewset (read-only) + GraphQL type + search index + filterset + table + nav menu entry.
+- `PyatsGoldenConfig.clone_fields` intentionally omits `config_text` (clone is for structure, not content).
+- Unit tests: `test_compliance.py` (compliance engine covering compliant/drift/error/size-bytes/JSON-serializability/realistic payloads), `test_golden_parse.py` (golden parser harness + e2e compliance acceptance gate — the regression test for the ATW-64 shape-mismatch bug). Both require `pyats[full]` installed and skip cleanly when absent.
+- ADR-0004: compliance comparison shape — Option 1 (Genie parser harness on the worker) and the rejection of parse-on-save (Option 2) and line-oriented-both-sides (Option 3).
+
 ### Added
 
 - NetBox plugin scaffold (`netbox_pyats/`): `PluginConfig`, `PLUGINS_CONFIG` schema, entry point, navigation menu (PyATS Credentials, Add Credential).

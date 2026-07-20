@@ -55,11 +55,13 @@ class CaptureResult:
     """Outcome of a single :func:`capture_snapshot` call.
 
     The :class:`~netbox_pyats.jobs.CaptureSnapshotJob` runner writes this to a
-    :class:`~netbox_pyats.models.PyatsSnapshot` row: ``data`` → ``data``,
+    :class:`netbox_pyats.models.PyatsSnapshot` row: ``data`` → ``data``,
     ``warnings`` → ``parser_warnings``, ``status`` → ``status``, and the
     version strings → the corresponding model fields. ``size_bytes`` is
     derived from the JSON-serialized ``data`` so the UI can render it without
-    re-serializing.
+    re-serializing. ``parsed_os`` carries the pyATS os string used by the Genie
+    parser, stored on the snapshot so compliance runs can re-parse a golden
+    config with the same parser even after the device is deleted.
     """
 
     status: str = SnapshotStatusChoices.STATUS_SUCCESS
@@ -67,6 +69,7 @@ class CaptureResult:
     warnings: list = field(default_factory=list)
     genie_version: str = ""
     pyats_version: str = ""
+    parsed_os: str = ""
 
     @property
     def size_bytes(self) -> int:
@@ -217,6 +220,7 @@ def capture_snapshot(pyats_device, *, kind: str = SnapshotKindChoices.KIND_FULL)
             warnings=[f"platform os={os_value!r} has no Genie parser; skipped"],
             genie_version=genie_version,
             pyats_version=pyats_version,
+            parsed_os=os_value,
         )
 
     warnings: list = []
@@ -249,6 +253,7 @@ def capture_snapshot(pyats_device, *, kind: str = SnapshotKindChoices.KIND_FULL)
             warnings=[f"capture error: {exc}", traceback.format_exc()],
             genie_version=genie_version,
             pyats_version=pyats_version,
+            parsed_os=os_value,
         )
 
     # If both halves failed in a "full" capture, treat the whole thing as an
@@ -269,6 +274,7 @@ def capture_snapshot(pyats_device, *, kind: str = SnapshotKindChoices.KIND_FULL)
         warnings=warnings,
         genie_version=genie_version,
         pyats_version=pyats_version,
+        parsed_os=os_value,
     )
 
 

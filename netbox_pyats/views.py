@@ -22,6 +22,21 @@ Phase 3 (ATW-14) adds:
   redirects back to the device page. The view requires
   ``netbox_pyats.add_pyatssnapshotdiff`` so only authorized operators can
   trigger diffs.
+
+Phase 4 (ATW-15) adds:
+
+- Standard NetBox list/detail/edit views for :class:`PyatsGoldenConfig` (the
+  ``config_text`` is rendered in a ``<pre>`` block via the golden detail
+  template — no JS dependency). Goldens are operator-authored (manual source)
+  or promoted from a snapshot.
+- Standard NetBox list/detail views for :class:`PyatsComplianceRun` (the
+  JSONB ``diff`` tree is rendered server-side via the Phase 3 diff detail
+  template's tree partial — reusing the same viewer).
+- A ``device_compliance`` view that the device-page PyATS compliance sub-tab
+  POSTs to; it enqueues a :func:`run_compliance_job` on the dedicated ``pyats``
+  RQ queue and redirects back to the device page. The view requires
+  ``netbox_pyats.add_pyatscompliancerun`` so only authorized operators can
+  trigger compliance runs.
 """
 
 from django.contrib import messages
@@ -33,7 +48,7 @@ from utilities.views import register_model_view
 
 from . import filtersets, forms, jobs, tables
 from .choices import SnapshotKindChoices, SnapshotTriggerChoices
-from .models import PyatsCredential, PyatsSnapshot, PyatsSnapshotDiff
+from .models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsSnapshot, PyatsSnapshotDiff
 
 
 class PyatsCredentialListView(generic.ObjectListView):
@@ -228,5 +243,141 @@ class DeviceDiffView(PermissionRequiredMixin, View):
             request,
             f"PyATS diff queued for {device} ({before_id}→{after_id}). "
             "It will appear in the PyATS tab when the worker finishes.",
+        )
+        return redirect(device.get_absolute_url())
+
+
+# --------------------------------------------------------------------------- #
+# Compliance views (Phase 4, ATW-15)
+# --------------------------------------------------------------------------- #
+
+
+class PyatsGoldenConfigListView(generic.ObjectListView):
+    """List of all PyATS golden configs across all devices.
+
+    Filterable by device and source (manual / from snapshot). The
+    device-page PyATS compliance sub-tab links here with ``?device_id=<pk>``
+    for the per-device golden history.
+    """
+
+    queryset = PyatsGoldenConfig.objects.all()
+    table = tables.PyatsGoldenConfigTable
+    filterset = filtersets.PyatsGoldenConfigFilterSet
+    filterset_form = forms.PyatsGoldenConfigFilterForm
+
+
+@register_model_view(PyatsGoldenConfig)
+class PyatsGoldenConfigView(generic.ObjectView):
+    """Detail view for a single golden config.
+
+    Renders the ``config_text`` in a ``<pre>`` block, the source badge, and the
+    source_snapshot link (when promoted from a snapshot) via the golden detail
+    template — no JS dependency.
+    """
+
+    queryset = PyatsGoldenConfig.objects.all()
+
+
+@register_model_view(PyatsGoldenConfig, "edit")
+class PyatsGoldenConfigEditView(generic.ObjectEditView):
+    """Create/edit view for a PyATS Golden Config."""
+
+    queryset = PyatsGoldenConfig.objects.all()
+    form = forms.PyatsGoldenConfigForm
+
+
+@register_model_view(PyatsGoldenConfig, "delete")
+class PyatsGoldenConfigDeleteView(generic.ObjectDeleteView):
+    queryset = PyatsGoldenConfig.objects.all()
+
+
+class PyatsGoldenConfigBulkDeleteView(generic.BulkDeleteView):
+    queryset = PyatsGoldenConfig.objects.all()
+    table = tables.PyatsGoldenConfigTable
+
+
+class PyatsComplianceRunListView(generic.ObjectListView):
+    """List of all PyATS compliance runs across all devices.
+
+    Filterable by device, result (compliant / drift / error), and whether the
+    run has drift or warnings. The device-page PyATS compliance sub-tab links
+    here with ``?device_id=<pk>`` for the per-device compliance history.
+    """
+
+    queryset = PyatsComplianceRun.objects.all()
+    table = tables.PyatsComplianceRunTable
+    filterset = filtersets.PyatsComplianceRunFilterSet
+    filterset_form = forms.PyatsComplianceRunFilterForm
+
+
+@register_model_view(PyatsComplianceRun)
+class PyatsComplianceRunView(generic.ObjectView):
+    """Detail view for a single compliance run.
+
+    Renders the JSONB ``diff`` tree, the ``summary`` counts, and
+    ``parser_warnings`` via the compliance run detail template (which reuses
+    the Phase 3 ``inc/diff_tree.html`` partial — no JS dependency). The
+    ``golden``/``snapshot`` rows are linked so the operator can drill into
+    either side.
+    """
+
+    queryset = PyatsComplianceRun.objects.all()
+
+
+@register_model_view(PyatsComplianceRun, "delete")
+class PyatsComplianceRunDeleteView(generic.ObjectDeleteView):
+    queryset = PyatsComplianceRun.objects.all()
+
+
+class PyatsComplianceRunBulkDeleteView(generic.BulkDeleteView):
+    queryset = PyatsComplianceRun.objects.all()
+    table = tables.PyatsComplianceRunTable
+
+
+class DeviceComplianceView(PermissionRequiredMixin, View):
+    """Endpoint the device-page PyATS compliance sub-tab POSTs to.
+
+    Accepts ``golden_id`` and ``snapshot_id``, validates they both belong to
+    the device in the URL, enqueues a :func:`run_compliance_job` on the
+    ``pyats`` RQ queue via :func:`jobs.enqueue_compliance`, flashes a
+    "compliance run queued" message, and redirects back to the device page.
+    The actual compliance run executes on the worker; the compliance row
+    appears in the device-page compliance history once the job completes and
+    the page is refreshed.
+    """
+
+    permission_required = "netbox_pyats.add_pyatscompliancerun"
+
+    def post(self, request, device_id):
+        from dcim.models import Device
+
+        device = get_object_or_404(Device, pk=device_id)
+        form = forms.DeviceComplianceForm(request.POST)
+        if not form.is_valid():
+            messages.error(request, f"Invalid compliance request: {form.errors}")
+            return redirect(device.get_absolute_url())
+
+        golden_id = form.cleaned_data["golden_id"]
+        snapshot_id = form.cleaned_data["snapshot_id"]
+
+        # Validate the golden config and snapshot both exist and belong to
+        # this device. Done in the view (not the job) so the operator gets
+        # immediate feedback on stale-picked or cross-device inputs.
+        golden = PyatsGoldenConfig.objects.filter(pk=golden_id, device=device).first()
+        snapshot = PyatsSnapshot.objects.filter(pk=snapshot_id, device=device).first()
+        if golden is None or snapshot is None:
+            messages.error(
+                request,
+                "Both the golden config and the snapshot must exist and belong to "
+                f"this device. (golden_id={golden_id}, snapshot_id={snapshot_id})",
+            )
+            return redirect(device.get_absolute_url())
+
+        jobs.enqueue_compliance(device, golden_id=golden_id, snapshot_id=snapshot_id, user=request.user)
+        messages.success(
+            request,
+            f"PyATS compliance run queued for {device} (golden #{golden_id} vs "
+            f"snapshot #{snapshot_id}). It will appear in the PyATS tab when the "
+            "worker finishes.",
         )
         return redirect(device.get_absolute_url())

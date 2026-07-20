@@ -1,23 +1,24 @@
 # netbox-pyats
 
-An [Atw](https://github.com/openjarv) [NetBox](https://netbox.dev) plugin that brings [Cisco PyATS / Genie](https://developer.cisco.com/pyats/) into the NetBox UI — dynamic testbed building from the NetBox ORM, plugin-local encrypted credentials, device snapshots stored as JSONB, structured snapshot diffs, and (in later phases) config compliance from the device page.
+An [Atw](https://github.com/openjarv) [NetBox](https://netbox.dev) plugin that brings [Cisco PyATS / Genie](https://developer.cisco.com/pyats/) into the NetBox UI — dynamic testbed building from the NetBox ORM, plugin-local encrypted credentials, device snapshots stored as JSONB, structured snapshot diffs, and config compliance from the device page.
 
-> **Phase 3 (this release):** everything in Phases 1–2, plus the snapshot diff engine — a `PyatsSnapshotDiff` model (JSONB structured diff tree), a `run_diff` RQ job running a pure-Python recursive diff over two snapshots' JSONB on the dedicated `pyats` queue, a diff viewer (server-rendered collapsible tree, no JS), and a "Diff two snapshots" picker on the Device page PyATS tab. Compliance lands in a subsequent phase (see the ATW-10 build plan).
+> **Phase 4 (this release):** everything in Phases 1–3, plus the compliance engine — a `PyatsGoldenConfig` model (operator-authored golden running-config text per device), a `PyatsComplianceRun` model (JSONB structured diff tree + summary, same shape as `PyatsSnapshotDiff`), a `run_compliance` RQ job running on the dedicated `pyats` queue, a compliance viewer (reuses the Phase 3 diff-tree partial), and a "Run compliance" picker on the Device page PyATS tab. The golden config text is parsed on the worker with the same Genie parser the snapshot used (no live device connection), so both sides are in the same structured shape and the compliance classification is meaningful. See [ADR-0004](docs/adr/0004-compliance-comparison-shape.md) for the comparison-shape decision.
 
 ## What it does
 
 Real-world NetBox deployments already have device inventories. PyATS needs a testbed to talk to those devices, but maintaining a static YAML testbed alongside NetBox duplicates the source of truth. `netbox-pyats` builds the testbed directly from the NetBox ORM at runtime — the NetBox device record *is* the testbed.
 
-Phase 3 ships:
+Phase 4 ships:
 
 - **`PyatsCredential` model** — plugin-local, Fernet-encrypted device credentials (password + enable secret). Never exposed via REST, GraphQL, or the detail view; only ciphertext is persisted.
 - **`build_testbed(device_qs)`** — constructs a `pyats.topology.Testbed` from a NetBox Device queryset: maps Platform → pyATS `os`, resolves the management IP from `primary_ip4`/`primary_ip6`, attaches the device's `PyatsCredential`, and **flags unsupported platforms gracefully** (`os = "unsupported - no parser"`) rather than crashing batch runs.
-- **`PyatsSnapshot` model + `capture_snapshot` RQ job** — click "Capture snapshot" on a device's PyATS tab and the worker connects via Unicon, runs `device.parse('show running-config')` (config) and/or a small OS-agnostic state command set via `device.parse(...)` (state), and stores the parsed result as JSONB. Devices without Genie parser support are surfaced as `unsupported` in the history (a row is still created) rather than failing the run. Capture errors are recorded as `error` rows with the exception text in `parser_warnings`.
+- **`PyatsSnapshot` model + `capture_snapshot` RQ job** — click "Capture snapshot" on a device's PyATS tab and the worker connects via Unicon, runs `device.parse('show running-config')` (config) and/or a small OS-agnostic state command set via `device.parse(...)` (state), and stores the parsed result as JSONB. Devices without Genie parser support are surfaced as `unsupported` in the history (a row is still created) rather than failing the run. Capture errors are recorded as `error` rows with the exception text in `parser_warnings`. The snapshot's `parsed_os` field records the Genie parser's os for compliance reuse.
 - **`PyatsSnapshotDiff` model + `run_diff` RQ job** — pick any two snapshots of the same device from the PyATS tab and the worker runs a structured recursive diff over their JSONB `data`, storing the diff tree + a flat summary (added/removed/changed/unchanged counts) as a `PyatsSnapshotDiff` row. The diff engine is pure-Python (no Genie needed — the snapshots are already-serialized JSONB, so `Genie.diff` isn't applicable); it degrades gracefully (empty inputs → `status="empty"`, malformed inputs → `status="error"` with a warning, row always created).
-- **Dedicated `pyats` RQ queue + worker** — pyATS/Genie work runs on its own queue (declared via `NetBoxPyATSConfig.queues`), isolated from NetBox's default workers. The default NetBox worker does not need pyATS installed; run a second worker pointed at `pyats` (see `dev/Dockerfile.pyats-worker` and [docs/workers.md](docs/workers.md)). The diff job itself needs no pyATS, but runs on the `pyats` queue for isolation and a single worker image.
-- **Device-page "PyATS" tab** — capture button (config / state / full), recent-snapshot history with status badges and a warnings indicator, "Diff two snapshots" picker (offered when the device has ≥2 snapshots), and a recent-diffs list.
-- **Diff viewer** (`/plugins/pyats/diffs/<pk>/`) — server-rendered collapsible `<details>` tree (no JS): changed subtrees open by default, unchanged ones collapsed; before/after values shown side-by-side for changed leaves; raw-JSON fallback; summary badges; parser warnings.
-- **CRUD + REST + GraphQL** for credentials, snapshots, and diffs, all under `/plugins/pyats/`.
+- **`PyatsGoldenConfig` model + `PyatsComplianceRun` model + `run_compliance` RQ job** — author a golden running-config per device (plain text or promoted from a snapshot), pick a golden + snapshot on the device's PyATS tab, and the worker parses the golden text with the same Genie parser the snapshot used (no live device), diffs golden vs. snapshot config, and classifies as `compliant` / `drift` / `error`. The diff tree reuses the Phase 3 viewer. Compliance history uses `SET_NULL` FKs so it survives golden/snapshot deletion.
+- **Dedicated `pyats` RQ queue + worker** — pyATS/Genie work runs on its own queue (declared via `NetBoxPyATSConfig.queues`), isolated from NetBox's default workers. The default NetBox worker does not need pyATS installed; run a second worker pointed at `pyats` (see `dev/Dockerfile.pyats-worker` and [docs/workers.md](docs/workers.md)). The diff job needs no pyATS but runs on the `pyats` queue for isolation; the compliance job needs Genie (to re-parse the golden text) and runs on the `pyats` queue where `pyats[full]` is installed.
+- **Device-page "PyATS" tab** — capture button (config / state / full), recent-snapshot history with status badges and a warnings indicator, "Diff two snapshots" picker (offered when the device has ≥2 snapshots), "Run compliance" picker (offered when the device has ≥1 golden config and ≥1 config/full snapshot), and recent-diffs + recent-compliance-runs lists.
+- **Diff viewer** (`/plugins/pyats/diffs/<pk>/`) and **compliance viewer** (`/plugins/pyats/compliance/<pk>/`) — server-rendered collapsible `<details>` tree (no JS): changed subtrees open by default, unchanged ones collapsed; before/after values shown side-by-side for changed leaves; raw-JSON fallback; summary badges; parser warnings. The compliance viewer reuses the Phase 3 diff-tree partial.
+- **CRUD + REST + GraphQL** for credentials, snapshots, diffs, golden configs, and compliance runs, all under `/plugins/pyats/`.
 
 ## Compatibility matrix
 
@@ -79,7 +80,9 @@ See [docs/workers.md](docs/workers.md) for the full worker deployment guide, and
 2. **Capture a snapshot** from a device's detail page → **PyATS** tab → pick a kind (config / state / full) → **Capture**. The job is enqueued on the `pyats` queue; the snapshot appears in the tab's recent-snapshots list when the worker finishes.
 3. **Diff two snapshots** from the same device's **PyATS** tab → **Diff two snapshots** picker → pick a before and an after snapshot → **Diff**. The job is enqueued on the `pyats` queue; the diff appears in the tab's recent-diffs list when the worker finishes. Open it to see a collapsible tree of added/removed/changed/unchanged leaves, with before/after values side-by-side for changed leaves, plus a flat summary of counts.
 4. **Browse snapshots and diffs** under **Plugins → PyATS → PyATS Snapshots** and **PyATS Snapshot Diffs** (filterable by device, status, etc.). The detail views render the JSONB payload and any parser warnings.
-5. **Build a testbed programmatically** (the snapshot pipeline does this internally):
+5. **Run compliance** from a device's **PyATS** tab → **Run compliance** picker → pick a golden config + a config/full snapshot → **Run**. The worker parses the golden text with the same Genie parser the snapshot used (no live device), diffs golden vs. snapshot config, and classifies as `compliant` / `drift` / `error`. Open the compliance run to see the same collapsible diff tree as the snapshot diff viewer, with before/after values for changed leaves.
+6. **Author golden configs** under **Plugins → PyATS → PyATS Golden Configs** (plain text, or promote from a snapshot via the "use snapshot as golden" flow).
+7. **Build a testbed programmatically** (the snapshot pipeline does this internally):
 
 ```python
 from netbox_pyats.testbed import build_testbed
@@ -108,14 +111,26 @@ Genie parsers cover Cisco IOS/XE/XR/NX-OS/ASA, Juniper JunOS, Arista EOS, and No
 
 Adding a slug to the map is a commitment that Genie has real parser coverage for that os; unknown slugs degrade gracefully rather than silently producing empty snapshots.
 
+## Compliance engine
+
+The compliance engine compares an operator-authored **golden config** (the "expected" running config) against a captured **snapshot's** parsed config payload and classifies the device as `compliant` (no drift), `drift` (differences found), or `error` (bad inputs / unsupported platform / job raised). The structured diff tree is stored as JSONB on a `PyatsComplianceRun` row and rendered with the same Phase 3 diff-tree viewer partial — zero new rendering code.
+
+**How the golden is parsed:** the golden config text is a plain text field (operator-authored or promoted from a snapshot). At compliance-run time, the `run_compliance` RQ job parses it on the `pyats` worker with the **same Genie parser the snapshot used** — `parse_golden_config_text(text, os=snapshot.parsed_os)` constructs a minimal in-memory `pyats.topology.Device` with `os=<os>` and calls `device.parse("show running-config", output=text)`. No live device connection is opened; the parser harness feeds the golden text directly. This produces a Genie abstract-config dict in the same shape as `snapshot.data["config"]`, so the Phase 3 `diff_snapshots` engine can diff them directly and the result is meaningful.
+
+**OS provenance:** the snapshot's `parsed_os` field (set at capture time from the device's platform mapping) records which Genie parser was used. Compliance runs use it to select the same parser for the golden text. If the device is deleted after capture, compliance history still works because `parsed_os` is stored on the snapshot row.
+
+**Why not parse on save (Option 2) or line-oriented both sides (Option 3):** see [ADR-0004](docs/adr/0004-compliance-comparison-shape.md). The short version: parse-on-save breaks the ADR-0003 invariant that the web process is Genie-free, and line-oriented-both-sides loses the structured diff tree that is the entire justification for reusing the Phase 3 viewer.
+
+**Compliance history survives deletion:** `PyatsComplianceRun.golden` and `.snapshot` use `on_delete=SET_NULL` (not `CASCADE`) so deleting a golden config or snapshot does not wipe the compliance history — the row stays with `golden=None`/`snapshot=None`, preserving the audit trail.
+
 ## Development
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for local dev setup, tests, and lint.
 
 ```bash
 # Pure-Python tests (no NetBox DB needed)
-pip install -e ".[dev]"
-pytest netbox_pyats/tests/test_crypto.py netbox_pyats/tests/test_testbed.py netbox_pyats/tests/test_diff.py
+pip install -e ".[dev,pyats]"
+pytest netbox_pyats/tests/test_crypto.py netbox_pyats/tests/test_testbed.py netbox_pyats/tests/test_diff.py netbox_pyats/tests/test_capture.py netbox_pyats/tests/test_compliance.py netbox_pyats/tests/test_golden_parse.py
 
 # Full NetBox test suite (integration)
 docker compose -f docker-compose.dev.yml exec netbox pytest netbox_pyats/tests
@@ -126,8 +141,8 @@ docker compose -f docker-compose.dev.yml exec netbox pytest netbox_pyats/tests
 CI runs on every push to `main` and every PR via [.github/workflows/ci.yml](.github/workflows/ci.yml):
 
 - **lint** — `black --check`, `isort --check-only`, `flake8` (Python 3.12).
-- **unit** — pure-Python tests on the compatibility-matrix Python versions (3.10 / 3.11 / 3.12) with `pyats[full]` installed so the testbed suite runs instead of skipping. No NetBox / PostgreSQL / Redis required.
-- **integration** — full NetBox-dependent suite inside the dev container (`docker-compose.dev.yml`). Wired but **non-gating** until the NetBox 4.6 dev-image compatibility work (ATW-25) lands; the stock `netboxcommunity/netbox:v4.6` image ships Python 3.14, which is outside the plugin's compatibility matrix.
+- **unit** — pure-Python tests on the compatibility-matrix Python versions (3.10 / 3.11 / 3.12) with `pyats[full]` installed so the testbed, compliance, and golden-parse suites run instead of skipping. No NetBox / PostgreSQL / Redis required.
+- **integration** — full NetBox-dependent suite inside the dev container (`docker-compose.dev.yml`). Gating since ATW-38 resolved the NetBox 4.6.5 compatibility bugs (PR #15) and the dev image builds `pyats[full]` and applies the plugin migrations.
 
 ## License
 
