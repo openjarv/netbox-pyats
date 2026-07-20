@@ -20,7 +20,7 @@ Phase 4 ships:
 - **Device-page "PyATS" tab** — capture button (config / state / full), recent-snapshot history with status badges and a warnings indicator, "Diff two snapshots" picker (offered when the device has ≥2 snapshots), a "Run compliance" picker (offered when the device has ≥1 golden config and ≥1 config/full snapshot), and recent-diffs / recent-compliance-runs lists with status/result badges.
 - **Diff viewer** (`/plugins/pyats/diffs/<pk>/`) — server-rendered collapsible `<details>` tree (no JS): changed subtrees open by default, unchanged ones collapsed; before/after values shown side-by-side for changed leaves; raw-JSON fallback; summary badges; parser warnings.
 - **Compliance-run viewer** (`/plugins/pyats/compliance-runs/<pk>/`) — reuses the Phase 3 diff-tree partial so the same collapsible before/after tree renders the golden-vs-snapshot divergence, with a result badge (compliant / drift / error), drift indicator, and any warnings.
-- **CRUD + REST + GraphQL** for credentials, snapshots, diffs, golden configs, and compliance runs, all under `/plugins/pyats/`. (Snapshots, diffs, and compliance runs are read-only in v1; credentials and golden configs are fully editable.)
+- **CRUD + REST** for credentials, snapshots, diffs, golden configs, and compliance runs, all under `/plugins/pyats/`, plus **GraphQL** types for credentials, snapshots, and diffs (GraphQL for golden configs and compliance runs is deferred — see the [changelog](CHANGELOG.md)). (Snapshots, diffs, and compliance runs are read-only in v1; credentials and golden configs are fully editable.)
 
 ## Compatibility matrix
 
