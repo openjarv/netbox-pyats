@@ -194,3 +194,84 @@ the plugin at the same time without colliding. The rules:
   `restart: unless-stopped` will bring it back; check logs for the cause.
 - **Need more memory for NetBox**: NetBox 4.6 with 4 granian workers can
   exceed 1 GB under load. Raise it: `NETBOX_MEM=2g docker compose ... up -d`.
+
+### `test_netbox` already exists / `EOFError` / "terminating connection due to administrator command" (ATW-85)
+
+Symptom: `docker compose exec netbox pytest ...` (or
+`python manage.py test ...`) fails during test-DB creation with one of:
+
+- `django.db.utils.ProgrammingError: database "test_netbox" already exists`
+- `EOFError: EOF when reading a line` (from Django's
+  `Type 'yes' if you would like to try deleting the test database…` prompt)
+- `django.db.utils.OperationalError: terminating connection due to
+  administrator command`
+
+**There is no environmental monitor killing the test runner.** The dev
+container has no cron, no supervisor, and no background process that touches
+`test_netbox`. The container's `restart: unless-stopped` policy does not
+restart it while it is healthy. Verified on 2026-07-21 (ATW-85): container
+`OOMKilled=false`, `RestartCount=0`, `docker inspect` shows no OOM kills
+across the atw-83 stack; a clean `python manage.py test
+netbox_pyats.tests.test_models` run created `test_netbox`, ran all
+migrations, ran the tests, and Django tore the test DB down — no SIGKILL.
+
+The real cause, in order of likelihood:
+
+1. **A previous test run is still holding `test_netbox` open.** The Django
+   test runner creates `test_netbox` and tears it down at the end. If the
+   previous run was killed mid-migration (host `timeout`, lost SSH session,
+   container restart while a test run was in flight, an agent's
+   `docker compose exec` got disconnected), the postgres backend is left
+   `idle in transaction` against `test_netbox`. The next run then sees
+   `database "test_netbox" already exists`, prompts `Type 'yes'…`, and
+   because `docker compose exec -T` has no stdin it gets `EOFError` —
+   leaving *another* idle connection behind.
+2. **Two test runs racing the same worktree's container.** If two shells
+   (or two agents) `docker compose exec` into the same worktree's `netbox`
+   container and both start a test run, the second one's
+   `CREATE DATABASE test_netbox` collides with the first one's. The loser
+   hangs on `input()` and leaves a stuck connection. On this dev host this
+   is the most common way a stuck `test_netbox` appears — a sibling agent
+   or shell loop-spawning `pytest` against the same worktree.
+3. **An operator ran `pg_terminate_backend(pid) WHERE datname='test_netbox'`
+   while a test run was actively migrating.** That kills the migration
+   mid-statement and surfaces as
+   `OperationalError: terminating connection due to administrator command`
+   — which looks like a "monitor" killing the test runner but is the
+   operator's own cleanup command hitting the live test run.
+
+Recover (run from inside the worktree):
+
+```bash
+# 1. Kill any leftover test run still alive inside the container.
+docker compose -f docker-compose.dev.yml exec -T netbox \
+  bash -c "pkill -9 -f 'manage.py test' || true; pkill -9 -f 'pytest netbox_pyats' || true"
+
+# 2. Drop the leftover idle connections holding test_netbox, then drop the DB.
+docker compose -f docker-compose.dev.yml exec -T postgres \
+  psql -U netbox -d postgres -c \
+  "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='test_netbox';"
+docker compose -f docker-compose.dev.yml exec -T postgres \
+  psql -U netbox -d postgres -c "DROP DATABASE IF EXISTS test_netbox;"
+
+# 3. Confirm it's gone, then re-run your test.
+docker compose -f docker-compose.dev.yml exec -T postgres \
+  psql -U netbox -d postgres -c "SELECT datname FROM pg_database WHERE datname LIKE 'test%';"
+```
+
+Prevention:
+
+- **Don't run two test invocations against the same worktree's container at
+  the same time.** Each worktree is one isolated compose stack; the
+  container is single-tenant for test runs. If a second agent or shell
+  needs to run tests, it should create its own worktree with
+  `scripts/dev-worktree.sh add` and run against its own container.
+- **Let a started test run finish.** The first run after a fresh stack
+  takes ~5–8 minutes: it has to run ~200 NetBox migrations into
+  `test_netbox` before any test code runs. Killing it mid-migration leaves
+  the stuck `test_netbox` that the next run will trip on. If you must
+  interrupt, run the recovery block above before starting another test run.
+- **Never run `pg_terminate_backend` against `test_netbox` while a test
+  run is in flight.** Check `pg_stat_activity` first: if you see an
+  `active` (not `idle`) backend on `test_netbox`, a test run is migrating —
+  wait for it.
