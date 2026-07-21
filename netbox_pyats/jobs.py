@@ -136,6 +136,7 @@ def capture_snapshot_job(
                 parser_warnings=[f"capture error: {exc}", traceback.format_exc()],
                 genie_version="",
                 pyats_version="",
+                parsed_os="",
                 size_bytes=0,
             )
             snapshot.full_clean()
@@ -153,6 +154,7 @@ def capture_snapshot_job(
         parser_warnings=result.warnings,
         genie_version=result.genie_version,
         pyats_version=result.pyats_version,
+        parsed_os=result.parsed_os,
         size_bytes=result.size_bytes,
     )
     snapshot.full_clean()

@@ -196,7 +196,11 @@ class PyatsSnapshot(NetBoxModel):
     by the job so the UI can render it without re-serializing. ``genie_version``
     and ``pyats_version`` are captured from the worker environment so snapshots
     taken with different Genie releases are distinguishable (Genie's parsed
-    output shape drifts between releases).
+    output shape drifts between releases). ``parsed_os`` is the pyATS os
+    string used by the capture (e.g. ``iosxe``, ``iosxr``, ``nxos``) — carried
+    from the testbed at capture time so v2 structured compliance can pick the
+    right Genie parser for a snapshot whose device has since been deleted. The
+    v1 raw-text compliance path does not consume ``parsed_os``.
     """
 
     device = models.ForeignKey(
@@ -257,12 +261,23 @@ class PyatsSnapshot(NetBoxModel):
         default="",
         help_text="pyats version on the worker at capture time (e.g. '26.6').",
     )
+    parsed_os = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+        help_text=(
+            "pyATS os string used by the capture (e.g. 'iosxe', 'iosxr', 'nxos'). "
+            "Carried from the testbed at capture time so v2 structured compliance "
+            "can pick the right Genie parser for a snapshot whose device has since "
+            "been deleted. Not consumed by the v1 raw-text compliance path."
+        ),
+    )
     size_bytes = models.PositiveBigIntegerField(
         default=0,
         help_text="Size of the JSON-serialized `data` payload in bytes (set by the job).",
     )
 
-    clone_fields = ("device", "kind", "triggered_by")
+    clone_fields = ("device", "kind", "triggered_by", "parsed_os")
 
     class Meta:
         ordering = ("-captured_at",)
