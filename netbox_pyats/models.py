@@ -28,6 +28,8 @@ from .choices import (
     CredentialScopeChoices,
     DiffStatusChoices,
     GoldenConfigSourceChoices,
+    PyatsJobStatusChoices,
+    PyatsJobTypeChoices,
     SnapshotKindChoices,
     SnapshotStatusChoices,
     SnapshotTriggerChoices,
@@ -740,3 +742,204 @@ class PyatsComplianceRun(NetBoxModel):
     def has_warnings(self) -> bool:
         """True if this compliance run row carries warnings / error context."""
         return bool(self.parser_warnings)
+
+
+class PyatsJob(NetBoxModel):
+    """One plugin job-tracking row across capture / diff / compliance / batch (Phase 5, ATW-16).
+
+    A plugin-scoped, filterable record of "all PyATS work" that bridges
+    NetBox's :class:`core.models.Job` (the RQ-level tracking row, which NetBox
+    retains on a schedule) and the plugin's own result rows
+    (:class:`PyatsSnapshot`, :class:`PyatsSnapshotDiff`,
+    :class:`PyatsComplianceRun`). Each ``enqueue_*`` helper in
+    :mod:`netbox_pyats.jobs` creates a ``PyatsJob(status=pending)`` *before*
+    ``Job.enqueue`` and passes its pk to the job callable, which sets
+    ``running`` at entry, ``success`` (or ``error`` / ``partial``) on exit,
+    and the relevant ``related_*`` FK to the produced result row on success.
+    See ADR-0005 §3 for the plumbing contract.
+
+    Why a plugin model in addition to ``core.Job``: NetBox's jobs UI is generic
+    and ``core.Job`` rows are purged by NetBox's retention; operators want a
+    single PyATS-scoped view that links a job to the result row it produced and
+    survives ``core.Job`` cleanup. The result-row FK is set by the worker
+    *after* the job runs (the result row is created inside the job), so it
+    cannot live on ``core.Job`` (created before enqueue). A stable per-job
+    :attr:`error` field records the cases where the job raised and the result
+    row could not be written (currently swallowed in :mod:`netbox_pyats.jobs`
+    and only visible in RQ logs). A :attr:`summary` JSONField carries batch
+    counts (``{supported, unsupported, errored, total}``) and a
+    :data:`PyatsJobStatusChoices.STATUS_PARTIAL` status for batches that did
+    not crash but had per-device failures.
+
+    Jobs are append-only history: no edit view, standard delete only. The
+    REST viewset is read-only and the GraphQL type mirrors it (ADR-0001 §5).
+    No backfill — pre-ATW-16 captures/diffs/compliance do not get retroactive
+    ``PyatsJob`` rows (ADR-0005 §Consequences).
+    """
+
+    job_type = models.CharField(
+        max_length=20,
+        choices=PyatsJobTypeChoices,
+        help_text="Kind of plugin job this row tracks: capture / diff / compliance / batch_capture.",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=PyatsJobStatusChoices,
+        default=PyatsJobStatusChoices.STATUS_PENDING,
+        help_text=(
+            "Lifecycle status: pending (enqueued, not yet picked up), running (worker "
+            "started the callable), success (result-row FK set), error (job raised and "
+            "the result row could not be written; see `error` field), partial (batch "
+            "completed without crashing but had per-device failures; see `summary`)."
+        ),
+    )
+    device = models.ForeignKey(
+        to="dcim.Device",
+        on_delete=models.SET_NULL,
+        related_name="pyats_jobs",
+        blank=True,
+        null=True,
+        help_text=(
+            "NetBox device this job targeted. Null for batch_capture jobs (which target "
+            "a queryset, not a single device)."
+        ),
+    )
+    core_job = models.ForeignKey(
+        to="core.Job",
+        on_delete=models.SET_NULL,
+        related_name="pyats_jobs",
+        blank=True,
+        null=True,
+        help_text=(
+            "NetBox core.Job row tracking the RQ run. on_delete=SET_NULL because core.Job "
+            "rows are purged by NetBox's retention; PyatsJob is plugin data and survives."
+        ),
+    )
+    rq_job_id = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="RQ job id for operator cross-reference with rq-dashboard.",
+    )
+    related_snapshot = models.ForeignKey(
+        to="netbox_pyats.PyatsSnapshot",
+        on_delete=models.SET_NULL,
+        related_name="pyats_jobs",
+        blank=True,
+        null=True,
+        help_text=(
+            "For job_type=capture: the PyatsSnapshot row this job produced. Set on "
+            "success. Null for diff/compliance/batch_capture jobs."
+        ),
+    )
+    related_diff = models.ForeignKey(
+        to="netbox_pyats.PyatsSnapshotDiff",
+        on_delete=models.SET_NULL,
+        related_name="pyats_jobs",
+        blank=True,
+        null=True,
+        help_text=(
+            "For job_type=diff: the PyatsSnapshotDiff row this job produced. Set on "
+            "success. Null for capture/compliance/batch_capture jobs."
+        ),
+    )
+    related_compliance = models.ForeignKey(
+        to="netbox_pyats.PyatsComplianceRun",
+        on_delete=models.SET_NULL,
+        related_name="pyats_jobs",
+        blank=True,
+        null=True,
+        help_text=(
+            "For job_type=compliance: the PyatsComplianceRun row this job produced. Set "
+            "on success. Null for capture/diff/batch_capture jobs."
+        ),
+    )
+    started_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text="When the worker started the job callable (set to now() at entry).",
+    )
+    finished_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text="When the job callable returned (success/error/partial).",
+    )
+    error = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "Exception text for the case where the job raised and the result row could "
+            "not be written (the swallowed-exception path in jobs.py). Not a duplicate "
+            "of the result row's parser_warnings; this field covers the one case the "
+            "result row's parser_warnings cannot (no result row was written)."
+        ),
+    )
+    summary = models.JSONField(
+        blank=True,
+        default=dict,
+        help_text=(
+            "Batch counts only: {supported, unsupported, errored, total}. Empty for "
+            "single-device jobs (capture/diff/compliance)."
+        ),
+    )
+
+    clone_fields = ("device", "job_type")
+
+    class Meta:
+        ordering = ("-created",)
+        verbose_name = "PyATS Job"
+        verbose_name_plural = "PyATS Jobs"
+        indexes = [
+            # Most common queries: "recent jobs" (default list), "jobs of this
+            # type" (filter), "jobs of this type in this status" (filter).
+            # Explicit names follow the convention established in 0002/0003/0005
+            # and pin the indexes against Django 5.x auto-rename suggestions.
+            models.Index(fields=("job_type", "-created"), name="pyats_job_type_created_idx"),
+            models.Index(fields=("status", "-created"), name="pyats_job_status_created_idx"),
+            models.Index(fields=("device", "-created"), name="pyats_job_dev_created_idx"),
+        ]
+
+    def __str__(self):
+        if self.device_id:
+            target = str(self.device)
+        else:
+            target = "batch"
+        return (
+            f"PyATS {self.get_job_type_display()} · {target} · "
+            f"{self.get_status_display()} · {self.created:%Y-%m-%d %H:%M:%S}"
+        )
+
+    def get_absolute_url(self):
+        return reverse("plugins:netbox_pyats:pyatsjob", kwargs={"pk": self.pk})
+
+    def get_status_color(self):
+        """Map status to a NetBox color label for table badges.
+
+        ``success`` / ``error`` reuse ADR-0002's color intent; ``pending`` is
+        neutral, ``running`` is info/blue, ``partial`` is warning (per
+        ADR-0005 §2).
+        """
+        return {
+            PyatsJobStatusChoices.STATUS_PENDING: "secondary",
+            PyatsJobStatusChoices.STATUS_RUNNING: "info",
+            PyatsJobStatusChoices.STATUS_SUCCESS: "success",
+            PyatsJobStatusChoices.STATUS_ERROR: "danger",
+            PyatsJobStatusChoices.STATUS_PARTIAL: "warning",
+        }.get(self.status, "secondary")
+
+    @property
+    def related_result(self):
+        """The result row this job produced, regardless of type, or None.
+
+        Convenience accessor for the detail template and the table so they can
+        link to the result row without switching on :attr:`job_type`. Exactly
+        one of ``related_snapshot`` / ``related_diff`` / ``related_compliance``
+        is set per job on success (per ADR-0005 §1).
+        """
+        if self.related_snapshot_id:
+            return self.related_snapshot
+        if self.related_diff_id:
+            return self.related_diff
+        if self.related_compliance_id:
+            return self.related_compliance
+        return None

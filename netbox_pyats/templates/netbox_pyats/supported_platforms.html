@@ -1,0 +1,53 @@
+{% extends 'base/layout.html' %}
+{% load helpers %}
+
+{% block title %}PyATS Supported Platforms{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col col-md-12">
+    <div class="card">
+      <h5 class="card-header">Supported Platforms</h5>
+      <div class="card-body">
+        <p class="text-muted">
+          The static NetBox platform-slug → pyATS os map the plugin uses to build
+          testbeds. Devices on a platform whose slug is in this map will be captured
+          by a batch run; devices on other platforms (or with no platform) are
+          skipped as unsupported. Live Genie introspection is v2; v1 ships the static
+          map the testbed builder actually uses, so this report matches what the
+          capture job will do.
+        </p>
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>Platform slug</th>
+              <th>pyATS os</th>
+              <th>NetBox devices</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in supported_rows %}
+              <tr>
+                <td><code>{{ row.slug }}</code></td>
+                <td><code>{{ row.pyats_os }}</code></td>
+                <td>{{ row.device_count }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <hr>
+        <h6>Unsupported</h6>
+        <p>
+          <span class="badge bg-warning">{{ unsupported_count }}</span>
+          devices on a platform not in the supported map (or with no platform).
+          {% if no_platform_count %}
+            Of those, <span class="badge bg-secondary">{{ no_platform_count }}</span> have no platform set at all.
+          {% endif %}
+          A batch capture against these will skip them with status
+          <code>{{ unsupported_os_sentinel }}</code>.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

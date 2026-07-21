@@ -8,6 +8,7 @@ router.register("pyats-snapshots", views.PyatsSnapshotViewSet)
 router.register("pyats-snapshot-diffs", views.PyatsSnapshotDiffViewSet)
 router.register("pyats-golden-configs", views.PyatsGoldenConfigViewSet)
 router.register("pyats-compliance-runs", views.PyatsComplianceRunViewSet)
+router.register("pyats-jobs", views.PyatsJobViewSet)
 
 app_name = "netbox_pyats"
 urlpatterns = router.urls

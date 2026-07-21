@@ -1,7 +1,7 @@
 import django_tables2 as tables
 from netbox.tables import NetBoxTable
 
-from .models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsSnapshot, PyatsSnapshotDiff
+from .models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsJob, PyatsSnapshot, PyatsSnapshotDiff
 
 
 class PyatsCredentialTable(NetBoxTable):
@@ -221,5 +221,57 @@ class PyatsComplianceRunTable(NetBoxTable):
             "result",
             "has_drift",
             "size_bytes",
+            "created",
+        )
+
+
+class PyatsJobTable(NetBoxTable):
+    """Table configuration for the PyatsJob list view (Phase 5, ATW-16).
+
+    Renders the job's type + status (as colored badges), the targeted device
+    (blank for batch_capture jobs), the result-row link (one of
+    related_snapshot / related_diff / related_compliance, resolved via
+    :attr:`PyatsJob.related_result`), the rq job id (for operator
+    cross-reference with rq-dashboard), and the started/finished timestamps.
+    The `id` column links to the job detail view.
+    """
+
+    id = tables.LinkColumn(verbose_name="ID")
+    job_type = tables.Column(verbose_name="Type")
+    status = tables.TemplateColumn(
+        template_code=(
+            "{% load helpers %}"
+            '<span class="badge bg-{{ record.get_status_color }}">{{ record.get_status_display }}</span>'
+        ),
+        verbose_name="Status",
+    )
+    device = tables.Column(linkify=True, verbose_name="Device")
+    related_result = tables.Column(linkify=True, verbose_name="Result row", accessor="related_result")
+    rq_job_id = tables.Column(verbose_name="RQ job id")
+    started_at = tables.DateTimeColumn(verbose_name="Started at")
+    finished_at = tables.DateTimeColumn(verbose_name="Finished at")
+    created = tables.DateTimeColumn(verbose_name="Created at")
+
+    class Meta(NetBoxTable.Meta):
+        model = PyatsJob
+        fields = (
+            "id",
+            "job_type",
+            "status",
+            "device",
+            "related_result",
+            "rq_job_id",
+            "started_at",
+            "finished_at",
+            "created",
+        )
+        default_columns = (
+            "id",
+            "job_type",
+            "status",
+            "device",
+            "related_result",
+            "started_at",
+            "finished_at",
             "created",
         )

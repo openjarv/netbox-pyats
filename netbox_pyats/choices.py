@@ -118,3 +118,46 @@ class ComplianceResultChoices(models.TextChoices):
     RESULT_COMPLIANT = "compliant", "Compliant"
     RESULT_DRIFT = "drift", "Drift"
     RESULT_ERROR = "error", "Error"
+
+
+class PyatsJobTypeChoices(models.TextChoices):
+    """Kind of plugin job a :class:`PyatsJob` row tracks (Phase 5, ATW-16).
+
+    Extends the plugin's job-tracking surface (ADR-0005 §1) so the unified jobs
+    view can filter by the kind of work. ``capture`` / ``diff`` / ``compliance``
+    are the single-device jobs shipped in Phases 2/3/4; ``batch_capture`` is
+    the multi-device batch capture introduced in Phase 5. Each maps 1:1 to an
+    ``enqueue_*`` helper in :mod:`netbox_pyats.jobs`.
+    """
+
+    JOB_CAPTURE = "capture", "Capture"
+    JOB_DIFF = "diff", "Diff"
+    JOB_COMPLIANCE = "compliance", "Compliance"
+    JOB_BATCH_CAPTURE = "batch_capture", "Batch capture"
+
+
+class PyatsJobStatusChoices(models.TextChoices):
+    """Lifecycle status of a :class:`PyatsJob` row (Phase 5, ATW-16).
+
+    Extends ADR-0002's status-vocabulary table (see ADR-0005 §2). ``pending`` is
+    set at enqueue, before the worker picks the job up. ``running`` is set by
+    the job callable at entry. ``success`` is set when the job produced its
+    result row (the result row itself may be ``unsupported`` — that is a
+    successful *job* producing an unsupported *row*, per ADR-0002). ``error`` is
+    set when the job raised and the result row could not be written
+    (``PyatsJob.error`` carries the exception text; the job re-raises so
+    RQ/``core.Job`` is also marked failed). ``partial`` is the batch-only
+    status for a batch that completed without crashing but had per-device
+    failures or unsupported platforms (``PyatsJob.summary`` carries the counts).
+
+    The per-result-row statuses (``PyatsSnapshot.status``,
+    ``PyatsSnapshotDiff.status``, ``PyatsComplianceRun.result``) are unchanged
+    — ADR-0002's contract on the result rows holds exactly. ``PyatsJob.status``
+    is the job-level mirror; the result row is the outcome-level record.
+    """
+
+    STATUS_PENDING = "pending", "Pending"
+    STATUS_RUNNING = "running", "Running"
+    STATUS_SUCCESS = "success", "Success"
+    STATUS_ERROR = "error", "Error"
+    STATUS_PARTIAL = "partial", "Partial"

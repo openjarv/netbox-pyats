@@ -48,7 +48,8 @@ from utilities.views import register_model_view
 
 from . import filtersets, forms, jobs, tables
 from .choices import SnapshotKindChoices, SnapshotTriggerChoices
-from .models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsSnapshot, PyatsSnapshotDiff
+from .models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsJob, PyatsSnapshot, PyatsSnapshotDiff
+from .testbed import PLATFORM_SLUG_TO_PYATS_OS, UNSUPPORTED_OS
 
 
 class PyatsCredentialListView(generic.ObjectListView):
@@ -381,3 +382,194 @@ class DeviceComplianceView(PermissionRequiredMixin, View):
             "worker finishes.",
         )
         return redirect(device.get_absolute_url())
+
+
+# --------------------------------------------------------------------------- #
+# PyatsJob views + device bulk capture + supported-platforms report (Phase 5, ATW-16)
+# --------------------------------------------------------------------------- #
+
+
+class PyatsJobListView(generic.ObjectListView):
+    """Unified list of all PyATS plugin jobs across capture / diff / compliance / batch (Phase 5, ATW-16).
+
+    ADR-0005 §4: a single PyATS-scoped view of "all PyATS work" with links to
+    the result rows each job produced, independent of NetBox's ``core.Job``
+    retention. Filterable by ``job_type``, ``status``, and ``device``.
+    """
+
+    queryset = PyatsJob.objects.all()
+    table = tables.PyatsJobTable
+    filterset = filtersets.PyatsJobFilterSet
+    filterset_form = forms.PyatsJobFilterForm
+
+
+@register_model_view(PyatsJob)
+class PyatsJobView(generic.ObjectView):
+    """Detail view for a single PyatsJob row (Phase 5, ATW-16).
+
+    Renders the job's type/status badge, the targeted device (blank for
+    batch_capture), the linked ``core.Job`` row (when not yet purged), the
+    result-row link (one of related_snapshot / related_diff /
+    related_compliance), the ``error`` text in a ``<pre>`` block (when the
+    result row could not be written), and the batch ``summary`` counts (for
+    batch_capture jobs). See ADR-0005 §4.
+    """
+
+    queryset = PyatsJob.objects.all()
+
+
+@register_model_view(PyatsJob, "delete")
+class PyatsJobDeleteView(generic.ObjectDeleteView):
+    """Standard delete view for a PyatsJob row.
+
+    Jobs are append-only history (no edit view, ADR-0005 §4); standard delete
+    only — operators can prune old job rows without affecting the result
+    rows they produced (the ``related_*`` FKs are ``on_delete=SET_NULL``).
+    """
+
+    queryset = PyatsJob.objects.all()
+
+
+class PyatsJobBulkDeleteView(generic.BulkDeleteView):
+    """Bulk delete for PyatsJob rows."""
+
+    queryset = PyatsJob.objects.all()
+    table = tables.PyatsJobTable
+
+
+class DeviceBulkCaptureView(PermissionRequiredMixin, View):
+    """Bulk "PyATS capture" action on the NetBox device list (Phase 5, ATW-16).
+
+    The operator selects a set of devices on the NetBox device list and picks
+    "PyATS capture" from the bulk-action menu. This view renders a small
+    confirmation form (capture kind: config / state / full), then enqueues a
+    single :func:`jobs.enqueue_batch_capture` job targeting the selected
+    device set. The job runs on the dedicated ``pyats`` queue; the
+    :class:`PyatsJob` row (``job_type=batch_capture``) appears in the unified
+    PyATS jobs view with status pending -> running -> success/partial.
+
+    Requires ``netbox_pyats.add_pyatsjob`` so only authorized operators can
+    trigger batch captures (a batch is a potentially wide fan-out of device
+    connections).
+
+    Implemented as a plain ``View`` with ``PermissionRequiredMixin`` rather
+    than a NetBox ``Bulk*View`` subclass because this is a custom action
+    (enqueue a plugin job), not one of the standard bulk CRUD operations
+    NetBox's generic bulk views model. The selected device pks arrive as the
+    ``pk`` list in POST (the same shape NetBox's own bulk actions use); we
+    re-resolve them against ``dcim.Device`` so a device deleted between the
+    list render and the POST is silently dropped (the batch job's summary
+    reflects what was actually iterated).
+    """
+
+    form = forms.DeviceBulkCaptureForm
+    permission_required = "netbox_pyats.add_pyatsjob"
+    template_name = "netbox_pyats/device_bulk_capture.html"
+
+    def get(self, request, **kwargs):
+        # Render the confirmation form against the selected pks (passed in
+        # the query string by the device-list bulk-action menu).
+        pks = request.GET.getlist("pk") or request.GET.getlist("_pk")
+        form = self.form(initial={"kind": SnapshotKindChoices.KIND_FULL})
+        return self._render(request, form, pks)
+
+    def post(self, request, **kwargs):
+        from dcim.models import Device
+
+        # NetBox's bulk-action machinery passes the selected pks as `_pk` /
+        # `pk` list in POST. We re-resolve them against dcim.Device so a
+        # device deleted between the list render and the POST is silently
+        # dropped (the batch job's summary reflects what was actually
+        # iterated, not the enqueue-time count — see jobs.batch_capture_job).
+        pks = request.POST.getlist("pk") or request.POST.getlist("_pk")
+        devices_qs = Device.objects.filter(pk__in=pks)
+        if not devices_qs.exists():
+            messages.error(request, "No devices selected for batch capture.")
+            return redirect("plugins:netbox_pyats:pyatsjob_list")
+
+        form = self.form(request.POST)
+        if not form.is_valid():
+            messages.error(request, f"Invalid batch capture request: {form.errors}")
+            return self._render(request, form, pks)
+
+        kind = form.cleaned_data["kind"]
+        core_job = jobs.enqueue_batch_capture(devices_qs, kind=kind, user=request.user)
+        messages.success(
+            request,
+            f"PyATS batch {kind} capture queued for {devices_qs.count()} device(s); "
+            f"core.Job #{core_job.pk}. It will appear in the PyATS Jobs list when "
+            "the worker finishes.",
+        )
+        return redirect("plugins:netbox_pyats:pyatsjob_list")
+
+    def _render(self, request, form, pks):
+        from django.shortcuts import render
+
+        return render(
+            request,
+            self.template_name,
+            {"form": form, "pks": pks, "return_url": "plugins:netbox_pyats:pyatsjob_list"},
+        )
+
+
+class SupportedPlatformsReportView(View):
+    """Static "supported platforms" report (Phase 5, ATW-16, Option A).
+
+    ADR-0001 §6 requires the web process to NOT import Genie. This view is
+    web-process-safe: it reads the static :data:`netbox_pyats.testbed.PLATFORM_SLUG_TO_PYATS_OS`
+    map (a plain Python dict, no Genie import) and renders the supported
+    platform slugs + their mapped pyATS os string + a count of NetBox devices
+    currently on each platform. Live Genie introspection (Option B) is v2;
+    v1 ships the static map the testbed builder actually uses, so the report
+    matches what the capture job will do.
+
+    The device counts are computed via a single ``Device.objects.values``
+    query grouped by platform slug, so the report stays cheap even on large
+    NetBox instances. No DB writes; the view is read-only.
+    """
+
+    template_name = "netbox_pyats/supported_platforms.html"
+
+    def get(self, request):
+        from collections import Counter
+
+        from dcim.models import Device
+
+        # Group all devices by their platform slug, then intersect with the
+        # supported map. Devices with no platform, or a platform not in the
+        # supported map, surface as "unsupported" with their count too, so
+        # the operator sees the full picture (not just the supported ones).
+        device_counts_by_slug = Counter(
+            Device.objects.exclude(platform__isnull=True).values_list("platform__slug", flat=True)
+        )
+
+        supported_rows = []
+        for slug, pyats_os in sorted(PLATFORM_SLUG_TO_PYATS_OS.items()):
+            supported_rows.append(
+                {
+                    "slug": slug,
+                    "pyats_os": pyats_os,
+                    "device_count": device_counts_by_slug.get(slug, 0),
+                }
+            )
+
+        # Devices whose platform slug is not in the supported map (or who have
+        # no platform at all) — surface as a single "unsupported" row with the
+        # total count so the operator knows how many devices will be skipped
+        # by a batch capture.
+        supported_slugs = set(PLATFORM_SLUG_TO_PYATS_OS.keys())
+        unsupported_count = sum(count for slug, count in device_counts_by_slug.items() if slug not in supported_slugs)
+        no_platform_count = Device.objects.filter(platform__isnull=True).count()
+
+        from django.shortcuts import render
+
+        return render(
+            request,
+            self.template_name,
+            {
+                "supported_rows": supported_rows,
+                "unsupported_count": unsupported_count,
+                "no_platform_count": no_platform_count,
+                "unsupported_os_sentinel": UNSUPPORTED_OS,
+            },
+        )

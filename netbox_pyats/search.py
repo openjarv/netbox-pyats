@@ -1,6 +1,6 @@
 from netbox.search import SearchIndex, register_search
 
-from .models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsSnapshot, PyatsSnapshotDiff
+from .models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsJob, PyatsSnapshot, PyatsSnapshotDiff
 
 
 @register_search
@@ -76,4 +76,22 @@ class PyatsComplianceRunIndex(SearchIndex):
     fields = (
         ("device", 100),
         ("result", 200),
+    )
+
+
+@register_search
+class PyatsJobIndex(SearchIndex):
+    """Search index for PyatsJob (Phase 5, ATW-16).
+
+    Indexes the device (FK stringified to its ``__str__``, which is the device
+    name) and the job_type / status labels so global search can surface plugin
+    jobs. The ``error`` text and batch ``summary`` are not indexed (large and
+    not user-facing search terms).
+    """
+
+    model = PyatsJob
+    fields = (
+        ("device", 100),
+        ("job_type", 200),
+        ("status", 300),
     )
