@@ -337,6 +337,14 @@ class PyatsSnapshotDiff(NetBoxModel):
     so the operator sees the outcome in-line, consistent with Phase 2's
     unsupported/error snapshot rows.
 
+    The ``before`` and ``after`` FKs are nullable (``on_delete=SET_NULL``) so a
+    diff whose before or after snapshot was deleted between the user clicking
+    "Diff" and the worker picking up the job can still write an error row
+    (recording the missing id in ``parser_warnings``) rather than failing
+    ``full_clean()`` on a dangling FK. This matches the Phase 4 compliance job's
+    error-row contract (``PyatsComplianceRun.golden`` / ``.snapshot`` are also
+    nullable — see migration ``0006_compliance_run_nullable_fks``). See ATW-68.
+
     The ``diff`` payload shape is::
 
         {
@@ -366,15 +374,30 @@ class PyatsSnapshotDiff(NetBoxModel):
     )
     before = models.ForeignKey(
         to="netbox_pyats.PyatsSnapshot",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="diffs_as_before",
-        help_text="The earlier snapshot (the 'before' side of the diff).",
+        help_text=(
+            "The earlier snapshot (the 'before' side of the diff). Nullable so a "
+            "diff whose before snapshot was deleted between the user clicking "
+            "'Diff' and the worker picking up the job can still write an error "
+            "row (recording the missing id in parser_warnings) rather than "
+            "failing full_clean() on a dangling FK. Mirrors the Phase 4 "
+            "PyatsComplianceRun.golden/snapshot nullability (migration 0006)."
+        ),
     )
     after = models.ForeignKey(
         to="netbox_pyats.PyatsSnapshot",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="diffs_as_after",
-        help_text="The later snapshot (the 'after' side of the diff).",
+        help_text=(
+            "The later snapshot (the 'after' side of the diff). Nullable for the "
+            "same reason as `before` (error-row persistence on a dangling "
+            "snapshot FK)."
+        ),
     )
     status = models.CharField(
         max_length=20,
@@ -429,8 +452,10 @@ class PyatsSnapshotDiff(NetBoxModel):
         ]
 
     def __str__(self):
+        before_ref = f"#{self.before_id}" if self.before_id else "—"
+        after_ref = f"#{self.after_id}" if self.after_id else "—"
         return (
-            f"{self.device} · diff {self.before_id}→{self.after_id} · "
+            f"{self.device} · diff {before_ref}→{after_ref} · "
             f"{self.get_status_display()} · {self.created:%Y-%m-%d %H:%M:%S}"
         )
 
@@ -588,7 +613,8 @@ class PyatsComplianceRun(NetBoxModel):
     write an error row (recording the missing id in ``parser_warnings``) rather
     than failing ``full_clean()`` on a dangling FK. This matches the Phase 3
     diff job's error-row contract (``PyatsSnapshotDiff.before`` / ``.after``
-    are also nullable).
+    are also nullable — see migration ``0008_pyatssnapshotdiff_nullable_fks``,
+    ATW-68).
 
     Multi-vendor graceful degradation carries through from Phase 2/3: a
     compliance run against an unsupported-platform snapshot (no

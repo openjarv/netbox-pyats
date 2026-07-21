@@ -14,11 +14,11 @@
           </tr>
           <tr>
             <th scope="row">Before snapshot</th>
-            <td>{{ object.before|linkify }} ({{ object.before.captured_at|date:'Y-m-d H:i:s' }})</td>
+            <td>{% if object.before %}{{ object.before|linkify }} ({{ object.before.captured_at|date:'Y-m-d H:i:s' }}){% else %}<span class="text-muted">— deleted (see warnings)</span>{% endif %}</td>
           </tr>
           <tr>
             <th scope="row">After snapshot</th>
-            <td>{{ object.after|linkify }} ({{ object.after.captured_at|date:'Y-m-d H:i:s' }})</td>
+            <td>{% if object.after %}{{ object.after|linkify }} ({{ object.after.captured_at|date:'Y-m-d H:i:s' }}){% else %}<span class="text-muted">— deleted (see warnings)</span>{% endif %}</td>
           </tr>
           <tr>
             <th scope="row">Status</th>

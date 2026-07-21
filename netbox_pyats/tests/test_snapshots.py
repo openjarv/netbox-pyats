@@ -5,6 +5,8 @@ importable so CI can still run the pure-Python tests (crypto + testbed +
 capture) in matrix jobs that don't stand up NetBox.
 """
 
+import types
+
 import pytest
 
 pytest.importorskip("netbox")
@@ -266,3 +268,79 @@ class PyatsSnapshotDiffModelTest(TestCase):
         qs = list(PyatsSnapshotDiff.objects.filter(device=self.device).order_by("-created"))
         assert len(qs) == 3
         assert qs[0].created >= qs[1].created >= qs[2].created
+
+    def test_error_row_persists_with_nullable_before_after(self):
+        """Regression for ATW-68: a diff error row with before/after NULL must
+        round-trip. Before migration 0008, ``full_clean()`` rejected this row
+        because the FKs were non-nullable, so the diff job's ``DoesNotExist``
+        branch never wrote the in-line error row the operator was supposed to
+        see. With ``on_delete=SET_NULL`` + ``null=True``, the row persists and
+        the missing ids are recorded in ``parser_warnings``.
+        """
+        diff_row = PyatsSnapshotDiff(
+            device=self.device,
+            before=None,
+            after=None,
+            status=DiffStatusChoices.STATUS_ERROR,
+            diff={},
+            summary={},
+            parser_warnings=[
+                "before or after snapshot missing before run: PyatsSnapshot matching query does not exist.",
+                "before_id=999, after_id=1000",
+            ],
+            size_bytes=0,
+        )
+        diff_row.full_clean()
+        diff_row.save()
+        reloaded = PyatsSnapshotDiff.objects.get(pk=diff_row.pk)
+        assert reloaded.status == DiffStatusChoices.STATUS_ERROR
+        assert reloaded.before_id is None
+        assert reloaded.after_id is None
+        assert reloaded.size_bytes == 0
+        assert any("before_id=999" in w for w in reloaded.parser_warnings)
+        assert any("after_id=1000" in w for w in reloaded.parser_warnings)
+        # __str__ must not crash on None FKs (regression for the nullability flip).
+        s = str(reloaded)
+        assert "diffrtr01" in s
+        assert "—" in s  # the null-snapshot placeholder in __str__
+
+
+class RunDiffJobDoesNotExistTest(TestCase):
+    """Regression for ATW-68: ``run_diff_job``'s ``DoesNotExist`` branch must
+    write an in-line error row (before/after NULL, missing ids in
+    ``parser_warnings``) and then re-raise. Before migration 0008 the row was
+    rejected by ``full_clean()`` (dangling non-nullable FK) and the operator
+    only saw a failed NetBox Job row, never the per-diff error row.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.site = Site.objects.create(name="DJN01", slug="djn01")
+        cls.mfr = Manufacturer.objects.create(name="Cisco-J", slug="cisco-j")
+        cls.device_type = DeviceType.objects.create(model="C9300-J", slug="c9300-j", manufacturer=cls.mfr)
+        cls.role = DeviceRole.objects.create(name="Router-J", slug="router-j")
+        cls.device = Device.objects.create(name="diffrtr02", site=cls.site, device_type=cls.device_type, role=cls.role)
+
+    def test_doesnotexist_writes_error_row_with_null_fks_and_reraises(self):
+        from netbox_pyats.jobs import run_diff_job
+
+        # Snapshot ids that do not exist. The job's DoesNotExist branch must
+        # write the error row with before=None / after=None (the FKs dangle)
+        # and record both ids in parser_warnings, then re-raise.
+        missing_before = 999_001
+        missing_after = 999_002
+
+        fake_job = types.SimpleNamespace(object=self.device)
+
+        with pytest.raises(PyatsSnapshot.DoesNotExist):
+            run_diff_job(fake_job, before_id=missing_before, after_id=missing_after)
+
+        diff_rows = list(PyatsSnapshotDiff.objects.filter(device=self.device, status=DiffStatusChoices.STATUS_ERROR))
+        assert len(diff_rows) == 1
+        row = diff_rows[0]
+        assert row.before_id is None
+        assert row.after_id is None
+        assert row.size_bytes == 0
+        warnings_blob = " ".join(row.parser_warnings)
+        assert f"before_id={missing_before}" in warnings_blob
+        assert f"after_id={missing_after}" in warnings_blob

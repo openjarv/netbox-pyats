@@ -12,7 +12,9 @@ This migration flips both FKs to ``on_delete=SET_NULL`` + ``null=True`` so the
 error-row path can persist (recording the missing id in ``parser_warnings``).
 This matches the Phase 3 diff job's error-row contract —
 ``PyatsSnapshotDiff.before`` / ``.after`` are also nullable for the same
-reason (see migration 0003_pyatssnapshotdiff.py).
+reason (see migration ``0008_pyatssnapshotdiff_nullable_fks``, which landed
+after this one as ATW-68; when this docstring was written the Phase 3 FKs were
+still CASCADE/non-nullable and the claim was forward-looking, not yet true).
 
 Filed as part of the code-quality re-review of PR #16 (ATW-62 blockers 1-3,
 re-applied on the ``phase4-compliance-rereview`` branch as PR #20).
