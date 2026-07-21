@@ -16,13 +16,6 @@ Two lanes:
 import importlib
 import sys
 
-import pytest
-
-# Pure-Python lane: these tests run anywhere (laptop, CI unit job) without
-# NetBox or Genie installed. They guard the contract the report relies on
-# (the static map the testbed builder uses is the same map the report shows).
-pytest.importorskip("pyats")  # keep parity with the other pure-Python test files
-
 from netbox_pyats.testbed import (
     MANUFACTURER_NAME_TO_PYATS_OS,
     PLATFORM_SLUG_TO_PYATS_OS,
@@ -30,6 +23,14 @@ from netbox_pyats.testbed import (
     is_supported_os,
     platform_to_pyats_os,
 )
+
+# Pure-Python lane: these tests run anywhere (laptop, CI unit job, NetBox
+# container) without NetBox or Genie installed. They guard the contract the
+# report relies on (the static map the testbed builder uses is the same map
+# the report shows). The testbed module is imported lazily by the capture /
+# worker paths, so importing it here does not pull in Genie (asserted below).
+# Note: no ``pytest.importorskip("pyats")`` here — testbed.PLATFORM_SLUG_TO_PYATS_OS
+# is a plain dict and does not require pyats to import.
 
 
 class TestSupportedPlatformsMap:
