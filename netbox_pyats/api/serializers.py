@@ -1,7 +1,14 @@
 from netbox.api.serializers import NetBoxModelSerializer
 from rest_framework import serializers
 
-from netbox_pyats.models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsSnapshot, PyatsSnapshotDiff
+from netbox_pyats.models import (
+    PyatsComplianceRun,
+    PyatsCredential,
+    PyatsGoldenConfig,
+    PyatsJob,
+    PyatsSnapshot,
+    PyatsSnapshotDiff,
+)
 
 
 class PyatsCredentialSerializer(NetBoxModelSerializer):
@@ -237,6 +244,59 @@ class PyatsComplianceRunSerializer(NetBoxModelSerializer):
             "summary",
             "parser_warnings",
             "size_bytes",
+            "created",
+            "last_updated",
+        )
+
+
+class PyatsJobSerializer(NetBoxModelSerializer):
+    """Serializer for the PyatsJob model (Phase 5, ATW-16).
+
+    Jobs are read-only via the REST API in v1 (ADR-0005 §4) — they are produced
+    by the plugin's ``enqueue_*`` helpers, not by direct API writes. The full
+    row is returned, including the ``error`` text (populated only when the
+    result row could not be written) and the batch ``summary`` counts (for
+    batch_capture jobs). The ``related_snapshot`` / ``related_diff`` /
+    ``related_compliance`` FKs are exposed so API clients can drill from a job
+    to the result row it produced.
+    """
+
+    class Meta:
+        model = PyatsJob
+        fields = [
+            "id",
+            "url",
+            "job_type",
+            "status",
+            "device",
+            "core_job",
+            "rq_job_id",
+            "related_snapshot",
+            "related_diff",
+            "related_compliance",
+            "started_at",
+            "finished_at",
+            "error",
+            "summary",
+            "tags",
+            "created",
+            "last_updated",
+        ]
+        read_only_fields = (
+            "id",
+            "url",
+            "job_type",
+            "status",
+            "device",
+            "core_job",
+            "rq_job_id",
+            "related_snapshot",
+            "related_diff",
+            "related_compliance",
+            "started_at",
+            "finished_at",
+            "error",
+            "summary",
             "created",
             "last_updated",
         )

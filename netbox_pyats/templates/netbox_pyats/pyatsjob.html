@@ -1,0 +1,115 @@
+{% extends 'generic/object.html' %}
+{% load helpers %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col col-md-6">
+    <div class="card">
+      <h5 class="card-header">PyATS Job</h5>
+      <div class="card-body">
+        <table class="table table-hover attr-table">
+          <tr>
+            <th scope="row">Type</th>
+            <td>{{ object.get_job_type_display }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Status</th>
+            <td><span class="badge bg-{{ object.get_status_color }}">{{ object.get_status_display }}</span></td>
+          </tr>
+          <tr>
+            <th scope="row">Device</th>
+            <td>
+              {% if object.device %}
+                {{ object.device|linkify }}
+              {% else %}
+                <span class="text-muted">— (batch job)</span>
+              {% endif %}
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Core Job</th>
+            <td>
+              {% if object.core_job %}
+                <a href="{{ object.core_job.get_absolute_url }}">core.Job #{{ object.core_job.pk }}</a>
+              {% else %}
+                <span class="text-muted">— (purged)</span>
+              {% endif %}
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">RQ job id</th>
+            <td><code>{{ object.rq_job_id|default:"—" }}</code></td>
+          </tr>
+          <tr>
+            <th scope="row">Result row</th>
+            <td>
+              {% if object.related_result %}
+                {{ object.related_result|linkify }}
+              {% else %}
+                <span class="text-muted">— (no result row written{% if object.status == "error" %}; see error below{% endif %})</span>
+              {% endif %}
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Started</th>
+            <td>{{ object.started_at|date:'Y-m-d H:i:s'|default:"—" }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Finished</th>
+            <td>{{ object.finished_at|date:'Y-m-d H:i:s'|default:"—" }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Created</th>
+            <td>{{ object.created|date:'Y-m-d H:i:s' }}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col col-md-6">
+    <div class="card">
+      <h5 class="card-header">Summary</h5>
+      <div class="card-body">
+        {% if object.summary %}
+          <table class="table table-sm">
+            <tr>
+              <th>Supported</th><td><span class="badge bg-success">{{ object.summary.supported|default:0 }}</span></td>
+            </tr>
+            <tr>
+              <th>Unsupported</th><td><span class="badge bg-warning">{{ object.summary.unsupported|default:0 }}</span></td>
+            </tr>
+            <tr>
+              <th>Errored</th><td><span class="badge bg-danger">{{ object.summary.errored|default:0 }}</span></td>
+            </tr>
+            <tr>
+              <th>Total</th><td><span class="badge bg-secondary">{{ object.summary.total|default:0 }}</span></td>
+            </tr>
+          </table>
+          <p class="text-muted small mb-0">
+            Batch counts (batch_capture jobs only). Empty for single-device capture / diff / compliance jobs.
+          </p>
+        {% else %}
+          <span class="text-muted">No summary (single-device job — summary is batch_capture only).</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if object.error %}
+<div class="row mb-3">
+  <div class="col col-md-12">
+    <div class="card">
+      <h5 class="card-header">Error</h5>
+      <div class="card-body">
+        <pre class="snapshot-json">{{ object.error }}</pre>
+        <p class="text-muted small mb-0">
+          Populated only when the job raised and the result row could not be written (the
+          swallowed-exception path). Not a duplicate of the result row's parser_warnings.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock content %}

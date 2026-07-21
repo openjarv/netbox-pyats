@@ -4,15 +4,24 @@ from netbox_pyats.filtersets import (
     PyatsComplianceRunFilterSet,
     PyatsCredentialFilterSet,
     PyatsGoldenConfigFilterSet,
+    PyatsJobFilterSet,
     PyatsSnapshotDiffFilterSet,
     PyatsSnapshotFilterSet,
 )
-from netbox_pyats.models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsSnapshot, PyatsSnapshotDiff
+from netbox_pyats.models import (
+    PyatsComplianceRun,
+    PyatsCredential,
+    PyatsGoldenConfig,
+    PyatsJob,
+    PyatsSnapshot,
+    PyatsSnapshotDiff,
+)
 
 from .serializers import (
     PyatsComplianceRunSerializer,
     PyatsCredentialSerializer,
     PyatsGoldenConfigSerializer,
+    PyatsJobSerializer,
     PyatsSnapshotDiffSerializer,
     PyatsSnapshotSerializer,
 )
@@ -82,4 +91,19 @@ class PyatsComplianceRunViewSet(NetBoxModelViewSet):
     queryset = PyatsComplianceRun.objects.all()
     serializer_class = PyatsComplianceRunSerializer
     filterset_class = PyatsComplianceRunFilterSet
+    http_method_names = ["get", "head", "options"]
+
+
+class PyatsJobViewSet(NetBoxModelViewSet):
+    """API viewset for the PyatsJob model (Phase 5, ATW-16).
+
+    Read-only in v1 (ADR-0005 §4): jobs are produced by the plugin's
+    ``enqueue_*`` helpers, not by direct API writes. The HTTP methods that
+    would mutate a job are restricted via ``http_method_names`` and the
+    serializer's read-only fields enforce the data-layer constraint.
+    """
+
+    queryset = PyatsJob.objects.all()
+    serializer_class = PyatsJobSerializer
+    filterset_class = PyatsJobFilterSet
     http_method_names = ["get", "head", "options"]

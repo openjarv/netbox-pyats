@@ -1,6 +1,6 @@
 from netbox.filtersets import NetBoxModelFilterSet
 
-from .models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsSnapshot, PyatsSnapshotDiff
+from .models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsJob, PyatsSnapshot, PyatsSnapshotDiff
 
 
 class PyatsCredentialFilterSet(NetBoxModelFilterSet):
@@ -93,5 +93,27 @@ class PyatsComplianceRunFilterSet(NetBoxModelFilterSet):
             "result",
             "golden_id",
             "snapshot_id",
+            "created",
+        ]
+
+
+class PyatsJobFilterSet(NetBoxModelFilterSet):
+    """FilterSet for the PyatsJob model (Phase 5, ATW-16).
+
+    Lets the unified jobs view be filtered by job_type (capture / diff /
+    compliance / batch_capture), status (pending / running / success / error /
+    partial), and device — the axes the unified PyATS jobs view is filterable
+    on (ADR-0005 §4).
+    """
+
+    class Meta:
+        model = PyatsJob
+        fields = [
+            "id",
+            "job_type",
+            "status",
+            "device_id",
+            "core_job_id",
+            "rq_job_id",
             "created",
         ]

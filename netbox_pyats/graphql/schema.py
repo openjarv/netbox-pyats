@@ -1,6 +1,6 @@
 from netbox.graphql.types import NetBoxObjectType
 
-from netbox_pyats.models import PyatsCredential, PyatsSnapshot, PyatsSnapshotDiff
+from netbox_pyats.models import PyatsCredential, PyatsJob, PyatsSnapshot, PyatsSnapshotDiff
 
 
 class PyatsCredentialType(NetBoxObjectType):
@@ -75,6 +75,39 @@ class PyatsSnapshotDiffType(NetBoxObjectType):
             "summary",
             "parser_warnings",
             "size_bytes",
+            "tags",
+            "created",
+            "last_updated",
+        )
+
+
+class PyatsJobType(NetBoxObjectType):
+    """GraphQL type for the PyatsJob model (Phase 5, ATW-16).
+
+    Exposes the job-tracking fields: type, status, the targeted device, the
+    linked ``core.Job`` row, the result-row FKs (one of related_snapshot /
+    related_diff / related_compliance is set per job on success), the
+    ``error`` text (for the swallowed-exception path), and the batch
+    ``summary`` counts. Read-only by nature (jobs are produced by the
+    plugin's enqueue helpers, not by direct writes — ADR-0005 §4).
+    """
+
+    class Meta:
+        model = PyatsJob
+        fields = (
+            "id",
+            "job_type",
+            "status",
+            "device",
+            "core_job",
+            "rq_job_id",
+            "related_snapshot",
+            "related_diff",
+            "related_compliance",
+            "started_at",
+            "finished_at",
+            "error",
+            "summary",
             "tags",
             "created",
             "last_updated",

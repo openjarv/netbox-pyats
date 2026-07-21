@@ -8,11 +8,13 @@ from .choices import (
     CredentialScopeChoices,
     DiffStatusChoices,
     GoldenConfigSourceChoices,
+    PyatsJobStatusChoices,
+    PyatsJobTypeChoices,
     SnapshotKindChoices,
     SnapshotStatusChoices,
     SnapshotTriggerChoices,
 )
-from .models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsSnapshot, PyatsSnapshotDiff
+from .models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsJob, PyatsSnapshot, PyatsSnapshotDiff
 
 
 class PyatsCredentialForm(NetBoxModelForm):
@@ -263,3 +265,49 @@ class PyatsComplianceRunFilterForm(NetBoxModelFilterSetForm):
     )
     has_drift = forms.BooleanField(required=False, label="Only runs with drift")
     has_warnings = forms.BooleanField(required=False, label="Only runs with warnings")
+
+
+# --------------------------------------------------------------------------- #
+# PyatsJob forms (Phase 5, ATW-16)
+# --------------------------------------------------------------------------- #
+
+
+class PyatsJobFilterForm(NetBoxModelFilterSetForm):
+    """Filter form for the PyatsJob list view (Phase 5, ATW-16).
+
+    Jobs are append-only history (ADR-0005 §4): no edit form, standard delete
+    only. The filter form exposes the axes the unified jobs view is filterable
+    on: job_type (capture / diff / compliance / batch_capture), status
+    (pending / running / success / error / partial), and device.
+    """
+
+    model = PyatsJob
+
+    q = forms.CharField(required=False, label="Search")
+    device = forms.IntegerField(required=False, label="Device ID")
+    job_type = forms.ChoiceField(
+        required=False,
+        choices=[("", "---------")] + PyatsJobTypeChoices.choices,
+    )
+    status = forms.ChoiceField(
+        required=False,
+        choices=[("", "---------")] + PyatsJobStatusChoices.choices,
+    )
+
+
+class DeviceBulkCaptureForm(forms.Form):
+    """Form backing the device-list bulk "PyATS capture" action (Phase 5, ATW-16).
+
+    Posted to the :class:`DeviceBulkCaptureView` from the NetBox device list
+    when the operator selects a set of devices and chooses the "PyATS capture"
+    bulk action. Only the capture ``kind`` is user-selectable; the device set
+    is passed in the URL/form by NetBox's bulk-action machinery (the selected
+    pks). The view enqueues :func:`jobs.enqueue_batch_capture`.
+    """
+
+    kind = forms.ChoiceField(
+        choices=SnapshotKindChoices.choices,
+        initial=SnapshotKindChoices.KIND_FULL,
+        required=True,
+        label="Capture kind",
+    )
