@@ -45,7 +45,8 @@ from __future__ import annotations
 
 import logging
 import traceback
-from datetime import datetime
+
+from django.utils import timezone
 
 from .choices import (
     PyatsJobStatusChoices,
@@ -104,7 +105,7 @@ def _mark_running(job, pyats_job_id: int) -> None:
 
     job_row = PyatsJob.objects.get(pk=pyats_job_id)
     job_row.status = PyatsJobStatusChoices.STATUS_RUNNING
-    job_row.started_at = datetime.now()
+    job_row.started_at = timezone.now()
     job_row.full_clean()
     job_row.save()
 
@@ -126,7 +127,7 @@ def _finish_success(
     job_row.related_compliance = related_compliance
     if summary is not None:
         job_row.summary = summary
-    job_row.finished_at = datetime.now()
+    job_row.finished_at = timezone.now()
     job_row.full_clean()
     job_row.save()
 
@@ -143,7 +144,7 @@ def _finish_partial(job, pyats_job_id: int, *, summary: dict) -> None:
     job_row = PyatsJob.objects.get(pk=pyats_job_id)
     job_row.status = PyatsJobStatusChoices.STATUS_PARTIAL
     job_row.summary = summary
-    job_row.finished_at = datetime.now()
+    job_row.finished_at = timezone.now()
     job_row.full_clean()
     job_row.save()
 
@@ -163,7 +164,7 @@ def _record_error(job, pyats_job_id: int, exc: BaseException) -> None:
         job_row = PyatsJob.objects.get(pk=pyats_job_id)
         job_row.status = PyatsJobStatusChoices.STATUS_ERROR
         job_row.error = f"{exc}\n{traceback.format_exc()}"
-        job_row.finished_at = datetime.now()
+        job_row.finished_at = timezone.now()
         job_row.full_clean()
         job_row.save()
     except Exception:  # noqa: BLE001 - never mask the original error
@@ -293,6 +294,10 @@ def capture_snapshot_job(
                 snapshot.full_clean()
                 snapshot.save()
             except Exception:  # noqa: BLE001 - never mask the original error
+                # The error-row write itself failed (e.g. full_clean rejected
+                # it). Drop the reference so the outer except records a
+                # PyatsJob error rather than trying to FK-link an unsaved row.
+                snapshot = None
                 logger.exception("netbox_pyats: failed to persist error-row snapshot")
             # ADR-0005 §3 step 3: the result row was still created, so the
             # PyatsJob is a success-of-plumbing with an error result row (FK
@@ -500,6 +505,10 @@ def run_diff_job(job, before_id: int, after_id: int, pyats_job_id: int | None = 
                 diff_row.full_clean()
                 diff_row.save()
             except Exception:  # noqa: BLE001 - never mask the original error
+                # The error-row write itself failed; drop the reference so the
+                # outer except records a PyatsJob error rather than linking an
+                # unsaved row (mirrors capture_snapshot_job).
+                diff_row = None
                 logger.exception("netbox_pyats: failed to persist error-row diff")
             if pyats_job_id is not None and diff_row is not None:
                 _finish_success(job, pyats_job_id, related_diff=diff_row)
@@ -717,6 +726,10 @@ def run_compliance_job(job, golden_id: int, snapshot_id: int, pyats_job_id: int 
                 run_row.full_clean()
                 run_row.save()
             except Exception:  # noqa: BLE001 - never mask the original error
+                # The error-row write itself failed; drop the reference so the
+                # outer except records a PyatsJob error rather than linking an
+                # unsaved row (mirrors capture_snapshot_job / run_diff_job).
+                run_row = None
                 logger.exception("netbox_pyats: failed to persist error-row compliance run")
             if pyats_job_id is not None and run_row is not None:
                 _finish_success(job, pyats_job_id, related_compliance=run_row)
