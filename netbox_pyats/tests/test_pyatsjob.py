@@ -226,6 +226,37 @@ class CaptureJobPyatsJobPlumbingTest(TestCase):
         assert reloaded.related_snapshot_id is None
         assert reloaded.finished_at is not None
 
+    def test_capture_raises_but_error_row_written_sets_fk(self):
+        # ADR-0005 §3 step 3: when capture raises but the error-row snapshot
+        # is written successfully, the PyatsJob is a plumbing-success with an
+        # error *result row* — status=error, the snapshot FK is set, and
+        # ``error`` stays empty (the row carries the failure detail). Mirrors
+        # run_diff_job / run_compliance_job. The job still re-raises so RQ /
+        # core.Job is marked failed.
+        pyats_job = PyatsJob(
+            job_type=PyatsJobTypeChoices.JOB_CAPTURE,
+            status=PyatsJobStatusChoices.STATUS_PENDING,
+            device=self.device,
+        )
+        pyats_job.full_clean()
+        pyats_job.save()
+
+        with mock.patch(
+            "netbox_pyats.jobs.capture_snapshot_for_netbox_device",
+            side_effect=RuntimeError("connection refused"),
+        ):
+            with pytest.raises(RuntimeError):
+                jobs.capture_snapshot_job(self._fake_job(), pyats_job_id=pyats_job.pk)
+
+        reloaded = PyatsJob.objects.get(pk=pyats_job.pk)
+        assert reloaded.status == PyatsJobStatusChoices.STATUS_SUCCESS
+        assert reloaded.related_snapshot_id is not None
+        assert reloaded.error == ""
+        assert reloaded.finished_at is not None
+        # The error-row snapshot itself was written.
+        snap = PyatsSnapshot.objects.get(pk=reloaded.related_snapshot_id)
+        assert snap.status == SnapshotStatusChoices.STATUS_ERROR
+
 
 class DiffJobPyatsJobPlumbingTest(TestCase):
     """ADR-0005 §3 plumbing for ``run_diff_job`` (Phase 5, ATW-16)."""
@@ -402,3 +433,37 @@ class BatchCaptureJobTest(TestCase):
         assert counts == {"supported": 2, "unsupported": 0, "errored": 0, "total": 2}
         reloaded = PyatsJob.objects.get(pk=pyats_job.pk)
         assert reloaded.status == PyatsJobStatusChoices.STATUS_SUCCESS
+
+
+class DeviceBulkCaptureViewTest(TestCase):
+    """The device-list bulk "PyATS capture" view renders its confirmation
+    form (Phase 5, ATW-16). Guards against the regression where
+    ``DeviceBulkCaptureView.template_name`` pointed at a template file that
+    did not exist under ``netbox_pyats/templates/netbox_pyats/`` (PR #29
+    review: changes_requested #1).
+    """
+
+    user_permissions = (
+        "netbox_pyats.add_pyatsjob",
+        "netbox_pyats.view_pyatsjob",
+        "dcim.view_device",
+    )
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.site = Site.objects.create(name="BCV01", slug="bcv01")
+        cls.mfr = Manufacturer.objects.create(name="Cisco-BCV", slug="cisco-bcv")
+        cls.device_type = DeviceType.objects.create(model="C9300-BCV", slug="c9300-bcv", manufacturer=cls.mfr)
+        cls.role = DeviceRole.objects.create(name="Router-BCV", slug="router-bcv")
+        cls.device = Device.objects.create(name="bcvrtr01", site=cls.site, device_type=cls.device_type, role=cls.role)
+
+    def test_get_confirmation_renders(self):
+        from django.urls import reverse
+
+        url = reverse("plugins:netbox_pyats:device_bulk_capture")
+        response = self.client.get(url, {"pk": self.device.pk})
+        self.assertEqual(response.status_code, 200)
+        # The confirmation form renders the capture-kind select and echoes
+        # the selected device pks as hidden inputs.
+        self.assertContains(response, "PyATS Batch Capture")
+        self.assertContains(response, f'value="{self.device.pk}"')

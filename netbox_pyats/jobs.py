@@ -294,6 +294,12 @@ def capture_snapshot_job(
                 snapshot.save()
             except Exception:  # noqa: BLE001 - never mask the original error
                 logger.exception("netbox_pyats: failed to persist error-row snapshot")
+            # ADR-0005 §3 step 3: the result row was still created, so the
+            # PyatsJob is a success-of-plumbing with an error result row (FK
+            # set, status=error, error text empty — the row carries the
+            # failure detail). Mirrors run_diff_job / run_compliance_job.
+            if pyats_job_id is not None and snapshot is not None:
+                _finish_success(job, pyats_job_id, related_snapshot=snapshot)
             raise
 
         snapshot = PyatsSnapshot(
@@ -326,7 +332,7 @@ def capture_snapshot_job(
 
         return snapshot.pk
     except Exception as exc:  # noqa: BLE001 - top-level try/finally re-raises (ADR-0005 §3 step 4)
-        if pyats_job_id is not None:
+        if pyats_job_id is not None and snapshot is None:
             _record_error(job, pyats_job_id, exc)
         raise
 

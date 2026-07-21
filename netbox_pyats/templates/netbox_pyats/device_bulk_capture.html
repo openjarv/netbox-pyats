@@ -1,0 +1,41 @@
+{% extends 'base/layout.html' %}
+{% load helpers %}
+{% load form_helpers %}
+
+{% block title %}PyATS Batch Capture{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col col-md-6 offset-md-3">
+    <div class="card">
+      <h5 class="card-header">PyATS Batch Capture</h5>
+      <div class="card-body">
+        <p class="text-muted">
+          Enqueue a single PyATS batch capture job against the selected
+          {{ pks|length }} device(s). The job runs on the dedicated
+          <code>pyats</code> queue and appears in the PyATS Jobs list as
+          <code>batch_capture</code> (status pending → running → success /
+          partial). Devices on a platform not in the supported map are
+          counted as <em>unsupported</em> and skipped; per-device capture
+          failures are counted as <em>errored</em>. The job summary carries
+          the full <code>{supported, unsupported, errored, total}</code>
+          breakdown.
+        </p>
+        <form method="post">
+          {% csrf_token %}
+          {% for pk in pks %}
+            <input type="hidden" name="pk" value="{{ pk }}">
+          {% endfor %}
+          {% render_field form.kind %}
+          <div class="text-end mt-3">
+            <a href="{% url return_url %}" class="btn btn-outline-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">
+              <i class="mdi mdi-play"></i> Enqueue batch capture
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
