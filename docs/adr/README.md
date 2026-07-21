@@ -16,6 +16,7 @@ ADRs are short, dated records of structural decisions that are expensive to reve
 | [0002](0002-graceful-degradation.md) | Multi-vendor graceful degradation pattern | Accepted | 2026-07-19 |
 | [0003](0003-netbox46-migration-and-worker-toolchain.md) | NetBox 4.6 migration dependencies and worker build toolchain | Accepted | 2026-07-19 |
 | [0004](0004-compliance-golden-parse-shape.md) | Compliance golden-config comparison shape | Accepted | 2026-07-21 |
+| [0005](0005-pyatsjob-model.md) | PyatsJob unified job-tracking model + status vocabulary extension | Accepted | 2026-07-21 |
 
 ## When to write an ADR
 
