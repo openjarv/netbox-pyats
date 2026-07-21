@@ -56,10 +56,16 @@ class CaptureResult:
 
     The :class:`~netbox_pyats.jobs.CaptureSnapshotJob` runner writes this to a
     :class:`~netbox_pyats.models.PyatsSnapshot` row: ``data`` → ``data``,
-    ``warnings`` → ``parser_warnings``, ``status`` → ``status``, and the
-    version strings → the corresponding model fields. ``size_bytes`` is
-    derived from the JSON-serialized ``data`` so the UI can render it without
-    re-serializing.
+    ``warnings`` → ``parser_warnings``, ``status`` → ``status``, the version
+    strings → the corresponding model fields, and ``parsed_os`` →
+    ``parsed_os``. ``size_bytes`` is derived from the JSON-serialized ``data``
+    so the UI can render it without re-serializing.
+
+    ``parsed_os`` is the pyATS os string used by the capture (read from the
+    device's ``os`` attribute). It is recorded at capture time so v2 structured
+    compliance can pick the right Genie parser for a snapshot whose device has
+    since been deleted, without needing a fresh testbed. The v1 raw-text
+    compliance path does not consume it.
     """
 
     status: str = SnapshotStatusChoices.STATUS_SUCCESS
@@ -67,6 +73,7 @@ class CaptureResult:
     warnings: list = field(default_factory=list)
     genie_version: str = ""
     pyats_version: str = ""
+    parsed_os: str = ""
 
     @property
     def size_bytes(self) -> int:
@@ -236,6 +243,7 @@ def capture_snapshot(pyats_device, *, kind: str = SnapshotKindChoices.KIND_FULL)
             warnings=[f"platform os={os_value!r} has no Genie parser; skipped"],
             genie_version=genie_version,
             pyats_version=pyats_version,
+            parsed_os=os_value,
         )
 
     warnings: list = []
@@ -277,6 +285,7 @@ def capture_snapshot(pyats_device, *, kind: str = SnapshotKindChoices.KIND_FULL)
             warnings=[f"capture error: {exc}", traceback.format_exc()],
             genie_version=genie_version,
             pyats_version=pyats_version,
+            parsed_os=os_value,
         )
 
     # If both halves failed in a "full" capture, treat the whole thing as an
@@ -297,6 +306,7 @@ def capture_snapshot(pyats_device, *, kind: str = SnapshotKindChoices.KIND_FULL)
         warnings=warnings,
         genie_version=genie_version,
         pyats_version=pyats_version,
+        parsed_os=os_value,
     )
 
 
@@ -324,6 +334,8 @@ def capture_snapshot_for_netbox_device(
     tb, report = build_testbed([netbox_device], on_unsupported="flag", credential_resolver=credential_resolver)
     if not report.supported:
         # No supported device on the testbed → unsupported result, no connect.
+        # parsed_os left blank: there is no testbed os to carry (the device's
+        # platform mapped to UNSUPPORTED_OS, which is not a real os string).
         return CaptureResult(
             status=SnapshotStatusChoices.STATUS_UNSUPPORTED,
             data={},
@@ -336,12 +348,16 @@ def capture_snapshot_for_netbox_device(
         pyats_device.connect()
     except Exception as exc:  # noqa: BLE001 - connection failure is an error status, not a crash
         genie_version, pyats_version = _worker_versions()
+        # The device's os is known (the testbed mapped it); carry it so the row
+        # records provenance even when the connection failed.
+        os_value = getattr(pyats_device, "os", "") or ""
         return CaptureResult(
             status=SnapshotStatusChoices.STATUS_ERROR,
             data={},
             warnings=[f"connection failed: {exc}", traceback.format_exc()],
             genie_version=genie_version,
             pyats_version=pyats_version,
+            parsed_os=os_value,
         )
 
     try:

@@ -121,6 +121,47 @@ class TestConfigCapture:
         }
         assert result.warnings == []
 
+    def test_config_capture_carries_parsed_os(self):
+        # ATW-70: parsed_os is populated from the device's os at capture time
+        # so v2 structured compliance can pick the right Genie parser later,
+        # even after the device row is deleted.
+        d = FakePyatsDevice(os="iosxe", config_output={"hostname": "rtr01"})
+        result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_CONFIG)
+        assert result.parsed_os == "iosxe"
+
+    def test_full_capture_carries_parsed_os(self):
+        d = FakePyatsDevice(
+            os="nxos",
+            config_output={"hostname": "rtr01"},
+            state_outputs={
+                "show version": {"version": "9.3"},
+                "show inventory": {},
+                "show ip interface brief": {},
+            },
+        )
+        result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_FULL)
+        assert result.status == SnapshotStatusChoices.STATUS_SUCCESS
+        assert result.parsed_os == "nxos"
+
+    def test_unsupported_capture_carries_parsed_os(self):
+        # Even on the unsupported path, parsed_os is carried so v2 can
+        # distinguish "unsupported os string" rows by os.
+        d = FakePyatsDevice(os=UNSUPPORTED_OS)
+        result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_CONFIG)
+        assert result.status == SnapshotStatusChoices.STATUS_UNSUPPORTED
+        assert result.parsed_os == UNSUPPORTED_OS
+
+    def test_error_capture_carries_parsed_os(self):
+        # Capture errors still carry parsed_os so the row records provenance.
+        d = FakePyatsDevice(
+            os="iosxr",
+            parse_exc=RuntimeError("parse boom"),
+            execute_exc=RuntimeError("execute boom"),
+        )
+        result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_CONFIG)
+        assert result.status == SnapshotStatusChoices.STATUS_ERROR
+        assert result.parsed_os == "iosxr"
+
     def test_config_parse_failure_falls_back_to_execute(self):
         d = FakePyatsDevice(
             os="iosxe",
