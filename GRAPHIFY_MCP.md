@@ -118,3 +118,35 @@ When a second host comes online, on each affected host:
 Switching back to stdio is the reverse: replace the `remote` block with the
 `local` block above and unset `GRAPHIFY_API_KEY`. The HTTP container can be
 torn down independently (it does not touch the dev stack's volumes).
+
+## End-to-end OpenCode remote wiring — verified 2026-07-21
+
+The `remote` MCP type is the standard MCP Streamable HTTP transport, so an
+OpenCode agent pointing at the HTTP server with `Authorization: Bearer
+{env:GRAPHIFY_API_KEY}` is the supported configuration (not a custom
+adapter). Verified on the dev host against the ATW-42 container:
+
+- Brought up the overlay (`docker compose -f docker-compose.dev.yml -f
+  docker-compose.graphify-mcp.yml up -d --build graphify-mcp`); container
+  reached `healthy` (healthcheck confirms api-key enforcement).
+- Direct curl smoke tests against `http://127.0.0.1:8090/mcp`:
+  - authed `initialize` → `200`; unauthed `initialize` → `401` (enforcement).
+  - authed `tools/call` for `query_graph`, `get_node`, `get_neighbors`,
+    `shortest_path`, `graph_stats` all → `200` with real graph data
+    (e.g. `shortest_path PyatsCredential → PyatsSnapshotDiff` → 2 hops via
+    `PyatsSnapshotDiffView`).
+- OpenCode end-to-end: ran `opencode run` from a scratch working dir with
+  only the `remote` config above and `GRAPHIFY_API_KEY` in the env. The
+  agent connected, called `graphify_query_graph({ question:
+  "PyatsCredential model", depth: 1, token_budget: 600 })`, and returned
+  real graph nodes verbatim from the shared server. This proves the
+  `remote` config block is correct and complete for any future remote
+  host — the only remaining step per host is steps 1–4 above.
+
+This satisfies the "tools work from a heartbeat" acceptance criterion of
+[ATW-78](/ATW/issues/ATW-78) for the remote/HTTP transport. The remaining
+criterion — "remote agents reach the shared server" — is precondition-blocked
+on a concrete second host (no remote agents exist today; all Atw agents are
+`opencode_local` on this dev host). The single-host stdio config stays in
+place until that precondition lands; tracked by
+[ATW-79](/ATW/issues/ATW-79).
