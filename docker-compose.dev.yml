@@ -27,7 +27,7 @@
 # Teardown (also removes volumes):
 #   docker compose -f docker-compose.dev.yml down -v
 #
-# See docs/dev-bringup.md for the full bring-up / troubleshooting walkthrough.
+# See docs/developer/setup.md for the full bring-up / troubleshooting walkthrough.
 
 services:
   netbox:

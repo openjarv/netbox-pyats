@@ -2,7 +2,7 @@
 #
 # This is NOT part of the default dev stack. The default stack
 # (docker-compose.dev.yml) uses the stdio graphify-mcp server wired into
-# OpenCode's MCP config (see GRAPHIFY_MCP.md), which is simpler and safer on
+# OpenCode's MCP config (see docs/developer/graphify-mcp.md), which is simpler and safer on
 # a single dev host. Bring this overlay up only when Atw agents span more
 # than one host and need to reach a shared code-graph server over HTTP with
 # a Bearer api-key — the deferred upgrade path from ATW-40, owned by ATW-42.
@@ -41,7 +41,7 @@
 #   docker compose -f docker-compose.dev.yml \
 #     -f docker-compose.graphify-mcp.yml down -v
 #
-# See docs/graphify-mcp-http.md for the full bring-up, secret rotation, and
+# See docs/developer/graphify-mcp-http.md for the full bring-up, secret rotation, and
 # client-wiring walkthrough.
 
 services:

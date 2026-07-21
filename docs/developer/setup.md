@@ -27,8 +27,8 @@ No feature work happens in the trunk worktree. Every issue gets its own git
 worktree under `/home/hermes/netbox-pyats-wt/<issue-id>/`, on its own branch,
 with its own isolated compose stack. One issue = one branch = one worktree.
 
-Create a worktree before any repo work, and remove it when the issue reaches a
-terminal state (`done`/`cancelled`):
+Create a worktree before any repo work, and remove it when the issue reaches
+a terminal state (`done`/`cancelled`):
 
 ```bash
 # from anywhere (the script resolves the trunk repo root itself):

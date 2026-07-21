@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-ADRs are short, dated records of structural decisions that are expensive to reverse. Every structural change to the plugin (layout, patterns, integration contracts) gets an ADR here. ADRs are linked from the relevant code and from the [architecture overview](../) on ATW-23.
+ADRs are short, dated records of structural decisions that are expensive to reverse. Every structural change to the plugin (layout, patterns, integration contracts) gets an ADR here. ADRs are linked from the relevant code and from the [architecture overview](https://github.com/openjarv/netbox-pyats) tracked on [ATW-23](/ATW/issues/ATW-23).
 
 ## Status legend
 

@@ -6,7 +6,7 @@ server wired in [ATW-40](/ATW/issues/ATW-40). It containerizes the
 can reach a shared code-graph server over the network with a Bearer api-key.
 
 **Do not deploy this on a single dev host.** The stdio server (see
-[GRAPHIFY_MCP.md](../GRAPHIFY_MCP.md)) is simpler, safer, and already wired
+[Graphify MCP](graphify-mcp.md)) is simpler, safer, and already wired
 into every `opencode_local` agent's OpenCode MCP config. This HTTP
 container only needs to come up when:
 
@@ -42,7 +42,7 @@ Owned by the Infrastructure Engineer. Built in [ATW-42](/ATW/issues/ATW-42).
 | `dev/graphify-mcp/healthcheck.py` | Unauthenticated POST → expects `401`. Proves the server is up AND enforcing the key. |
 | `docker-compose.graphify-mcp.yml` | Compose **overlay** (separate from `docker-compose.dev.yml`). One service, one network, one secret. |
 | `scripts/graphify-mcp-key.sh` | Generate / rotate / fingerprint the api-key. Writes `dev/graphify-mcp/api-key` (mode 0600, gitignored). |
-| `docs/graphify-mcp-http.md` | This runbook. |
+| `docs/developer/graphify-mcp-http.md` | This runbook. |
 
 The key file `dev/graphify-mcp/api-key` is **gitignored** — never commit it.
 If you ever commit it by accident, rotate immediately and treat the old key
@@ -52,7 +52,7 @@ as compromised.
 
 - Docker Engine + Docker Compose v2 (`docker compose`).
 - A worktree set up via `scripts/dev-worktree.sh add` (the hard rule from
-  [docs/dev-bringup.md](dev-bringup.md) applies — never run compose from
+  [Dev environment bring-up](setup.md) applies — never run compose from
   the trunk working tree).
 - The committed `graphify-out/graph.json` in the repo (produced by
   [ATW-39](/ATW/issues/ATW-39), refreshed by the [ATW-41](/ATW/issues/ATW-41)
