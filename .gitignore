@@ -45,3 +45,6 @@ graphify-out/20*/
 # claimed loopback port.
 .env
 .dev-port
+
+# graphify-mcp HTTP api-key (ATW-42) — never commit.
+dev/graphify-mcp/api-key
