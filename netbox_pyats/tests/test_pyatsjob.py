@@ -151,7 +151,7 @@ class CaptureJobPyatsJobPlumbingTest(TestCase):
         )
 
         with mock.patch(
-            "netbox_pyats.jobs.capture_snapshot_for_netbox_device",
+            "netbox_pyats.capture.capture_snapshot_for_netbox_device",
             return_value=success_result,
         ):
             jobs.capture_snapshot_job(self._fake_job(), pyats_job_id=pyats_job.pk)
@@ -183,7 +183,7 @@ class CaptureJobPyatsJobPlumbingTest(TestCase):
         )
 
         with mock.patch(
-            "netbox_pyats.jobs.capture_snapshot_for_netbox_device",
+            "netbox_pyats.capture.capture_snapshot_for_netbox_device",
             return_value=unsupported_result,
         ):
             jobs.capture_snapshot_job(self._fake_job(), pyats_job_id=pyats_job.pk)
@@ -209,7 +209,7 @@ class CaptureJobPyatsJobPlumbingTest(TestCase):
 
         with (
             mock.patch(
-                "netbox_pyats.jobs.capture_snapshot_for_netbox_device",
+                "netbox_pyats.capture.capture_snapshot_for_netbox_device",
                 side_effect=RuntimeError("connection refused"),
             ),
             mock.patch(
@@ -242,7 +242,7 @@ class CaptureJobPyatsJobPlumbingTest(TestCase):
         pyats_job.save()
 
         with mock.patch(
-            "netbox_pyats.jobs.capture_snapshot_for_netbox_device",
+            "netbox_pyats.capture.capture_snapshot_for_netbox_device",
             side_effect=RuntimeError("connection refused"),
         ):
             with pytest.raises(RuntimeError):
@@ -345,7 +345,7 @@ class BatchCaptureJobTest(TestCase):
         )
 
         with mock.patch(
-            "netbox_pyats.jobs.capture_snapshot_for_netbox_device",
+            "netbox_pyats.capture.capture_snapshot_for_netbox_device",
             return_value=success_result,
         ):
             counts = jobs.batch_capture_job(
@@ -390,7 +390,7 @@ class BatchCaptureJobTest(TestCase):
             return r
 
         with mock.patch(
-            "netbox_pyats.jobs.capture_snapshot_for_netbox_device",
+            "netbox_pyats.capture.capture_snapshot_for_netbox_device",
             side_effect=fake_capture,
         ):
             counts = jobs.batch_capture_job(
@@ -421,7 +421,7 @@ class BatchCaptureJobTest(TestCase):
         # device_c is deleted between enqueue and run → silently skipped,
         # total reflects only the devices actually iterated.
         with mock.patch(
-            "netbox_pyats.jobs.capture_snapshot_for_netbox_device",
+            "netbox_pyats.capture.capture_snapshot_for_netbox_device",
             return_value=success_result,
         ):
             counts = jobs.batch_capture_job(
