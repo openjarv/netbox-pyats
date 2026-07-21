@@ -452,8 +452,8 @@ class PyatsSnapshotDiff(NetBoxModel):
         ]
 
     def __str__(self):
-        before_ref = f"#{self.before_id}" if self.before_id else "—"
-        after_ref = f"#{self.after_id}" if self.after_id else "—"
+        before_ref = str(self.before_id) if self.before_id else "—"
+        after_ref = str(self.after_id) if self.after_id else "—"
         return (
             f"{self.device} · diff {before_ref}→{after_ref} · "
             f"{self.get_status_display()} · {self.created:%Y-%m-%d %H:%M:%S}"
