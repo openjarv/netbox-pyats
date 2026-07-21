@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # dev-worktree.sh — manage per-issue git worktrees + isolated compose stacks.
 #
-# Conventions (see docs/dev-bringup.md):
+# Conventions (see docs/developer/setup.md):
 #   - Trunk worktree at /home/hermes/netbox-pyats stays on main; no feature work
 #     happens there. Each issue gets its own worktree under ../netbox-pyats-wt/.
 #   - One issue = one branch = one worktree. Branch name: <type>/<issue-id>-<slug>.

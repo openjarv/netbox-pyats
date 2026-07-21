@@ -3,8 +3,8 @@
 OpenCode agents in this repo query the committed code graph
 (`graphify-out/graph.json`) through a `graphify-mcp` MCP server. This file
 documents the two transports and when to use each. For the graph itself
-(contents, refresh, hooks) see [GRAPHIFY.md](GRAPHIFY.md); for the HTTP
-container runbook see [docs/graphify-mcp-http.md](docs/graphify-mcp-http.md).
+(contents, refresh, hooks) see [Graphify](graphify.md); for the HTTP
+container runbook see [Graphify MCP HTTP runbook](graphify-mcp-http.md).
 
 ## When to use which transport
 
@@ -65,7 +65,7 @@ Prerequisites on the host:
 
 The `--graph` path is absolute, so each host's config points at its own
 working copy. The graph stays current via the post-commit / post-checkout
-hooks (see [GRAPHIFY.md](GRAPHIFY.md)).
+hooks (see [Graphify](graphify.md)).
 
 ## remote / HTTP config (multi-host, opt-in)
 
@@ -99,14 +99,14 @@ with a Bearer api-key.
 - The compose binding stays `127.0.0.1:8090` (loopback-only).
 
 Full bring-up, smoke test, secret rotation, and hardening audit checklist:
-[docs/graphify-mcp-http.md](docs/graphify-mcp-http.md).
+[Graphify MCP HTTP runbook](graphify-mcp-http.md).
 
 ## Switching from stdio to HTTP
 
 When a second host comes online, on each affected host:
 
 1. Bring up the HTTP server on the dev host (runbook:
-   [docs/graphify-mcp-http.md](docs/graphify-mcp-http.md)).
+   [Graphify MCP HTTP runbook](graphify-mcp-http.md)).
 2. Generate / obtain the api-key and set `GRAPHIFY_API_KEY` in the remote
    agent's environment.
 3. Replace the `mcp.graphify` block in `~/.config/opencode/opencode.jsonc`

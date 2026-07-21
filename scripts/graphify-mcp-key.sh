@@ -28,7 +28,7 @@
 # The key file is .gitignored (see .gitignore). If you ever commit it by
 # accident, rotate immediately and treat the old key as compromised.
 #
-# See docs/graphify-mcp-http.md for the full secret lifecycle and rotation
+# See docs/developer/graphify-mcp-http.md for the full secret lifecycle and rotation
 # runbook. Owned by Infrastructure Engineer (ATW-42).
 
 set -euo pipefail

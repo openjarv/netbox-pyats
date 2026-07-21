@@ -73,5 +73,5 @@ graphify opencode install --project       # .opencode/ integration + AGENTS.md n
 - Code-only graph (no API key) for now — covers all plugin Python/Django code.
   Community names stay as `Community N` placeholders until an LLM backend
   (`GOOGLE_API_KEY` / `GEMINI_API_KEY`) is configured for `graphify label`.
-- MCP server (`graphifyy[mcp]`) is out of scope for this repo; tracked in
-  [ATW-40](/ATW/issues/ATW-40).
+- MCP server (`graphifyy[mcp]`) transport config: see [Graphify MCP](graphify-mcp.md).
+  Multi-host / HTTP runbook: see [Graphify MCP HTTP runbook](graphify-mcp-http.md).

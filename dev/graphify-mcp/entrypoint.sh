@@ -27,7 +27,7 @@ RUNTIME_USER="${GRAPHIFY_RUNTIME_USER:-graphify}"
 
 if [ ! -s "$SECRET_FILE" ]; then
   echo "graphify-mcp-entrypoint: FATAL: api-key secret missing or empty at $SECRET_FILE" >&2
-  echo "  Generate it with scripts/graphify-mcp-key.sh generate (see docs/graphify-mcp-http.md)." >&2
+  echo "  Generate it with scripts/graphify-mcp-key.sh generate (see docs/developer/graphify-mcp-http.md)." >&2
   exit 1
 fi
 
