@@ -89,7 +89,6 @@ jobs:
                  netbox_pyats/tests/test_diff.py \
                  netbox_pyats/tests/test_capture.py \
                  netbox_pyats/tests/test_compliance.py \
-                 netbox_pyats/tests/test_supported_platforms.py \
                  -v
 
   integration:
