@@ -124,7 +124,7 @@
             <tr>
               <td><span class="badge bg-{{ d.get_status_color }}">{{ d.get_status_display }}</span></td>
               <td>{% if d.has_changes %}<i class="mdi mdi-check text-warning"></i>{% else %}<span class="text-muted">—</span>{% endif %}</td>
-              <td><a href="{{ d.before.get_absolute_url }}">#{{ d.before_id }}</a> → <a href="{{ d.after.get_absolute_url }}">#{{ d.after_id }}</a></td>
+              <td>{% if d.before %}<a href="{{ d.before.get_absolute_url }}">#{{ d.before_id }}</a>{% else %}<span class="text-muted">#{{ d.before_id|default:"—" }}</span>{% endif %} → {% if d.after %}<a href="{{ d.after.get_absolute_url }}">#{{ d.after_id }}</a>{% else %}<span class="text-muted">#{{ d.after_id|default:"—" }}</span>{% endif %}</td>
               <td>{{ d.created|date:'Y-m-d H:i' }}</td>
               <td><a href="{{ d.get_absolute_url }}" class="btn btn-sm btn-outline-primary">View</a></td>
             </tr>

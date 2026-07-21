@@ -224,6 +224,15 @@ def run_diff_job(job, before_id: int, after_id: int, **kwargs):
     enforced in :func:`diff.diff_snapshots` — empty inputs and malformed
     payloads still produce a row so the operator sees the outcome in-line,
     mirroring Phase 2's unsupported/error snapshot rows.
+
+    Error-row persistence: ``PyatsSnapshotDiff.before`` / ``.after`` are
+    nullable (``on_delete=SET_NULL``) so a diff where the before or after
+    snapshot row was deleted between the user clicking "Diff" and the worker
+    picking up the job can still write an error row (recording the missing ids
+    in ``parser_warnings``) rather than failing ``full_clean()`` on a dangling
+    FK. This matches the Phase 4 compliance job's error-row contract
+    (``PyatsComplianceRun.golden`` / ``.snapshot`` are also nullable — see
+    migration ``0006_compliance_run_nullable_fks``). See ATW-68.
     """
     from dcim.models import Device
 
@@ -238,15 +247,21 @@ def run_diff_job(job, before_id: int, after_id: int, **kwargs):
         after_snap = PyatsSnapshot.objects.get(pk=after_id)
     except PyatsSnapshot.DoesNotExist as exc:
         # Snapshot was deleted between the user clicking "Diff" and the worker
-        # picking up the job. Write an error row so the operator sees it.
+        # picking up the job. Write an error row (with before/after NULL — the
+        # FKs dangle) so the operator sees it. before/after are nullable on
+        # PyatsSnapshotDiff exactly for this path (see model docstring +
+        # migration 0008).
         diff_row = PyatsSnapshotDiff(
             device=device,
-            before_id=before_id,
-            after_id=after_id,
+            before=None,
+            after=None,
             status="error",
             diff={},
             summary={},
-            parser_warnings=[f"snapshot missing: {exc}"],
+            parser_warnings=[
+                f"before or after snapshot missing before run: {exc}",
+                f"before_id={before_id}, after_id={after_id}",
+            ],
             size_bytes=0,
         )
         diff_row.full_clean()
@@ -381,7 +396,8 @@ def run_compliance_job(job, golden_id: int, snapshot_id: int, **kwargs):
     the worker picking up the job can still write an error row (recording the
     missing ids in ``parser_warnings``) rather than failing ``full_clean()``
     on a dangling FK. This matches the Phase 3 diff job's error-row contract
-    (``PyatsSnapshotDiff.before`` / ``.after`` are also nullable).
+    (``PyatsSnapshotDiff.before`` / ``.after`` are also nullable — see
+    migration ``0008_pyatssnapshotdiff_nullable_fks``, ATW-68).
     """
     from dcim.models import Device
 
