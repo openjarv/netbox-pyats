@@ -1,0 +1,110 @@
+{% extends 'generic/object.html' %}
+{% load helpers %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col col-md-6">
+    <div class="card">
+      <h5 class="card-header">PyATS Compliance Run</h5>
+      <div class="card-body">
+        <table class="table table-hover attr-table">
+          <tr>
+            <th scope="row">Device</th>
+            <td>{{ object.device|linkify }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Golden config</th>
+            <td>{{ object.golden|linkify }} ({{ object.golden.name }})</td>
+          </tr>
+          <tr>
+            <th scope="row">Snapshot</th>
+            <td>{{ object.snapshot|linkify }} ({{ object.snapshot.captured_at|date:'Y-m-d H:i:s' }})</td>
+          </tr>
+          <tr>
+            <th scope="row">Result</th>
+            <td><span class="badge bg-{{ object.get_result_color }}">{{ object.get_result_display }}</span></td>
+          </tr>
+          <tr>
+            <th scope="row">Has drift</th>
+            <td>{{ object.has_drift|yesno:"Yes,No" }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Created</th>
+            <td>{{ object.created|date:'Y-m-d H:i:s' }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Size</th>
+            <td>{{ object.size_bytes|filesizeformat }} ({{ object.size_bytes }} bytes)</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col col-md-6">
+    <div class="card">
+      <h5 class="card-header">Summary</h5>
+      <div class="card-body">
+        {% if object.summary %}
+          <table class="table table-sm">
+            <tr>
+              <th>Added</th><td><span class="badge bg-success">{{ object.summary.added|default:0 }}</span></td>
+            </tr>
+            <tr>
+              <th>Removed</th><td><span class="badge bg-danger">{{ object.summary.removed|default:0 }}</span></td>
+            </tr>
+            <tr>
+              <th>Changed</th><td><span class="badge bg-warning">{{ object.summary.changed|default:0 }}</span></td>
+            </tr>
+            <tr>
+              <th>Unchanged</th><td><span class="badge bg-secondary">{{ object.summary.unchanged|default:0 }}</span></td>
+            </tr>
+          </table>
+        {% else %}
+          <span class="text-muted">No summary (error run — see parser warnings).</span>
+        {% endif %}
+        <hr>
+        <h6>Parser warnings</h6>
+        {% if object.has_warnings %}
+          <ul class="mb-0">
+            {% for w in object.parser_warnings %}
+              <li><pre class="mb-1">{{ w }}</pre></li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <span class="text-muted">No warnings.</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row mb-3">
+  <div class="col col-md-12">
+    <div class="card">
+      <h5 class="card-header">Diff tree (golden vs snapshot)</h5>
+      <div class="card-body">
+        {% if object.diff %}
+          {% include 'netbox_pyats/inc/diff_tree.html' with node=object.diff %}
+        {% else %}
+          <span class="text-muted">No diff data (compliant run with no drift, or error — see parser warnings).</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row mb-3">
+  <div class="col col-md-12">
+    <div class="card">
+      <h5 class="card-header">Raw diff JSON</h5>
+      <div class="card-body">
+        {% if object.diff %}
+          <pre class="snapshot-json">{{ object.diff|json }}</pre>
+        {% else %}
+          <span class="text-muted">No diff data.</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
