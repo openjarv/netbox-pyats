@@ -23,7 +23,68 @@ FROM docker.io/netboxcommunity/netbox:v4.6-5.0.2
 # matrix (README: NetBox 4.6.x x Python 3.10-3.12 x pyATS 26.x worker-only)
 # is unchanged; production operators targeting Python <=3.12 do not need this
 # (a cp312 wheel exists). See ATW-25 / ADR-0003.
-RUN apt-get update && apt-get install -y --no-install-recommends python3.14-dev gcc && rm -rf /var/lib/apt/lists/*
+#
+# Robustness (ATW-101): the apt step is the most fragile part of the build on
+# hosted CI. GitHub Actions runners intermittently fail to reach
+# archive.ubuntu.com (transient mirror outages, "Package 'gcc' has no
+# installation candidate", "Failed to fetch .../InRelease Unable to connect"),
+# which flakes every matrix job that does a cold build. We wrap both
+# `apt-get update` and `apt-get install` in a small retry loop with backoff
+# so a transient fetch failure is retried instead of failing the whole build.
+# The package list and --no-install-recommends are unchanged.
+#
+# APT_MIRROR lets an operator point apt at a specific mirror (e.g. a local
+# cache) without editing the Dockerfile. Leave it unset to use the image's
+# default sources. When set, the sources list is rewritten before apt-get
+# runs so the retry loop targets the chosen mirror.
+#
+# APT_RETRIES controls the max attempt count for each apt sub-command
+# (default 5). Backoff between attempts: 5s, 10s, 20s, 40s, then capped at
+# 60s — enough for a transient mirror blip to clear without making the
+# build unreasonably slow.
+#
+# Note: the backoff uses a case statement rather than arithmetic bit-shift
+# (`1 << n`) because BuildKit's Dockerfile parser treats `<<` as the start
+# of a heredoc even inside `$(())`, which breaks the build.
+#
+# Note: `apt-get update` exits 0 even when every fetch fails (it treats
+# "Failed to fetch" as a warning and falls back to cached indexes). To make
+# the retry actually catch an upstream outage at the update step, we run
+# `apt-get update` with `-o Acquire::Retries=1` (so apt itself does one
+# immediate retry per host) and then check the exit code of `apt-get
+# install` — which is the step that actually fails when no index was
+# fetched. The outer retry loop therefore catches the real failure.
+ARG APT_MIRROR=""
+ARG APT_RETRIES=5
+RUN set -eu; \
+    if [ -n "${APT_MIRROR}" ]; then \
+      for f in /etc/apt/sources.list /etc/apt/sources.list.d/*.sources; do \
+        [ -f "$f" ] || continue; \
+        sed -i "s|http://archive.ubuntu.com/ubuntu|${APT_MIRROR}|g" "$f"; \
+        sed -i "s|http://security.ubuntu.com/ubuntu|${APT_MIRROR}|g" "$f"; \
+      done; \
+    fi; \
+    retry() { \
+      name="$1"; shift; attempt=1; max="${APT_RETRIES}"; \
+      until "$@"; do \
+        echo "apt retry (${attempt}/${max}): ${name} failed, waiting before retry..." >&2; \
+        attempt=$((attempt + 1)); \
+        if [ "${attempt}" -gt "${max}" ]; then \
+          echo "apt retry (${max}/${max}): ${name} exhausted retries" >&2; \
+          exit 1; \
+        fi; \
+        case "${attempt}" in \
+          2) sleep 5  ;; \
+          3) sleep 10 ;; \
+          4) sleep 20 ;; \
+          5) sleep 40 ;; \
+          *) sleep 60 ;; \
+        esac; \
+      done; \
+    }; \
+    retry "apt-get update" apt-get update -o Acquire::Retries=1; \
+    retry "apt-get install" apt-get install -y --no-install-recommends python3.14-dev gcc; \
+    rm -rf /var/lib/apt/lists/*
 
 # Install pyats[full] and genie into NetBox's venv. pyats[full] pulls the
 # parser packages, unicon, and the connection plugins needed for SSH/Telnet
