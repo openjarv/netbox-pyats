@@ -187,9 +187,11 @@ services:
     mem_limit: ${PYATS_WORKER_MEM:-2g}
 
   postgres:
-    # POSTGRES_IMAGE lets CI swap the PostgreSQL version for the
-    # compatibility matrix. Defaults to the pinned 18-alpine tag.
-    image: ${POSTGRES_IMAGE:-docker.io/postgres:18-alpine}
+    # Image is overridable so compatibility-matrix CI (and local sweeps) can
+    # swap the PostgreSQL version against the same plugin + NetBox. Default is
+    # the version the dev server uses. PG_VERSION must be a full docker tag,
+    # e.g. `18-alpine`, `16-alpine`, `14-alpine`.
+    image: docker.io/postgres:${PG_VERSION:-18-alpine}
     restart: unless-stopped
     environment:
       POSTGRES_DB: netbox
@@ -209,15 +211,24 @@ services:
     mem_limit: ${POSTGRES_MEM:-512m}
 
   redis:
-    # REDIS_IMAGE lets CI swap the Redis/Valkey version for the
-    # compatibility matrix. Defaults to the pinned valkey 9.1-alpine tag.
-    image: ${REDIS_IMAGE:-docker.io/valkey/valkey:9.1-alpine}
+    # Image is overridable so compatibility-matrix CI (and local sweeps) can
+    # swap the Redis/Valkey version against the same plugin + NetBox. Default
+    # is Valkey 9.1 (the Redis fork NetBox's docker stack moved to).
+    # REDIS_IMAGE must be a full `repo:tag` string, e.g.
+    # `valkey/valkey:9.1-alpine`, `redis:7-alpine`, `redis:6-alpine`.
+    # REDIS_SERVER is the server binary name (`valkey-server` for Valkey
+    # images, `redis-server` for Redis images) — the two forks use different
+    # binary names.
+    image: docker.io/${REDIS_IMAGE:-valkey/valkey:9.1-alpine}
     restart: unless-stopped
     # Version-agnostic: Valkey images ship `valkey-server`, Redis images ship
     # `redis-server`. The shell form lets us fall back to whichever binary is
     # on PATH so the matrix can swap either family without a per-image command
-    # override.
-    command: sh -c "exec valkey-server --appendonly yes || exec redis-server --appendonly yes"
+    # override. NOTE: the first `valkey-server` call is NOT `exec`'d — `exec`
+    # on a missing binary exits the shell immediately and skips the `||`
+    # fallback. Only the winning branch is `exec`'d so it replaces the shell
+    # as PID 1 and receives signals cleanly.
+    command: sh -c "valkey-server --appendonly yes 2>/dev/null || exec redis-server --appendonly yes"
     healthcheck:
       # Version-agnostic: works for both Valkey (`valkey-cli`) and Redis
       # (`redis-cli`) images so the matrix can swap either family.

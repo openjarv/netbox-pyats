@@ -19,12 +19,15 @@ name: CI
 # matrix: the plugin has no direct PostgreSQL or Redis surface (Django ORM +
 # JSONField only; RQ queue declared by name, enqueued via netbox.core.Job),
 # so sweeping backend versions tests NetBox's infrastructure, not the plugin.
-# ATW-96 audit + board decision (2026-07-22).
+# ATW-96 audit + board decision (2026-07-22). The apt-retry robustness in the
+# pyats-worker Dockerfile (ATW-101, PR #35) keeps the single cold-build lane
+# resilient to transient mirror outages.
 #
 # References:
 #   - Architecture decision D-7 (ATW-23 architecture document, §4/§5).
 #   - ATW-38: NetBox 4.6.5 compatibility fixes (PR #15).
 #   - ATW-96: compatibility-matrix CI (collapsed to single cell per audit).
+#   - ATW-101: apt-retry + backoff in the pyats-worker Dockerfile (PR #35).
 
 on:
   push:

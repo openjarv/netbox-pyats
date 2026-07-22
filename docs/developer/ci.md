@@ -24,7 +24,7 @@ pytest netbox_pyats/tests/test_crypto.py netbox_pyats/tests/test_testbed.py \
        netbox_pyats/tests/test_diff.py netbox_pyats/tests/test_compliance.py
 ```
 
-This is the lane that enforces the compatibility matrix on every PR.
+This is the lane that enforces the Python-version matrix on every PR.
 
 ### `integration`
 
@@ -38,12 +38,13 @@ The integration lane is a **required** check: no merge is green without it passi
 docker compose -f docker-compose.dev.yml exec netbox pytest netbox_pyats/tests
 ```
 
-To run against different backend versions locally, pass the image overrides the compose file reads:
+To run against different backend versions locally, pass the image overrides the compose file reads (see [Image overrides](setup.md#image-overrides-compatibility-sweeps) in the setup guide):
 
 ```bash
 NETBOX_IMAGE=docker.io/netboxcommunity/netbox:v4.6-5.0.2 \
-POSTGRES_IMAGE=docker.io/postgres:16-alpine \
-REDIS_IMAGE=docker.io/redis:7-alpine \
+PG_VERSION=16-alpine \
+REDIS_IMAGE=redis:7-alpine \
+REDIS_SERVER=redis-server \
   docker compose -f docker-compose.dev.yml up -d --wait
 ```
 
@@ -58,5 +59,6 @@ The integration lane runs inside the dev container; if it fails locally but pass
 - Architecture decision D-7 ([ATW-23](/ATW/issues/ATW-23) architecture document, §4 / §5).
 - [ATW-38](/ATW/issues/ATW-38): NetBox 4.6.5 compatibility fixes (PR #15).
 - [ATW-96](/ATW/issues/ATW-96): compatibility-matrix CI (collapsed to single cell per audit + board decision).
+- [ATW-101](/ATW/issues/ATW-101): apt-retry + backoff in the pyats-worker Dockerfile (PR #35).
 - [Contributing](contributing.md) — local dev setup, tests, and lint commands.
 - [Dev environment bring-up](setup.md) — the dev stack that the integration lane uses.
