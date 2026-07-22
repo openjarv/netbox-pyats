@@ -118,8 +118,13 @@ jobs:
         # coverage to the floor of NetBox 4.6's supported range.
         postgres-tag: ["16-alpine", "18-alpine"]
         # Redis/Valkey: NetBox 4.6 supports Redis >= 6.2 *or* Valkey >= 7.
-        # `valkey 9.1` is the dev default; `redis 7-alpine` proves the
-        # non-Valkey path so the matrix is not silently Valkey-only.
+        # `Valkey` is the dev default; `Redis` proves the non-Valkey path so
+        # the matrix is not silently Valkey-only. The `include` entries below
+        # attach the matching image/tag to each redis-name cell (this is the
+        # canonical pattern: redis-name is the cross-product dimension and
+        # `include` only enriches matching combinations — using `include`
+        # alone without a redis-name dimension collapses the cross-product).
+        redis-name: ["Valkey", "Redis"]
         include:
           - redis-name: "Valkey"
             redis-tag: "9.1-alpine"
