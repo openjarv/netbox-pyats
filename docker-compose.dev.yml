@@ -213,7 +213,11 @@ services:
     # compatibility matrix. Defaults to the pinned valkey 9.1-alpine tag.
     image: ${REDIS_IMAGE:-docker.io/valkey/valkey:9.1-alpine}
     restart: unless-stopped
-    command: ["valkey-server", "--appendonly", "yes"]
+    # Version-agnostic: Valkey images ship `valkey-server`, Redis images ship
+    # `redis-server`. The shell form lets us fall back to whichever binary is
+    # on PATH so the matrix can swap either family without a per-image command
+    # override.
+    command: sh -c "exec valkey-server --appendonly yes || exec redis-server --appendonly yes"
     healthcheck:
       # Version-agnostic: works for both Valkey (`valkey-cli`) and Redis
       # (`redis-cli`) images so the matrix can swap either family.
