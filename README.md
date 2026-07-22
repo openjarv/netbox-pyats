@@ -27,13 +27,15 @@ Phase 5 ships:
 
 ## Compatibility matrix
 
-| netbox-pyats | NetBox | Python | pyATS |
-|-------------|--------|--------|-------|
-| 0.1.x (Phases 1–5) | 4.6.x  | 3.10, 3.11, 3.12 | 26.x (worker only) |
+| netbox-pyats | NetBox | Python | PostgreSQL | Redis / Valkey | pyATS |
+|-------------|--------|--------|------------|----------------|-------|
+| 0.1.x (Phases 1–5) | 4.6.x  | 3.10, 3.11, 3.12 | 15, 16, 17, 18 | Redis 6, Redis 7, Valkey 9.1 | 26.x (worker only) |
 
 The plugin targets NetBox 4.6+ (current: 4.6.5). `pyats[full]` is **not** an install-time dependency — it is heavy and pulls Cython binaries that may not match every NetBox deployment. Install it on the worker that runs snapshots (see `pip install netbox-pyats[pyats]` or the [worker docs](docs/user/workers.md)). The NetBox web process imports the plugin without pyats installed; the testbed builder imports pyATS lazily. The diff and compliance engines are pure-Python and need no pyATS.
 
 > **Note on the community Docker image:** `netboxcommunity/netbox:4.6.x` ships Python 3.14 (Ubuntu 26.04). The plugin and its migrations apply cleanly against that image (verified on `v4.6-5.0.2`). The pyats worker image needs `python3.14-dev` + `gcc` to compile `ruamel-yaml-clib` against Python 3.14 — `dev/Dockerfile.pyats-worker` installs them as a dev-only build step. See [ADR-0003](docs/adr/0003-netbox46-migration-and-worker-toolchain.md) for the rationale.
+
+CI sweeps the full PostgreSQL × Redis/Valkey matrix on every PR (see [CI docs](docs/developer/ci.md)). PostgreSQL 14 and Redis 5 are not tested because NetBox 4.7 drops them.
 
 ## Documentation
 

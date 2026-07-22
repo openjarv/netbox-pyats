@@ -1,21 +1,28 @@
 name: CI
 
-# CI for netbox-pyats. Three lanes, mirroring the dual-mode test setup in
+# CI for netbox-pyats. Four lanes, mirroring the dual-mode test setup in
 # conftest.py and the compatibility matrix in README.md (NetBox 4.6.x ×
-# Python 3.10/3.11/3.12 × pyATS 26.x worker-only):
+# Python 3.10/3.11/3.12 × pyATS 26.x worker-only), plus a backend-version
+# sweep across PostgreSQL × Redis:
 #
-#   lint        - black / isort / flake8 (single Python; fast).
-#   unit        - pure-Python tests on plain Python (matrix 3.10/3.11/3.12)
-#                 with pyats[full] installed so test_testbed.py runs instead
-#                 of skipping. No NetBox / PostgreSQL / Redis required.
-#   integration - full suite inside the dev NetBox container via
-#                 docker-compose.dev.yml. Gating since ATW-38 resolved the
-#                 NetBox 4.6.5 compatibility bugs (PR #15) and the dev image
-#                 now builds pyats[full] and applies the plugin migrations.
+#   lint               - black / isort / flake8 (single Python; fast).
+#   unit               - pure-Python tests on plain Python (matrix
+#                        3.10/3.11/3.12) with pyats[full] installed so
+#                        test_testbed.py runs instead of skipping. No NetBox /
+#                        PostgreSQL / Redis required.
+#   integration        - full suite inside the dev NetBox container via
+#                        docker-compose.dev.yml with the default backend
+#                        versions (PG 18 + Valkey 9.1). Gating since ATW-38
+#                        resolved the NetBox 4.6.5 compatibility bugs (PR #15).
+#   integration-matrix - same suite, sweeping PostgreSQL × Redis/Valkey
+#                        versions from the supported matrix (ATW-96). Gating;
+#                        every PR must pass on all supported backend
+#                        combinations.
 #
 # References:
 #   - Architecture decision D-7 (ATW-23 architecture document, §4/§5).
 #   - ATW-38: NetBox 4.6.5 compatibility fixes (PR #15).
+#   - ATW-96: compatibility-matrix CI (PG × Redis sweep).
 
 on:
   push:
@@ -92,7 +99,7 @@ jobs:
                  -v
 
   integration:
-    name: Integration tests (NetBox 4.6 container)
+    name: Integration (NetBox 4.6 / PG 18 / Valkey 9.1)
     runs-on: ubuntu-latest
     # Gating since ATW-38 (PR #15) fixed the NetBox 4.6.5 compatibility
     # bugs; the full NetBox-dependent suite (41 passed, 3 skipped) passes
@@ -133,6 +140,74 @@ jobs:
         run: |
           docker compose -f docker-compose.dev.yml logs netbox || true
           docker compose -f docker-compose.dev.yml logs netbox-worker || true
+
+      - name: Tear down dev stack
+        if: always()
+        run: |
+          docker compose -f docker-compose.dev.yml down -v || true
+
+  integration-matrix:
+    name: Integration matrix (PG ${{ matrix.pg }} / ${{ matrix.redis.label }})
+    runs-on: ubuntu-latest
+    # Sweep the supported PostgreSQL × Redis/Valkey backend versions against
+    # the full NetBox-dependent suite (ATW-96). Every PR must pass on all
+    # supported backend combinations — no merge is green without matrix
+    # coverage.
+    #
+    # NetBox 4.6 supports PostgreSQL 14+ (14 deprecated, 15+ recommended) and
+    # Redis 5.0+ (pre-6.0 deprecated, 6.0+ recommended). We test the
+    # non-deprecated range plus the current defaults:
+    #   PostgreSQL: 15, 16, 17 (18 is covered by the `integration` lane above)
+    #   Redis:      6, 7       (Valkey 9.1 is covered by `integration` above)
+    #
+    # PG 14 and Redis 5 are intentionally excluded: NetBox 4.7 drops them,
+    # and testing soon-to-be-unsupported versions adds CI minutes without
+    # protecting real deployments.
+    continue-on-error: false
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        pg: ["15-alpine", "16-alpine", "17-alpine"]
+        redis:
+          - label: "Redis 6"
+            image: "redis:6-alpine"
+            server: "redis-server"
+          - label: "Redis 7"
+            image: "redis:7-alpine"
+            server: "redis-server"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Bring up NetBox dev stack (PG ${{ matrix.pg }} / ${{ matrix.redis.label }})
+        # Override the postgres + redis images via the env vars that
+        # docker-compose.dev.yml reads (PG_VERSION / REDIS_IMAGE). The NetBox
+        # image and pyats worker are unchanged — only the backends are swept.
+        env:
+          NETBOX_MEM: 2g
+          PG_VERSION: ${{ matrix.pg }}
+          REDIS_IMAGE: ${{ matrix.redis.image }}
+          REDIS_SERVER: ${{ matrix.redis.server }}
+        run: |
+          docker compose -f docker-compose.dev.yml up -d --wait
+          docker compose -f docker-compose.dev.yml ps
+
+      - name: Run NetBox-dependent suite
+        run: |
+          docker compose -f docker-compose.dev.yml exec -T \
+            -w /opt/netbox/netbox/netbox_pyats_src netbox \
+            pytest netbox_pyats/tests -v
+
+      - name: Dump NetBox + backend logs on failure
+        if: failure()
+        run: |
+          docker compose -f docker-compose.dev.yml logs netbox || true
+          docker compose -f docker-compose.dev.yml logs netbox-worker || true
+          docker compose -f docker-compose.dev.yml logs postgres || true
+          docker compose -f docker-compose.dev.yml logs redis || true
 
       - name: Tear down dev stack
         if: always()
