@@ -23,10 +23,19 @@ FROM docker.io/netboxcommunity/netbox:v4.6-5.0.2
 # matrix (README: NetBox 4.6.x x Python 3.10-3.12 x pyATS 26.x worker-only)
 # is unchanged; production operators targeting Python <=3.12 do not need this
 # (a cp312 wheel exists). See ATW-25 / ADR-0003.
+#
+# Retry the WHOLE apt-get update + install chain atomically. apt-get update
+# exits 0 even on partial mirror failures ("Some index files failed to
+# download... ignored"), so retrying only update (the old shape) left the
+# subsequent install running against a stale/missing security index, which
+# then failed with exit 100. Wrapping install inside the retry loop means a
+# transient mirror-sync-in-progress error is retried end-to-end until the
+# packages actually resolve. ATW-96.
 RUN for i in 1 2 3 4 5; do \
-      apt-get update && break || { echo "apt-get update failed (attempt $i), retrying in 10s…"; sleep 10; }; \
+      apt-get update && \
+      apt-get install -y --no-install-recommends python3.14-dev gcc && \
+      break || { echo "apt-get failed (attempt $i), retrying in 10s…"; rm -rf /var/lib/apt/lists/*; sleep 10; }; \
     done && \
-    apt-get install -y --no-install-recommends python3.14-dev gcc && \
     rm -rf /var/lib/apt/lists/*
 
 # Install pyats[full] and genie into NetBox's venv. pyats[full] pulls the
