@@ -138,6 +138,29 @@ docker compose -f docker-compose.dev.yml up -d
 | `postgres`           | `POSTGRES_`         | 0.5         | 512m        |
 | `redis`              | `REDIS_`            | 0.5         | 256m        |
 
+### Image overrides (compatibility sweeps)
+
+The `postgres` and `redis` image tags are overridable so compatibility-matrix
+CI (and local sweeps) can test the plugin against multiple backend versions
+without editing the compose file:
+
+```bash
+PG_VERSION=16-alpine REDIS_IMAGE=redis:7-alpine REDIS_SERVER=redis-server \
+  docker compose -f docker-compose.dev.yml up -d
+```
+
+| Service    | Var            | Default                      | Example values                          |
+| ---------- | -------------- | ---------------------------- | --------------------------------------- |
+| `postgres` | `PG_VERSION`   | `18-alpine`                  | `14-alpine`, `16-alpine`, `17-alpine`   |
+| `redis`    | `REDIS_IMAGE`  | `valkey/valkey:9.1-alpine`   | `redis:6-alpine`, `redis:7-alpine`      |
+| `redis`    | `REDIS_SERVER` | `valkey-server`              | `redis-server` (for plain `redis:*`)    |
+
+`PG_VERSION` is just the tag (the `postgres:` prefix is fixed).
+`REDIS_IMAGE` is the full `repo:tag` so it can swap between `redis:*` and
+`valkey:*` images. `REDIS_SERVER` is the server binary name — `valkey-server`
+for Valkey images, `redis-server` for plain Redis images. The `redis`
+healthcheck uses `redis-cli`, which both image families ship.
+
 ## Remote access
 
 The dev UI binds to `127.0.0.1:<NETBOX_PORT>` on the dev host only. To reach it
