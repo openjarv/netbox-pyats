@@ -28,24 +28,17 @@ This is the lane that enforces the compatibility matrix on every PR.
 
 ### `integration`
 
-Full NetBox-dependent suite inside the dev container (`docker-compose.dev.yml`), run as a **compatibility matrix** across NetBox × PostgreSQL × Redis/Valkey combinations (ATW-96). Gating (`continue-on-error: false`, `fail-fast: false`); the NetBox 4.6 dev-image compatibility work ([ATW-25](/ATW/issues/ATW-25)) and the gating flip ([ATW-49](/ATW/issues/ATW-49)) have landed.
+Full NetBox-dependent suite inside the dev container (`docker-compose.dev.yml`) with the default backend versions (NetBox 4.6.5 × PostgreSQL 18 × Valkey 9.1). Gating (`continue-on-error: false`); the NetBox 4.6 dev-image compatibility work ([ATW-25](/ATW/issues/ATW-25)) and the gating flip ([ATW-49](/ATW/issues/ATW-49)) have landed.
 
-Current matrix cells (NetBox 4.6.5 × {PG 16, PG 18} × {Valkey 9.1, Redis 7}):
+The integration lane runs a **single cell**, not a PostgreSQL × Redis matrix. An audit for [ATW-96](/ATW/issues/ATW-96) found the plugin has no direct PostgreSQL or Redis surface (Django ORM + `JSONField` only; RQ queue declared by name and enqueued via `netbox.core.Job.enqueue`), so sweeping backend versions tests NetBox's infrastructure rather than the plugin. The board accepted collapsing the matrix on 2026-07-22.
 
-| NetBox | PostgreSQL | Cache |
-|--------|------------|-------|
-| 4.6.5  | 16         | Valkey 9.1 |
-| 4.6.5  | 16         | Redis 7 |
-| 4.6.5  | 18         | Valkey 9.1 |
-| 4.6.5  | 18         | Redis 7 |
-
-The matrix is a **required** check: no merge is green without all cells passing. Python is not in this lane's matrix because the NetBox community image pins Python internally; the `unit` lane above exercises Python 3.10/3.11/3.12.
+The integration lane is a **required** check: no merge is green without it passing. Python is not swept here because the NetBox community image pins Python internally; the `unit` lane above exercises Python 3.10/3.11/3.12.
 
 ```bash
 docker compose -f docker-compose.dev.yml exec netbox pytest netbox_pyats/tests
 ```
 
-To run a single matrix cell locally, pass the image overrides the workflow uses:
+To run against different backend versions locally, pass the image overrides the compose file reads:
 
 ```bash
 NETBOX_IMAGE=docker.io/netboxcommunity/netbox:v4.6-5.0.2 \
@@ -56,7 +49,7 @@ REDIS_IMAGE=docker.io/redis:7-alpine \
 
 ## What to keep green
 
-Keep `lint` and `unit` green on every PR. Do not merge if either is red.
+Keep `lint`, `unit`, and `integration` green on every PR. Do not merge if any lane is red.
 
 The integration lane runs inside the dev container; if it fails locally but passes in CI (or vice versa), check that your local dev stack is up to date with `docker-compose.dev.yml`.
 
@@ -64,6 +57,6 @@ The integration lane runs inside the dev container; if it fails locally but pass
 
 - Architecture decision D-7 ([ATW-23](/ATW/issues/ATW-23) architecture document, §4 / §5).
 - [ATW-38](/ATW/issues/ATW-38): NetBox 4.6.5 compatibility fixes (PR #15).
-- [ATW-96](/ATW/issues/ATW-96): compatibility-matrix CI (NetBox × PostgreSQL × Redis/Valkey).
+- [ATW-96](/ATW/issues/ATW-96): compatibility-matrix CI (collapsed to single cell per audit + board decision).
 - [Contributing](contributing.md) — local dev setup, tests, and lint commands.
 - [Dev environment bring-up](setup.md) — the dev stack that the integration lane uses.
