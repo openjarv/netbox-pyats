@@ -31,7 +31,10 @@
 
 services:
   netbox:
-    image: docker.io/netboxcommunity/netbox:v4.6-5.0.2
+    # NETBOX_IMAGE lets CI (and operators) swap the community NetBox image to
+    # exercise a different compatibility-matrix cell (see the integration lane
+    # in .github/workflows/ci.yml). Defaults to the pinned 4.6.5 tag.
+    image: ${NETBOX_IMAGE:-docker.io/netboxcommunity/netbox:v4.6-5.0.2}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -99,7 +102,9 @@ services:
     mem_limit: ${NETBOX_MEM:-1g}
 
   netbox-worker:
-    image: docker.io/netboxcommunity/netbox:v4.6-5.0.2
+    # Shares the NETBOX_IMAGE override so the web + worker always run the same
+    # NetBox version in a given matrix cell.
+    image: ${NETBOX_IMAGE:-docker.io/netboxcommunity/netbox:v4.6-5.0.2}
     restart: unless-stopped
     depends_on:
       netbox:
@@ -182,7 +187,9 @@ services:
     mem_limit: ${PYATS_WORKER_MEM:-2g}
 
   postgres:
-    image: docker.io/postgres:18-alpine
+    # POSTGRES_IMAGE lets CI swap the PostgreSQL version for the
+    # compatibility matrix. Defaults to the pinned 18-alpine tag.
+    image: ${POSTGRES_IMAGE:-docker.io/postgres:18-alpine}
     restart: unless-stopped
     environment:
       POSTGRES_DB: netbox
@@ -202,11 +209,15 @@ services:
     mem_limit: ${POSTGRES_MEM:-512m}
 
   redis:
-    image: docker.io/valkey/valkey:9.1-alpine
+    # REDIS_IMAGE lets CI swap the Redis/Valkey version for the
+    # compatibility matrix. Defaults to the pinned valkey 9.1-alpine tag.
+    image: ${REDIS_IMAGE:-docker.io/valkey/valkey:9.1-alpine}
     restart: unless-stopped
     command: ["valkey-server", "--appendonly", "yes"]
     healthcheck:
-      test: valkey-cli ping | grep -q PONG
+      # Version-agnostic: works for both Valkey (`valkey-cli`) and Redis
+      # (`redis-cli`) images so the matrix can swap either family.
+      test: ["CMD-SHELL", "valkey-cli ping | grep -q PONG || redis-cli ping | grep -q PONG"]
       start_period: 5s
       timeout: 3s
       interval: 1s

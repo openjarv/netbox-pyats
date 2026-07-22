@@ -9,13 +9,16 @@ name: CI
 #                 with pyats[full] installed so test_testbed.py runs instead
 #                 of skipping. No NetBox / PostgreSQL / Redis required.
 #   integration - full suite inside the dev NetBox container via
-#                 docker-compose.dev.yml. Gating since ATW-38 resolved the
-#                 NetBox 4.6.5 compatibility bugs (PR #15) and the dev image
-#                 now builds pyats[full] and applies the plugin migrations.
+#                 docker-compose.dev.yml, run as a matrix across
+#                 NetBox × PostgreSQL × Redis/Valkey combinations (ATW-96).
+#                 Gating since ATW-38 resolved the NetBox 4.6.5 compatibility
+#                 bugs (PR #15) and the dev image now builds pyats[full] and
+#                 applies the plugin migrations.
 #
 # References:
 #   - Architecture decision D-7 (ATW-23 architecture document, §4/§5).
 #   - ATW-38: NetBox 4.6.5 compatibility fixes (PR #15).
+#   - ATW-96: compatibility-matrix CI (NetBox × PostgreSQL × Redis/Valkey).
 
 on:
   push:
@@ -92,15 +95,42 @@ jobs:
                  -v
 
   integration:
-    name: Integration tests (NetBox 4.6 container)
+    name: Integration (NB ${{ matrix.netbox-tag }} · PG ${{ matrix.postgres-tag }} · ${{ matrix.redis-name }} ${{ matrix.redis-tag }})
     runs-on: ubuntu-latest
-    # Gating since ATW-38 (PR #15) fixed the NetBox 4.6.5 compatibility
-    # bugs; the full NetBox-dependent suite (41 passed, 3 skipped) passes
-    # against netboxcommunity/netbox:v4.6-5.0.2.
+    # Compatibility-matrix coverage (ATW-96): the integration lane now runs
+    # the full NetBox-dependent suite across the supported combinations of
+    # NetBox × PostgreSQL × Redis/Valkey. `continue-on-error: false` is kept
+    # so a single failing cell fails the whole lane — no merge is green
+    # without the full matrix passing. Python is not in this lane's matrix
+    # because the NetBox community image pins Python internally; the
+    # `unit` job above already exercises Python 3.10/3.11/3.12.
     continue-on-error: false
+    strategy:
+      fail-fast: false
+      matrix:
+        # Supported NetBox 4.6.x community image tags (ATW-38/PR #15 verified
+        # 4.6.5; ATW-83/Phase 5 verified 4.6.5 again on the jobs branch).
+        # NetBox 4.6.x ships a single image digest per tag (Ubuntu 26.04,
+        # Python 3.14) per ADR-0003, so only the patch version varies here.
+        netbox-tag: ["v4.6-5.0.2"]
+        # PostgreSQL versions supported by NetBox 4.6 (13+) and exercised by
+        # the plugin. `18-alpine` is the dev default; `16-alpine` widens
+        # coverage to the floor of NetBox 4.6's supported range.
+        postgres-tag: ["16-alpine", "18-alpine"]
+        # Redis/Valkey: NetBox 4.6 supports Redis >= 6.2 *or* Valkey >= 7.
+        # `valkey 9.1` is the dev default; `redis 7-alpine` proves the
+        # non-Valkey path so the matrix is not silently Valkey-only.
+        include:
+          - redis-name: "Valkey"
+            redis-tag: "9.1-alpine"
+            redis-image: "docker.io/valkey/valkey:9.1-alpine"
+          - redis-name: "Redis"
+            redis-tag: "7-alpine"
+            redis-image: "docker.io/redis:7-alpine"
     # Cold start (migrations + reindex + granian spawn) takes ~6-9 min on a
     # GitHub Actions runner, and the test suite itself runs ~9 min. 45 min
-    # gives headroom for the buildx build, cold start, and full suite.
+    # gives headroom for the buildx build, cold start, and full suite. The
+    # matrix multiplies runner-minutes but does not change the per-cell cap.
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -113,8 +143,14 @@ jobs:
         # headroom; the default 1g cap OOM-kills the test suite. The netbox
         # healthcheck's start_period (600s in docker-compose.dev.yml) covers the
         # ~6-9 min cold-start migration window on a constrained CPU.
+        # NETBOX_IMAGE / POSTGRES_IMAGE / REDIS_IMAGE select the matrix cell;
+        # the compose file reads them via the ${...:-default} overrides added
+        # for ATW-96.
         env:
           NETBOX_MEM: 2g
+          NETBOX_IMAGE: docker.io/netboxcommunity/netbox:${{ matrix.netbox-tag }}
+          POSTGRES_IMAGE: docker.io/postgres:${{ matrix.postgres-tag }}
+          REDIS_IMAGE: ${{ matrix.redis-image }}
         run: |
           docker compose -f docker-compose.dev.yml up -d --wait
           docker compose -f docker-compose.dev.yml ps
