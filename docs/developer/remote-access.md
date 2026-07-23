@@ -10,27 +10,35 @@ loopback-only rule). Nothing in this runbook widens that binding to `0.0.0.0`
 or the public eth0 IP. We reach the loopback port **through** the tailnet
 without ever publishing it on eth0.
 
-## Host facts (verified 2026-07-23)
+## Host facts (fill in your own)
 
 | What                       | Value                                    |
 | -------------------------- | ---------------------------------------- |
-| Tailscale IP (tailscale0)  | `100.127.35.6`                           |
-| Tailnet FQDN               | `vmi3285403.tail4085b5.ts.net`           |
-| Public eth0 IP             | `37.60.249.216`                          |
+| Tailscale IP (tailscale0)  | `<TAILSCALE_IP>` (e.g. `100.x.y.z`)      |
+| Tailnet FQDN               | `<TAILNET_FQDN>` (e.g. `your-host.tailnet-name.ts.net`) |
+| Public eth0 IP             | `<ETH0_IP>` (only used to verify it is **not** published) |
 | SSH                        | `0.0.0.0:22` (reachable via both IPs)    |
 | Compose UI binding          | `127.0.0.1:<NETBOX_PORT>:8080` (loopback only) |
 | Tailscale `serve`/`funnel`  | available, currently no config           |
 
-The dev host is on the `bonzo81.github` tailnet as `vmi3285403`. Your laptop
-must already be on the same tailnet (`tailscale up` on the laptop, same
-account). If your tailnet name differs, substitute your dev host's Tailscale
+The dev host is on your tailnet as `<TAILNET_HOSTNAME>`, with tailnet name
+`<TAILNET_NAME>`. Your laptop must already be on the same tailnet
+(`tailscale up` on the laptop, same account). Find your dev host's values with:
+
+```bash
+# on the dev host:
+tailscale ip -4          # -> <TAILSCALE_IP>
+tailscale status         # -> Self line shows <TAILNET_FQDN> and <TAILNET_NAME>
+```
+
+If your tailnet name differs, substitute your dev host's Tailscale
 IP or FQDN throughout.
 
 ## Prerequisites
 
 - You are on the **same tailnet** as the dev host. Verify from your laptop:
   ```bash
-  tailscale status | grep vmi3285403    # should show the dev host as reachable
+  tailscale status | grep <TAILNET_HOSTNAME>    # should show the dev host as reachable
   ```
 - A worktree for the branch you want to test has been created with
   `scripts/dev-worktree.sh add` (see [Dev environment bring-up](setup.md)).
@@ -74,7 +82,7 @@ tailscale serve --bg http://127.0.0.1:<port>
 Then from your **laptop**, open:
 
 ```
-https://vmi3285403.tail4085b5.ts.net/
+https://<TAILNET_FQDN>/
 ```
 
 (Tailscale `serve` terminates TLS on the dev host using a tailnet CA cert,
@@ -123,7 +131,7 @@ Stop with `tailscale serve reset`.
 
 If `tailscale serve` is unavailable (e.g. an older Tailscale client without
 `serve`) or you prefer not to run a long-lived proxy on the dev host, use
-an SSH tunnel. The SSH connection goes over the Tailscale IP (`100.127.35.6`
+an SSH tunnel. The SSH connection goes over the Tailscale IP (`<TAILSCALE_IP>`
 or the FQDN), so it never touches the public internet. The compose binding
 stays `127.0.0.1:<port>`; the tunnel just forwards that loopback port to
 your laptop.
@@ -133,14 +141,14 @@ From your **laptop**:
 ```bash
 # one-shot tunnel. Replace <port> with the worktree's NETBOX_PORT and
 # <user> with your dev-host shell user.
-ssh -N -L 8000:127.0.0.1:<port> <user>@100.127.35.6
+ssh -N -L 8000:127.0.0.1:<port> <user>@<TAILSCALE_IP>
 # then open http://localhost:8000 on the laptop (admin / admin)
 ```
 
 Or using the Tailscale FQDN (preferred — survives IP changes):
 
 ```bash
-ssh -N -L 8000:127.0.0.1:<port> <user>@vmi3285403.tail4085b5.ts.net
+ssh -N -L 8000:127.0.0.1:<port> <user>@<TAILNET_FQDN>
 ```
 
 `-N` keeps the tunnel open without spawning a shell. `Ctrl-C` closes it
@@ -155,16 +163,16 @@ it).
 nb-tunnel() {
   local port="${1:?usage: nb-tunnel <dev-host-NETBOX_PORT> [local-port]}"
   local lport="${2:-8000}"
-  ssh -N -L "$lport:127.0.0.1:$port" "$@" 100.127.35.6
+  ssh -N -L "$lport:127.0.0.1:$port" "$@" <TAILSCALE_IP>
   # e.g. nb-tunnel 8002         -> http://localhost:8000
   #     nb-tunnel 8002 8080     -> http://localhost:8080
 }
 ```
 
-## Why not bind the compose port to `100.127.35.6`?
+## Why not bind the compose port to `<TAILSCALE_IP>`?
 
 The issue lists a third option: publish the port as
-`100.127.35.6:<port>:8080` via a per-worktree `.env` override (e.g. a
+`<TAILSCALE_IP>:<port>:8080` via a per-worktree `.env` override (e.g. a
 `NETBOX_BIND_IP` hook). It is **not recommended** because:
 
 - It requires a compose change (a `NETBOX_BIND_IP` env hook in
@@ -172,7 +180,7 @@ The issue lists a third option: publish the port as
   `tailscale serve` and SSH tunnels already solve with zero compose
   change.
 - Docker publishes the port on that interface to anyone who can route to
-  `100.127.35.6`, which on a tailnet is every node in the tailnet. `serve`
+  `<TAILSCALE_IP>`, which on a tailnet is every node in the tailnet. `serve`
   is tailnet-only too, but `serve` is explicitly Tailscale-audited and
   HTTPS-terminated; a raw Docker publish is not.
 - It is easy to misconfigure into `0.0.0.0` (which violates ATW-35 and
@@ -212,10 +220,10 @@ docker compose -f docker-compose.dev.yml ps
 
 # 2. Nothing is published on the public eth0 IP for the netbox port.
 ss -tlnp | grep ":$NETBOX_PORT "
-# expected: 127.0.0.1:<port> ... and nothing on 37.60.249.216:<port>
+# expected: 127.0.0.1:<port> ... and nothing on <ETH0_IP>:<port>
 
 # 3. (serve path) UI is reachable over the tailnet.
-curl -kI https://vmi3285403.tail4085b5.ts.net/login/
+curl -kI https://<TAILNET_FQDN>/login/
 # expected: 200/302 from NetBox
 
 # 4. (SSH-tunnel path) from the laptop, after opening the tunnel:
@@ -223,5 +231,5 @@ curl -I http://localhost:8000/login/
 # expected: 200/302 from NetBox
 ```
 
-If step 2 shows the port on `0.0.0.0` or `37.60.249.216`, **stop and file an
+If step 2 shows the port on `0.0.0.0` or `<ETH0_IP>`, **stop and file an
 infra issue** — something has widened the binding past ATW-35.

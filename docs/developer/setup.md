@@ -178,11 +178,11 @@ Quick reference (replace `<port>` with the worktree's `NETBOX_PORT`):
 ```bash
 # recommended, on the dev host (auto-HTTPS, tailnet-only):
 tailscale serve --bg http://127.0.0.1:<port>
-# open on your laptop: https://vmi3285403.tail4085b5.ts.net/
+# open on your laptop: https://<TAILNET_FQDN>/
 # stop with:          tailscale serve reset
 
 # fallback, from your laptop (SSH tunnel over the Tailscale IP):
-ssh -N -L 8000:127.0.0.1:<port> <user>@100.127.35.6
+ssh -N -L 8000:127.0.0.1:<port> <user>@<TAILSCALE_IP>
 # open on your laptop: http://localhost:8000
 ```
 
