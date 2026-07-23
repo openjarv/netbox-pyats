@@ -8,6 +8,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Secret/PII leakage gate (ATW-116): committed `.pre-commit-config.yaml` wiring gitleaks with a custom `.gitleaks.toml` allowlist/regex set covering Tailscale CGNAT IPs (`100.64.0.0/10`), Tailscale DNS (`*.ts.net` / `*.tscale.net` / `*.tailscale.com`), Paperclip agent/server identifiers, private keys, and the upstream gitleaks defaults. The `<...>` placeholder convention used in `docs/developer/remote-access.md` is allowlisted so the redacted runbook does not false-positive. Pure-Python regression test in `netbox_pyats/tests/test_secret_detection.py`.
 - NetBox plugin scaffold (`netbox_pyats/`): `PluginConfig`, `PLUGINS_CONFIG` schema, entry point, navigation menu (PyATS Credentials, Add Credential).
 - `PyatsCredential` model with Fernet field-level encryption (`netbox_pyats.crypto`): `password` and `enable_secret` stored as ciphertext; plaintext only lives in-memory on the pyATS `Testbed` built by the worker. Key from `PLUGINS_CONFIG['netbox_pyats']['credential_key']` (recommended) with a documented `SECRET_KEY`-derived dev fallback (warns).
 - `PyatsCredential` CRUD views + templates, REST API viewset (write-only secrets — never returned), GraphQL type (ciphertext fields excluded), search index, filterset, table.
