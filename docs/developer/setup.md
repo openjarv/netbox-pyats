@@ -164,17 +164,31 @@ and `redis-cli` so it works across either image family.
 ## Remote access
 
 The dev UI binds to `127.0.0.1:<NETBOX_PORT>` on the dev host only. To reach it
-from your laptop, tunnel over SSH rather than widening the binding (replace
-`8000` with the port the worktree claimed):
+from your laptop, **do not** widen the binding (that would expose the dev
+NetBox with `admin/admin` credentials and the dev `SECRET_KEY` to the public
+internet). Instead, proxy the loopback port out through the tailnet without
+ever publishing it on eth0.
+
+For the full repeatable runbook — recommended `tailscale serve` path,
+SSH-tunnel-over-Tailscale fallback, host facts, aliases, and a verification
+checklist — see [Remote access over Tailscale](remote-access.md).
+
+Quick reference (replace `<port>` with the worktree's `NETBOX_PORT`):
 
 ```bash
-ssh -L 8000:127.0.0.1:8000 <user>@<dev-host>
-# then open http://localhost:8000 on your laptop
+# recommended, on the dev host (auto-HTTPS, tailnet-only):
+tailscale serve --bg http://127.0.0.1:<port>
+# open on your laptop: https://vmi3285403.tail4085b5.ts.net/
+# stop with:          tailscale serve reset
+
+# fallback, from your laptop (SSH tunnel over the Tailscale IP):
+ssh -N -L 8000:127.0.0.1:<port> <user>@100.127.35.6
+# open on your laptop: http://localhost:8000
 ```
 
 Do **not** change the port mapping to `0.0.0.0:<port>` or drop the `127.0.0.1`
 prefix — that would expose the dev NetBox (default `admin/admin` credentials,
-dev `SECRET_KEY`) to the public internet.
+dev `SECRET_KEY`) to the public internet, violating [ATW-35](/ATW/issues/ATW-35).
 
 ## Working in parallel
 
