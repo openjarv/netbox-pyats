@@ -145,7 +145,7 @@ CI (and local sweeps) can test the plugin against multiple backend versions
 without editing the compose file:
 
 ```bash
-PG_VERSION=16-alpine REDIS_IMAGE=redis:7-alpine REDIS_SERVER=redis-server \
+PG_VERSION=16-alpine REDIS_IMAGE=redis:7-alpine \
   docker compose -f docker-compose.dev.yml up -d
 ```
 
@@ -153,13 +153,13 @@ PG_VERSION=16-alpine REDIS_IMAGE=redis:7-alpine REDIS_SERVER=redis-server \
 | ---------- | -------------- | ---------------------------- | --------------------------------------- |
 | `postgres` | `PG_VERSION`   | `18-alpine`                  | `14-alpine`, `16-alpine`, `17-alpine`   |
 | `redis`    | `REDIS_IMAGE`  | `valkey/valkey:9.1-alpine`   | `redis:6-alpine`, `redis:7-alpine`      |
-| `redis`    | `REDIS_SERVER` | `valkey-server`              | `redis-server` (for plain `redis:*`)    |
 
 `PG_VERSION` is just the tag (the `postgres:` prefix is fixed).
 `REDIS_IMAGE` is the full `repo:tag` so it can swap between `redis:*` and
-`valkey:*` images. `REDIS_SERVER` is the server binary name — `valkey-server`
-for Valkey images, `redis-server` for plain Redis images. The `redis`
-healthcheck uses `redis-cli`, which both image families ship.
+`valkey:*` images. The `redis` service auto-detects the server binary
+(`valkey-server` or `redis-server`) via a shell-form fallback, so no
+`REDIS_SERVER` override is needed. The healthcheck uses both `valkey-cli`
+and `redis-cli` so it works across either image family.
 
 ## Remote access
 

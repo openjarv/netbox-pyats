@@ -1,6 +1,6 @@
 # CI
 
-CI runs on every push to `main` and every PR via [.github/workflows/ci.yml](../../.github/workflows/ci.yml). Four lanes, mirroring the dual-mode test setup in `conftest.py` and the compatibility matrix (NetBox 4.6.x × Python 3.10 / 3.11 / 3.12 × pyATS 26.x worker-only), plus a backend-version sweep across PostgreSQL × Redis.
+CI runs on every push to `main` and every PR via [.github/workflows/ci.yml](../../.github/workflows/ci.yml). Three lanes, mirroring the dual-mode test setup in `conftest.py` and the compatibility matrix (NetBox 4.6.x × Python 3.10 / 3.11 / 3.12 × pyATS 26.x worker-only).
 
 ## Lanes
 
@@ -28,38 +28,37 @@ This is the lane that enforces the Python-version matrix on every PR.
 
 ### `integration`
 
-Full NetBox-dependent suite inside the dev container (`docker-compose.dev.yml`) with the default backend versions (PostgreSQL 18 + Valkey 9.1). Gating (`continue-on-error: false`); the NetBox 4.6 dev-image compatibility work ([ATW-25](/ATW/issues/ATW-25)) and the gating flip ([ATW-49](/ATW/issues/ATW-49)) have landed.
+Full NetBox-dependent suite inside the dev container (`docker-compose.dev.yml`) with the default backend versions (NetBox 4.6.5 × PostgreSQL 18 × Valkey 9.1). Gating (`continue-on-error: false`); the NetBox 4.6 dev-image compatibility work ([ATW-25](/ATW/issues/ATW-25)) and the gating flip ([ATW-49](/ATW/issues/ATW-49)) have landed.
+
+The integration lane runs a **single cell**, not a PostgreSQL × Redis matrix. An audit for [ATW-96](/ATW/issues/ATW-96) found the plugin has no direct PostgreSQL or Redis surface (Django ORM + `JSONField` only; RQ queue declared by name and enqueued via `netbox.core.Job.enqueue`), so sweeping backend versions tests NetBox's infrastructure rather than the plugin. The board accepted collapsing the matrix on 2026-07-22.
+
+The integration lane is a **required** check: no merge is green without it passing. Python is not swept here because the NetBox community image pins Python internally; the `unit` lane above exercises Python 3.10/3.11/3.12.
 
 ```bash
 docker compose -f docker-compose.dev.yml exec netbox pytest netbox_pyats/tests
 ```
 
-### `integration-matrix`
+To run against different backend versions locally, pass the image overrides the compose file reads (see [Image overrides](setup.md#image-overrides-compatibility-sweeps) in the setup guide):
 
-Same full NetBox-dependent suite, sweeping PostgreSQL × Redis/Valkey backend versions from the supported matrix ([ATW-96](/ATW/issues/ATW-96)). Gating; every PR must pass on all supported backend combinations — no merge is green without matrix coverage.
-
-The matrix covers:
-
-| PostgreSQL | Redis / Valkey |
-|------------|----------------|
-| 15-alpine  | Redis 6        |
-| 16-alpine  | Redis 7        |
-| 17-alpine  |                |
-
-PostgreSQL 18 + Valkey 9.1 (the defaults) are covered by the `integration` lane above and are not repeated here. PostgreSQL 14 and Redis 5 are excluded because NetBox 4.7 drops them.
-
-The lane overrides the `PG_VERSION`, `REDIS_IMAGE`, and `REDIS_SERVER` env vars that `docker-compose.dev.yml` reads (see [Image overrides](setup.md#image-overrides-compatibility-sweeps) in the setup guide).
+```bash
+NETBOX_IMAGE=docker.io/netboxcommunity/netbox:v4.6-5.0.2 \
+PG_VERSION=16-alpine \
+REDIS_IMAGE=redis:7-alpine \
+REDIS_SERVER=redis-server \
+  docker compose -f docker-compose.dev.yml up -d --wait
+```
 
 ## What to keep green
 
-Keep `lint`, `unit`, `integration`, and `integration-matrix` green on every PR. Do not merge if any lane is red.
+Keep `lint`, `unit`, and `integration` green on every PR. Do not merge if any lane is red.
 
-The integration lanes run inside the dev container; if a lane fails locally but passes in CI (or vice versa), check that your local dev stack is up to date with `docker-compose.dev.yml`.
+The integration lane runs inside the dev container; if it fails locally but passes in CI (or vice versa), check that your local dev stack is up to date with `docker-compose.dev.yml`.
 
 ## References
 
 - Architecture decision D-7 ([ATW-23](/ATW/issues/ATW-23) architecture document, §4 / §5).
 - [ATW-38](/ATW/issues/ATW-38): NetBox 4.6.5 compatibility fixes (PR #15).
-- [ATW-96](/ATW/issues/ATW-96): compatibility-matrix CI (PG × Redis sweep).
+- [ATW-96](/ATW/issues/ATW-96): compatibility-matrix CI (collapsed to single cell per audit + board decision).
+- [ATW-101](/ATW/issues/ATW-101): apt-retry + backoff in the pyats-worker Dockerfile (PR #35).
 - [Contributing](contributing.md) — local dev setup, tests, and lint commands.
-- [Dev environment bring-up](setup.md) — the dev stack that the integration lanes use.
+- [Dev environment bring-up](setup.md) — the dev stack that the integration lane uses.

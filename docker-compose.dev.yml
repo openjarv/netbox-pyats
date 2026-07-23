@@ -31,7 +31,10 @@
 
 services:
   netbox:
-    image: docker.io/netboxcommunity/netbox:v4.6-5.0.2
+    # NETBOX_IMAGE lets CI (and operators) swap the community NetBox image to
+    # exercise a different compatibility-matrix cell (see the integration lane
+    # in .github/workflows/ci.yml). Defaults to the pinned 4.6.5 tag.
+    image: ${NETBOX_IMAGE:-docker.io/netboxcommunity/netbox:v4.6-5.0.2}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -99,7 +102,9 @@ services:
     mem_limit: ${NETBOX_MEM:-1g}
 
   netbox-worker:
-    image: docker.io/netboxcommunity/netbox:v4.6-5.0.2
+    # Shares the NETBOX_IMAGE override so the web + worker always run the same
+    # NetBox version in a given matrix cell.
+    image: ${NETBOX_IMAGE:-docker.io/netboxcommunity/netbox:v4.6-5.0.2}
     restart: unless-stopped
     depends_on:
       netbox:
@@ -182,10 +187,10 @@ services:
     mem_limit: ${PYATS_WORKER_MEM:-2g}
 
   postgres:
-    # Image is overridable so compatibility-matrix CI can sweep PG versions
-    # (14/15/16/17/18) against the same plugin + NetBox. Default is the
-    # version the dev server uses. PG_VERSION must be a full docker tag, e.g.
-    # `18-alpine`, `16-alpine`, `14-alpine`.
+    # Image is overridable so compatibility-matrix CI (and local sweeps) can
+    # swap the PostgreSQL version against the same plugin + NetBox. Default is
+    # the version the dev server uses. PG_VERSION must be a full docker tag,
+    # e.g. `18-alpine`, `16-alpine`, `14-alpine`.
     image: docker.io/postgres:${PG_VERSION:-18-alpine}
     restart: unless-stopped
     environment:
@@ -206,21 +211,28 @@ services:
     mem_limit: ${POSTGRES_MEM:-512m}
 
   redis:
-    # Image is overridable so compatibility-matrix CI can sweep Redis/Valkey
-    # versions against the same plugin + NetBox. Default is Valkey 9.1 (the
-    # Redis fork NetBox's docker stack moved to). REDIS_IMAGE must be a full
-    # `repo:tag` string, e.g. `valkey/valkey:9.1-alpine`,
-    # `redis:7-alpine`, `redis:6-alpine`. REDIS_SERVER is the server binary
-    # name (`valkey-server` for Valkey images, `redis-server` for Redis
-    # images) — the two forks use different binary names.
+    # Image is overridable so compatibility-matrix CI (and local sweeps) can
+    # swap the Redis/Valkey version against the same plugin + NetBox. Default
+    # is Valkey 9.1 (the Redis fork NetBox's docker stack moved to).
+    # REDIS_IMAGE must be a full `repo:tag` string, e.g.
+    # `valkey/valkey:9.1-alpine`, `redis:7-alpine`, `redis:6-alpine`.
+    # REDIS_SERVER is the server binary name (`valkey-server` for Valkey
+    # images, `redis-server` for Redis images) — the two forks use different
+    # binary names.
     image: docker.io/${REDIS_IMAGE:-valkey/valkey:9.1-alpine}
     restart: unless-stopped
-    command: ["${REDIS_SERVER:-valkey-server}", "--appendonly", "yes"]
+    # Version-agnostic: Valkey images ship `valkey-server`, Redis images ship
+    # `redis-server`. The shell form lets us fall back to whichever binary is
+    # on PATH so the matrix can swap either family without a per-image command
+    # override. NOTE: the first `valkey-server` call is NOT `exec`'d — `exec`
+    # on a missing binary exits the shell immediately and skips the `||`
+    # fallback. Only the winning branch is `exec`'d so it replaces the shell
+    # as PID 1 and receives signals cleanly.
+    command: sh -c "valkey-server --appendonly yes 2>/dev/null || exec redis-server --appendonly yes"
     healthcheck:
-      # Both redis and valkey ship `redis-cli`; valkey also provides
-      # `valkey-cli`. Use `redis-cli` so the same healthcheck works across
-      # matrix sweeps that swap in plain `redis:*` images.
-      test: redis-cli ping | grep -q PONG
+      # Version-agnostic: works for both Valkey (`valkey-cli`) and Redis
+      # (`redis-cli`) images so the matrix can swap either family.
+      test: ["CMD-SHELL", "valkey-cli ping | grep -q PONG || redis-cli ping | grep -q PONG"]
       start_period: 5s
       timeout: 3s
       interval: 1s

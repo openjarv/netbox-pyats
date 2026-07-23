@@ -35,7 +35,7 @@ The plugin targets NetBox 4.6+ (current: 4.6.5). `pyats[full]` is **not** an ins
 
 > **Note on the community Docker image:** `netboxcommunity/netbox:4.6.x` ships Python 3.14 (Ubuntu 26.04). The plugin and its migrations apply cleanly against that image (verified on `v4.6-5.0.2`). The pyats worker image needs `python3.14-dev` + `gcc` to compile `ruamel-yaml-clib` against Python 3.14 — `dev/Dockerfile.pyats-worker` installs them as a dev-only build step. See [ADR-0003](docs/adr/0003-netbox46-migration-and-worker-toolchain.md) for the rationale.
 
-CI sweeps the full PostgreSQL × Redis/Valkey matrix on every PR (see [CI docs](docs/developer/ci.md)). PostgreSQL 14 and Redis 5 are not tested because NetBox 4.7 drops them.
+CI runs the integration suite against the default backend versions (PostgreSQL 18 + Valkey 9.1) on every PR (see [CI docs](docs/developer/ci.md)). The backend-version sweep was collapsed to a single cell per the [ATW-96](https://github.com/openjarv/netbox-pyats/issues) audit + board decision (2026-07-22): the plugin has no direct PostgreSQL or Redis surface, so sweeping backend versions tests NetBox's infrastructure rather than the plugin.
 
 ## Documentation
 
