@@ -167,7 +167,7 @@ it).
 nb-tunnel() {
   local port="${1:?usage: nb-tunnel <dev-host-NETBOX_PORT> [local-port]}"
   local lport="${2:-8000}"
-  ssh -N -L "$lport:127.0.0.1:$port" "$@" <TAILSCALE_IP>
+  ssh -N -L "$lport:127.0.0.1:$port" <TAILSCALE_IP>
   # e.g. nb-tunnel 8002         -> http://localhost:8000
   #     nb-tunnel 8002 8080     -> http://localhost:8080
 }
@@ -194,7 +194,7 @@ The issue lists a third option: publish the port as
 
 The loopback-only binding from [ATW-35](/ATW/issues/ATW-35) is the
 security boundary. Both recommended paths above preserve it; option 3
-weaken it.
+weakens it.
 
 ## What does NOT change
 
