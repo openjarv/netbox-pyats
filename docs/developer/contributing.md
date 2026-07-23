@@ -48,6 +48,38 @@ isort --check-only netbox_pyats
 flake8 netbox_pyats
 ```
 
+## Secret / PII leakage gate (pre-commit + gitleaks)
+
+A `pre-commit` hook running [gitleaks](https://github.com/gitleaks/gitleaks) is
+committed as defense-in-depth against the secret/PII leakage class (see
+[ATW-116](/ATW/issues/ATW-116)). It catches Tailscale CGNAT IPs
+(`100.64.0.0/10`), Tailscale DNS (`*.ts.net` / `*.tscale.net` /
+`*.tailscale.com`), Paperclip agent/server identifiers, private keys, and the
+upstream gitleaks defaults (GitHub tokens, cloud provider secrets, etc.)
+**before a secret reaches the public repo**.
+
+Install once per clone:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+Run manually across the whole tree (e.g. after pulling new rules):
+
+```bash
+pre-commit run gitleaks --all-files
+```
+
+The rules live in [`.gitleaks.toml`](../../.gitleaks.toml). The repo uses a
+`<...>` placeholder convention for infra values in docs
+(`<TAILSCALE_IP>`, `<TAILNET_FQDN>`); the allowlist whitelists those forms so
+the documented redacted runbook does not false-positive. When you add a new
+infra placeholder, add the matching allowlist entry.
+
+The pure-Python regression test for the rules is
+`netbox_pyats/tests/test_secret_detection.py` (fast lane, no NetBox needed).
+
 ## Adding a supported platform
 
 Edit `PLATFORM_SLUG_TO_PYATS_OS` in `netbox_pyats/testbed.py`. Only add a slug if Genie has real parser coverage for that os — unknown slugs degrade gracefully to "unsupported - no parser" by design, and silently mapping an unsupported os would produce empty snapshots and mislead operators.
