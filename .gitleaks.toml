@@ -1,0 +1,111 @@
+# gitleaks configuration for netbox-pyats
+#
+# Defense-in-depth secret/PII leakage gate (ATW-116). Extends the gitleaks
+# default rule set (GitHub tokens, private keys, cloud provider secrets, etc.)
+# with repo-specific rules for the Tailscale-CGNAT leakage class that bit PR
+# #38 (ATW-114): Tailscale CGNAT IPs (100.64.0.0/10), Tailscale DNS
+# (*.ts.net / *.tscale.net / *.tailscale.com), Paperclip agent/server
+# identifiers, and generic high-entropy token patterns.
+#
+# The allowlist below whitelists the <...> placeholder convention used
+# throughout docs/developer/remote-access.md and setup.md so the hook does not
+# fire on the documented redacted forms.
+#
+# Usage:
+#   pre-commit run gitleaks           # via .pre-commit-config.yaml
+#   gitleaks detect --config .gitleaks.toml --source . --no-banner
+#
+# Stewardship: CTO owns standards; Security Engineer owns execution (ATW-55).
+
+title = "netbox-pyats secret/PII detection"
+
+[extend]
+# Inherit the upstream default rules (GitHub tokens, private keys, AWS/GCP/
+# Azure, etc.) so this config only has to add the repo-specific Tailscale and
+# Paperclip rules on top.
+useDefault = true
+
+# Global path allowlist: the secret-detection regression test deliberately
+# contains synthetic positive fixtures (fake Tailscale IPs, fake FQDNs, fake
+# tokens, a fake PEM header) that MUST match the rules — that is the point of
+# the test. Excluding the test file from the scan prevents gitleaks from
+# blocking the commit that adds the test itself. The fixtures are synthetic
+# and are not real infra values.
+[allowlist]
+description = "Exclude the secret-detection regression test (synthetic fixtures)"
+paths = [
+  '''netbox_pyats/tests/test_secret_detection\.py''',
+]
+
+###############################################################################
+# Custom rules
+###############################################################################
+
+# --- Tailscale CGNAT IP (100.64.0.0/10) --------------------------------------
+# The repeat leakage class from ATW-114: a concrete Tailscale IP in a PR
+# description or commit message. The CGNAT range is 100.64.0.0 – 100.127.255.255.
+# We deliberately do NOT flag 127.x.x.x (loopback) or 10.x/172.16/192.168
+# (RFC1918) here — those are covered by gitleaks' generic private-IP posture
+# only if they appear as secrets, and the dev docs legitimately use 127.0.0.1.
+[[rules]]
+id = "tailscale-cgnat-ip"
+description = "Tailscale CGNAT IP (100.64.0.0/10) — never commit a concrete value"
+regex = '''\b100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.\d{1,3}\.\d{1,3}\b'''
+keywords = ["100."]
+# Allow the placeholder and the literal example form used in the runbook.
+[[rules.allowlist]]
+title = "placeholder / example Tailscale IP forms"
+description = "Ignore <TAILSCALE_IP>, 100.x.y.z, and 100.0.0.0/10 range headers"
+regexes = [
+  '''<TAILSCALE_IP>''',
+  '''100\.x\.y\.z''',
+  '''100\.64\.0\.0/10''',
+  '''100\.127\.255\.255''',
+]
+
+# --- Tailscale DNS / tailnet FQDN --------------------------------------------
+# Concrete *.ts.net, *.tscale.net, *.tailscale.com hostnames are host-specific
+# PII. The runbook uses <TAILNET_FQDN> and the literal example
+# your-host.tailnet-name.ts.net; both are allowlisted.
+[[rules]]
+id = "tailscale-dns-fqdn"
+description = "Tailscale DNS / tailnet FQDN (*.ts.net, *.tscale.net, *.tailscale.com)"
+regex = '''\b[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.(?:ts\.net|tscale\.net|tailscale\.com)\b'''
+keywords = [".ts.net", ".tscale.net", ".tailscale.com"]
+[[rules.allowlist]]
+title = "placeholder / example tailnet FQDN forms"
+description = "Ignore <TAILNET_FQDN> and the your-host.tailnet-name.ts.net example"
+regexes = [
+  '''<TAILNET_FQDN>''',
+  '''your-host\.tailnet-name\.ts\.net''',
+]
+
+# --- Paperclip agent/server identifiers --------------------------------------
+# Paperclip run JWTs, agent IDs, and run IDs are operational identifiers that
+# must not leak into the public repo. We catch assignment-style leakage
+# (PAPERCLIP_API_KEY=..., PAPERCLIP_AGENT_ID=...) and bare UUID-like values
+# near the PAPERCLIP_ keyword. Dev-only sentinel values are allowlisted.
+[[rules]]
+id = "paperclip-identifier"
+description = "Paperclip agent/server identifier (API key, agent ID, run ID)"
+regex = '''(?i)\bPAPERCLIP_(?:API_KEY|AGENT_ID|RUN_ID|COMPANY_ID|TASK_ID)\b[=:]\s*["']?[A-Za-z0-9._-]{8,}["']?'''
+keywords = ["paperclip_api_key", "paperclip_agent_id", "paperclip_run_id", "paperclip_company_id", "paperclip_task_id"]
+[[rules.allowlist]]
+title = "dev-only sentinel / placeholder Paperclip values"
+description = "Ignore sentinel and template forms that are not real secrets"
+regexes = [
+  '''PAPERCLIP_API_KEY=<<.*>>''',
+  '''PAPERCLIP_API_KEY=\$PAPERCLIP_API_KEY''',
+  '''\$\{?PAPERCLIP_[A-Z_]+\}?''',
+  '''<PAPERCLIP_[A-Z_]+>''',
+]
+
+# --- Private keys (explicit belt-and-braces) ---------------------------------
+# gitleaks' default config already covers PEM blocks; this rule is an explicit,
+# named backstop so the ATW-116 allowlist is self-documenting and does not
+# silently depend on the upstream default for the highest-severity class.
+[[rules]]
+id = "private-key-block"
+description = "Private key (BEGIN ... PRIVATE KEY)"
+regex = '''-----BEGIN (?:RSA |DSA |EC |OPENSSH |PGP |ENCRYPTED |)PRIVATE KEY-----'''
+keywords = ["-----BEGIN"]
