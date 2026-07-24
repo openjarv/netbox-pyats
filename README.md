@@ -1,5 +1,8 @@
 # netbox-pyats
 
+> **⚠️ Early development — AI-built.**
+> This plugin is in **very early development**, is **built purely by AI**, and has **not yet been hardened or audited**. Use it **at your own risk**, and do not deploy it against production NetBox instances without thorough review and your own validation.
+
 An [Atw](https://github.com/openjarv) [NetBox](https://netbox.dev) plugin that brings [Cisco PyATS / Genie](https://developer.cisco.com/pyats/) into the NetBox UI — dynamic testbed building from the NetBox ORM, plugin-local encrypted credentials, device snapshots stored as JSONB, structured snapshot diffs, and config compliance (golden config vs. snapshot) from the device page.
 
 ## What it does
