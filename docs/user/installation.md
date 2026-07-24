@@ -4,9 +4,9 @@ This guide walks a working NetBox administrator through installing **netbox-pyat
 
 ## Compatibility
 
-| netbox-pyats | NetBox | Python | pyATS |
-|-------------|--------|--------|-------|
-| 0.1.x (Phases 1–4) | 4.6.x  | 3.10, 3.11, 3.12 | 26.x (worker only) |
+| netbox-pyats | NetBox | Python | PostgreSQL | Redis / Valkey | pyATS |
+|-------------|--------|--------|------------|----------------|-------|
+| 0.1.x (Phases 1–5) | 4.6.x  | 3.10, 3.11, 3.12 | 15, 16, 17, 18 | Redis 6, Redis 7, Valkey 9.1 | 26.x (worker only) |
 
 The plugin targets NetBox 4.6+ (current: 4.6.5). `pyats[full]` is **not** an install-time dependency — it is heavy and pulls Cython binaries that may not match every NetBox deployment. Install it only on the worker that runs snapshots (see [Worker setup](#step-3-set-up-the-pyats-worker) below). The NetBox web process imports the plugin without pyats installed; the testbed builder imports pyATS lazily. The diff and compliance engines are pure-Python and need no pyATS.
 
