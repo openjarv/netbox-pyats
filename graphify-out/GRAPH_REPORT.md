@@ -1,4 +1,4 @@
-# Graph Report - /home/hermes/netbox-pyats  (2026-07-24)
+# Graph Report - .  (2026-07-24)
 
 ## Corpus Check
 - cluster-only mode — file stats not available
