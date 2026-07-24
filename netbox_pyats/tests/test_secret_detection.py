@@ -12,22 +12,15 @@ Pure-Python: no Django/NetBox dependency, runs in the fast pytest lane.
 import re
 import unittest
 
-
 RULES = {
-    "tailscale-cgnat-ip": re.compile(
-        r"\b100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.\d{1,3}\.\d{1,3}\b"
-    ),
+    "tailscale-cgnat-ip": re.compile(r"\b100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.\d{1,3}\.\d{1,3}\b"),
     "tailscale-dns-fqdn": re.compile(
-        r"\b[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?"
-        r"\.(?:ts\.net|tscale\.net|tailscale\.com)\b"
+        r"\b[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?" r"\.(?:ts\.net|tscale\.net|tailscale\.com)\b"
     ),
     "paperclip-identifier": re.compile(
-        r"(?i)\bPAPERCLIP_(?:API_KEY|AGENT_ID|RUN_ID|COMPANY_ID|TASK_ID)\b"
-        r"[=:]\s*[\"']?[A-Za-z0-9._-]{8,}[\"']?"
+        r"(?i)\bPAPERCLIP_(?:API_KEY|AGENT_ID|RUN_ID|COMPANY_ID|TASK_ID)\b" r"[=:]\s*[\"']?[A-Za-z0-9._-]{8,}[\"']?"
     ),
-    "private-key-block": re.compile(
-        r"-----BEGIN (?:RSA |DSA |EC |OPENSSH |PGP |ENCRYPTED |)PRIVATE KEY-----"
-    ),
+    "private-key-block": re.compile(r"-----BEGIN (?:RSA |DSA |EC |OPENSSH |PGP |ENCRYPTED |)PRIVATE KEY-----"),
 }
 
 ALLOWLIST = {
@@ -93,9 +86,7 @@ class SecretDetectionNegativeCases(unittest.TestCase):
         self.assertFalse(_flagged("ssh -N -L 8000:127.0.0.1:8080 user@<TAILSCALE_IP>"))
 
     def test_runbook_example_row(self):
-        self.assertFalse(
-            _flagged("| Tailscale IP | `<TAILSCALE_IP>` (e.g. `100.x.y.z`) |")
-        )
+        self.assertFalse(_flagged("| Tailscale IP | `<TAILSCALE_IP>` (e.g. `100.x.y.z`) |"))
 
     def test_cgnat_range_header(self):
         self.assertFalse(_flagged("100.64.0.0/10 is the CGNAT range"))
