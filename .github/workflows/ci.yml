@@ -67,6 +67,20 @@ jobs:
       - name: flake8
         run: flake8 netbox_pyats
 
+  graphify-scrub-guard:
+    # Build-time guard against absolute home-path leakage in committed
+    # graphify-out/ artifacts (the PR #41 regression, ATW-112 gate). Runs the
+    # scripts/graphify-scrub-guard.sh check on every PR/push so a leaked
+    # GRAPH_REPORT.md or graph.html <title> fails CI before merge.
+    # The nightly refresh routine also runs this guard locally before commit;
+    # this lane is the structural backstop. Refs: ATW-125, ATW-112, ATW-121.
+    name: Graphify scrub guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run scrub guard (check mode)
+        run: bash scripts/graphify-scrub-guard.sh
+
   unit:
     name: Unit tests (py${{ matrix.python-version }})
     runs-on: ubuntu-latest
@@ -102,6 +116,7 @@ jobs:
                  netbox_pyats/tests/test_capture.py \
                  netbox_pyats/tests/test_compliance.py \
                  netbox_pyats/tests/test_supported_platforms.py \
+                 netbox_pyats/tests/test_graphify_scrub_guard.py \
                  -v
 
   integration:
