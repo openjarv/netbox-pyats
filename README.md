@@ -20,7 +20,7 @@ v0.1 ships:
 - **`PyatsSnapshot` model + `capture_snapshot` RQ job** — click "Capture snapshot" on a device's PyATS tab and the worker connects via Unicon, runs `device.parse('show running-config')` (config) and/or a small OS-agnostic state command set via `device.parse(...)` (state), and stores the parsed result as JSONB. Devices without Genie parser support are surfaced as `unsupported` in the history (a row is still created) rather than failing the run. Capture errors are recorded as `error` rows with the exception text in `parser_warnings`. Each snapshot also carries `parsed_os` (the pyATS os string used by the capture, e.g. `iosxe`/`iosxr`/`nxos`) so future v2 structured compliance can pick the right Genie parser even after the device row is deleted.
 - **Batch capture** — select a set of devices on the NetBox device list and pick "PyATS capture" from the bulk-action menu; the worker iterates the device set, reuses `build_testbed(on_unsupported="skip")` + `capture_snapshot_for_netbox_device`, and writes one `PyatsSnapshot` per supported device. Unsupported platforms and per-device capture failures are counted (`{supported, unsupported, errored, total}`) and the `PyatsJob` is `partial` when any device did not capture cleanly, `success` when all did. Deleted-between-enqueue-and-run devices are silently skipped.
 - **Supported-platforms report** (`/plugins/pyats/supported-platforms/`) — web-process-safe (no Genie import, per ADR-0001 §6): renders the static `PLATFORM_SLUG_TO_PYATS_OS` map the testbed builder uses, with a per-slug NetBox device count and an "unsupported" + "no platform" summary count so operators can see what a batch capture will reach. Live Genie introspection is v2; v1 ships the static map the capture job actually uses.
-- **Dedicated `pyats` RQ queue + worker** — pyATS/Genie work runs on its own queue (declared via `NetBoxPyATSConfig.queues`), isolated from NetBox's default workers. The default NetBox worker does not need pyATS installed; run a second worker pointed at `pyats` (see `dev/Dockerfile.pyats-worker` and [docs/user/workers.md](docs/user/workers.md)). The diff and compliance jobs themselves need no pyATS (they operate on already-serialized JSONB), but run on the `pyats` queue for isolation and a single worker image. An operator who only wants diffs/compliance can run the default worker if they prefer.
+- **Dedicated `pyats` RQ queue + worker** — pyATS/Genie work runs on its own queue (declared via `NetBoxPyATSConfig.queues`), isolated from NetBox's default workers. The default NetBox worker does not need pyATS installed; run a second worker pointed at `pyats` (see `dev/Dockerfile.pyats-worker` and [docs/user/workers.md](docs/user/workers.md)). Captures, diffs, and compliance checks all enqueue on the `pyats` queue, so a single worker pointed at `pyats` services all of them. See [Why a worker?](#why-a-worker) below for the new-user explanation, and [Worker deployment](docs/user/workers.md) for the full setup.
 
 ### Compare
 
@@ -38,6 +38,21 @@ v0.1 ships:
 ### Device-page UI
 
 - **Device-page "PyATS" tab** — capture button (config / state / full), recent-snapshot history with status badges and a warnings indicator, "Diff two snapshots" picker (offered when the device has ≥2 snapshots), a "Run compliance" picker (offered when the device has ≥1 golden config and ≥1 config/full snapshot), and recent-diffs / recent-compliance-runs lists with status/result badges.
+
+## Why a worker?
+
+Most NetBox plugins install and go — the web process is all you need. **netbox-pyats is different:** it puts Cisco PyATS / Genie to work against your real devices, and that work needs a **second worker** alongside NetBox's default one.
+
+A quick orientation: NetBox runs background jobs on an RQ queue, serviced by a worker process. Most plugins just hand jobs to NetBox's default worker and you never think about it. `netbox-pyats` needs its own worker for two reasons:
+
+- **PyATS / Genie is heavy.** `pyats[full]` pulls Cython binaries, Genie parser packages, and Unicon connection plugins that the default NetBox worker container deliberately does not carry. The NetBox web process imports the plugin *without* pyats installed; the part of the plugin that builds device connections imports pyATS lazily, only on the worker.
+- **Captures talk to real devices.** Each snapshot opens an outbound SSH/Telnet session and runs Genie parsers (`show running-config` plus a small state command set), which can take tens of seconds per device. Running that on NetBox's default queue would block NetBox's own housekeeping (datasource syncs, changelog pruning) behind slow device captures.
+
+So the plugin declares its own **`pyats` queue** (via `NetBoxPyATSConfig.queues`) and runs captures, diffs, and compliance checks on it, isolated from NetBox's default workers. You run a second worker pointed at `pyats` only; the default worker keeps serving NetBox's own queue.
+
+> ⚠️ **A capture will not run without a `pyats` worker.** Clicking **Capture snapshot** enqueues a job on the `pyats` queue; with no worker on that queue the job shows as **Pending** in the PyATS Jobs list and the snapshot never appears — there is no error, it just never progresses. Start a worker with `python manage.py rqworker pyats` (with `pyats[full]` installed) in your NetBox worker container/service, then click Capture again. See [Worker deployment](docs/user/workers.md) for the docker form.
+
+The full setup — bare-metal and docker-compose — is in [Worker deployment](docs/user/workers.md).
 
 ## Compatibility matrix
 
@@ -108,7 +123,7 @@ python manage.py migrate
 sudo systemctl restart netbox netbox-rq
 ```
 
-> ⚠️ **First capture needs the pyats worker running.** "Capture snapshot" enqueues on the dedicated `pyats` RQ queue; with no worker on that queue the job sits pending and the snapshot never appears. Start one with `python manage.py rqworker pyats` (pyats installed) — see [Worker deployment](docs/user/workers.md).
+> ⚠️ **First capture needs the `pyats` worker running.** Without it the capture job sits on the `pyats` queue and the snapshot never appears — see [Why a worker?](#why-a-worker) above and [Worker deployment](docs/user/workers.md) for how to start one.
 
 The full install + first-capture walkthrough (including the pyats worker setup) is in [docs/user/installation.md](docs/user/installation.md).
 
