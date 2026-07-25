@@ -119,5 +119,39 @@ class SecretDetectionNegativeCases(unittest.TestCase):
         self.assertFalse(_flagged("100.128.0.1"))
 
 
+class SecretDetectionATW167Regression(unittest.TestCase):
+    """ATW-167 root-cause regression: a real-shaped value placed in the
+    fixture file's content class is caught — the path-allowlist hole that
+    allowed ATW-163 (a live agent-ID prefix sat undetected) cannot recur.
+
+    The companion CI assertion (scripts/gitleaks-fixture-regression.sh) proves
+    gitleaks itself catches a real-shaped value injected into a copy of the
+    fixture placed OUTSIDE the allowlist. This test class is the pure-Python
+    layer of the same defense: it proves the rule regexes catch real-shaped
+    values in the ATW-163 content class (a UUID-shaped PAPERCLIP_AGENT_ID)
+    that are NOT in the synthetic fixture set."""
+
+    def test_real_shaped_agent_id_prefix_caught(self):
+        # A synthetic-but-real-shaped agent-ID prefix (8-4-4 UUID prefix) that
+        # is NOT a live identifier and NOT in the synthetic fixture set must
+        # be flagged — the path allowlist must not become a content-blind
+        # blind spot.
+        self.assertTrue(_flagged("PAPERCLIP_AGENT_ID=deadbeef-1234-5678"))
+
+    def test_real_shaped_agent_id_full_uuid_caught(self):
+        # A full UUID-shaped agent-ID (synthetic, not live) must be flagged.
+        self.assertTrue(_flagged("PAPERCLIP_AGENT_ID=deadbeef-1234-5678-9abc-def012345678"))
+
+    def test_non_synthetic_cgnat_ip_caught(self):
+        # A CGNAT IP not used as a synthetic fixture is still flagged.
+        self.assertTrue(_flagged("100.100.50.50"))
+
+    def test_non_synthetic_tailnet_fqdn_caught(self):
+        self.assertTrue(_flagged("realhost.realtailnet.ts.net"))
+
+    def test_non_synthetic_pem_header_caught(self):
+        self.assertTrue(_flagged("-----BEGIN DSA PRIVATE KEY-----"))
+
+
 if __name__ == "__main__":
     unittest.main()
