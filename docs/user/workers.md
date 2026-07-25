@@ -1,5 +1,8 @@
 # PyATS worker deployment
 
+> **Most NetBox plugins need no extra setup — this one needs a second worker.**
+> Snapshot captures make outbound SSH/Telnet connections to your real devices and run Cisco's PyATS/Genie parsers, which are heavy and not part of the default NetBox worker. If you skip this worker, clicking **Capture snapshot** in the UI silently never runs — the job sits on a queue with nothing to pick it up. The rest of this page explains how to run it.
+
 The netbox-pyats plugin runs snapshot captures, structured diffs, and compliance checks as RQ jobs on a **dedicated `pyats` queue**, isolated from NetBox's default RQ workers. This guide covers why the queue is separate, how to run a worker for it, and how to verify it is wired up.
 
 ## Why a separate queue
