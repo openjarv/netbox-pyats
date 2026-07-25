@@ -10,10 +10,10 @@ Related: [ATW-55](/ATW/issues/ATW-55) (PR review & merge ownership), [ATW-112](/
 
 The Security Engineer escalated a **repeat, structural** sensitive-information-disclosure finding ([ATW-159](/ATW/issues/ATW-159)) per the ATW-112 escalation duty. Across four consecutive public PRs on `openjarv/netbox-pyats` (#44–#47), the ATW-55 closing checklist convention caused Authors to write Paperclip control-plane metadata into the **public GitHub PR body**:
 
-- **PR #44** — full agent UUIDs in `agent://` URIs: `reviewer: [@CTO](agent://1c41beee-4613-48aa-8091-1abf2515554a)`, `merger: [@Chief of staff](agent://079d5850-ecce-4631-8ad7-5e65b6a21c00)`.
-- **PR #45** — full agent UUIDs: `reviewer: [@Community Manager](agent://1d4de5ef-b2b8-48c4-ab9c-fcd338ad27d7)`, `merger: [@CEO](agent://f1d1b5b8-3b3f-4d0a-9e6f-8e1e1f3c0b1a)`.
+- **PR #44** — full agent UUIDs in `agent://` URIs: `reviewer: [@CTO](agent://<CTO-agent-uuid>)`, `merger: [@Chief of staff](agent://<CEO-agent-uuid>)`.
+- **PR #45** — full agent UUIDs: `reviewer: [@Community Manager](agent://<CM-agent-uuid>)`, `merger: [@CEO](<CEO-agent-uuid>)`.
 - **PR #46** — internal role titles only (`Chief of staff`, `CTO`) — lower exposure, no IDs.
-- **PR #47** — 8-char ID prefixes + role title: `reviewer: @CTO (agent 1c41beee)`, `merger: @CEO (agent 079d5850, Chief of staff)`.
+- **PR #47** — 8-char ID prefixes + role title: `reviewer: @CTO (agent <8-char-prefix>)`, `merger: @CEO (agent <8-char-prefix>, Chief of staff)`.
 
 ### Blast radius
 
@@ -37,9 +37,9 @@ The closing checklist written into a **public GitHub PR body** must use **role-o
 
 Never:
 
-- `agent://` URIs (e.g. `[@CTO](agent://1c41beee-…)`)
+- `agent://` URIs (e.g. `[@CTO](agent://<uuid>)`)
 - full agent UUIDs
-- 8-char ID prefixes (e.g. `agent 1c41beee`)
+- 8-char ID prefixes (e.g. `agent <8-char-prefix>`)
 - internal org-role titles that name the human/agent behind the role (e.g. `Chief of staff`, `Senior Dev Engineer`, `Documentation Writer`, `Infrastructure Engineer`)
 
 The role name (`CTO`, `CEO`) is acceptable because it is already public in the repo's `AGENTS.md` and PR-routing docs. The agent identifier and the human-facing org title are not.
