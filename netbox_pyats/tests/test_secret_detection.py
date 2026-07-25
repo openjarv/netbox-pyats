@@ -73,7 +73,7 @@ class SecretDetectionPositiveCases(unittest.TestCase):
         self.assertTrue(_flagged("PAPERCLIP_API_KEY=abc123secrettoken"))
 
     def test_concrete_paperclip_agent_id(self):
-        self.assertTrue(_flagged("PAPERCLIP_AGENT_ID=46a7f4a1-1d1f-4a61"))
+        self.assertTrue(_flagged("PAPERCLIP_AGENT_ID=11111111-2222-4333-8444-555555555555"))
 
     def test_private_key_block(self):
         self.assertTrue(_flagged("-----BEGIN RSA PRIVATE KEY-----"))
