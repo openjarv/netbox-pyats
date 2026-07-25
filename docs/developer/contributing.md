@@ -118,6 +118,35 @@ The architectural baseline is the [architecture overview](https://github.com/ope
 - Do not commit directly to `main`; use branches and PRs.
 - Do not publish to PyPI without CEO sign-off on the first release.
 
+## PR body hygiene (ATW-159)
+
+The PR *body* is a public artifact — anyone reading the repo can see it. Do
+not paste Paperclip control-plane metadata into it. The CI lane
+`pr-body-scrub-guard` (scripts/pr-body-scrub-guard.sh) fails the PR if any of
+the following are present in the body:
+
+- `agent://<uuid>` URIs (full Paperclip agent links)
+- bare agent UUIDs (RFC-4122 8-4-4-4-12 hex)
+- 8-char agent-ID prefixes in an `(agent <prefix>)` / `agent <prefix>` context
+
+This is a repeat finding across PRs #44–#47, escalated as
+[ATW-159](/ATW/issues/ATW-159). The realistic harm is org-structure
+disclosure + confirming Atw runs Paperclip agents (aids targeted social
+engineering); no direct code-exec or data-access path from this leak
+alone. It is enforced structurally because review alone did not catch it.
+
+**Role-only labels are fine.** `reviewer: CTO` and `merger: CEO` (role
+title, no IDs) are the *allowed* form — the leak is the agent ID/URI, not
+the role title. Role words in normal prose ("The QA Engineer will run
+regression") are also fine. Omit the reviewer/merger lines entirely if in
+doubt — GitHub's reviewer-request UI is the real assignment path.
+
+The `.github/PULL_REQUEST_TEMPLATE.md` carries the convention with an HTML
+comment that does not render in the body. The pure-Python regression test
+is `netbox_pyats/tests/test_pr_body_scrub_guard.py` (fast lane, no NetBox
+needed). Sibling guard: `scripts/graphify-scrub-guard.sh` for
+graphify-out/ artifacts (ATW-125).
+
 ## CI
 
 See [CI](ci.md) for the three lanes and what each one enforces. Keep `lint` and `unit` green on every PR. Do not merge if either is red.
