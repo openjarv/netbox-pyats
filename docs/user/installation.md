@@ -50,6 +50,8 @@ After restart, **Plugins → PyATS** appears in the NetBox navigation menu.
 
 ## Step 3 — Set up the pyats worker
 
+> **This step is required, not optional — and unusual for a NetBox plugin.** Most NetBox plugins run inside the default worker; this one needs a *second* worker because captures connect to real devices and run heavy PyATS parsers the default worker does not carry. Skip it and "Capture snapshot" will never run. See [Worker deployment](workers.md) for the full story.
+
 Captures, diffs, and compliance checks run as RQ jobs on a dedicated `pyats` queue, isolated from NetBox's default workers. The NetBox web UI (credential CRUD, list/detail views, snapshot list) works without pyATS — but to actually capture snapshots, the worker that runs pyATS jobs needs pyATS installed.
 
 Install the pyats extra on the worker host (or build the worker image — see [Worker deployment](workers.md) for the full guide):

@@ -265,8 +265,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1784691085.9964142,
-    "ast_hash": "4e90dd3486eb30bdad647a12cbcafe31",
+    "mtime": 1784936772.839431,
+    "ast_hash": "48c4d390626a9c8041294fcde6d65f98",
     "semantic_hash": ""
   },
   "CONTRIBUTING.md": {
@@ -275,13 +275,13 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1784691085.9974144,
-    "ast_hash": "b2a583fcd58ea3486dd4d3793cf007bd",
+    "mtime": 1784936772.839431,
+    "ast_hash": "32bf95c1e1285e301fc4b628b96e8e0f",
     "semantic_hash": ""
   },
   "docker-compose.dev.yml": {
-    "mtime": 1784691085.3943956,
-    "ast_hash": "5719721da966391cda3a28bfbc2880a0",
+    "mtime": 1784841504.7136488,
+    "ast_hash": "628cfcb0e08ad19f873ffe88baf39ee2",
     "semantic_hash": ""
   },
   "docs/adr/0001-plugin-layout.md": {
@@ -375,8 +375,8 @@
     "semantic_hash": ""
   },
   ".github/workflows/ci.yml": {
-    "mtime": 1784674869.8848238,
-    "ast_hash": "c0e9608acbbe5f62bdaa5b76bf5818e5",
+    "mtime": 1784935199.202844,
+    "ast_hash": "1d16497e7ec2a53fc2756c0d2f2eb761",
     "semantic_hash": ""
   },
   "netbox_pyats/templates/netbox_pyats/pyatscompliancerun.html": {
@@ -455,13 +455,13 @@
     "semantic_hash": ""
   },
   "docs/developer/ci.md": {
-    "mtime": 1784691085.399396,
-    "ast_hash": "4fd4befa5b97575953fc23c317b26e2a",
+    "mtime": 1784841504.716649,
+    "ast_hash": "3f0de57099d44dbce5b81da68f96fb75",
     "semantic_hash": ""
   },
   "docs/developer/contributing.md": {
-    "mtime": 1784691085.399396,
-    "ast_hash": "24bd10ee251c83e04441f792af897160",
+    "mtime": 1784936772.8414311,
+    "ast_hash": "8c86732b3a15d08b070412aebf0585c4",
     "semantic_hash": ""
   },
   "docs/developer/graphify-mcp-http.md": {
@@ -480,8 +480,8 @@
     "semantic_hash": ""
   },
   "docs/developer/setup.md": {
-    "mtime": 1784691085.9984143,
-    "ast_hash": "af760ad8cc3e11f33f74ef3e4b2d6c96",
+    "mtime": 1784841504.717649,
+    "ast_hash": "e3cf24a6085e0f859dcd5c7304fa271b",
     "semantic_hash": ""
   },
   "docs/user/compliance.md": {
@@ -490,8 +490,8 @@
     "semantic_hash": ""
   },
   "docs/user/installation.md": {
-    "mtime": 1784691085.404396,
-    "ast_hash": "7b6ab98c1d7a68f931942ba1e8d0640d",
+    "mtime": 1784936772.8424313,
+    "ast_hash": "3dc036f87fb25b94589e1d7912d8cb99",
     "semantic_hash": ""
   },
   "docs/user/troubleshooting.md": {
@@ -522,6 +522,31 @@
   "netbox_pyats/templates/netbox_pyats/supported_platforms.html": {
     "mtime": 1784691085.4213965,
     "ast_hash": "34ed1cf8a1c866c3be865efad1a12870",
+    "semantic_hash": ""
+  },
+  "netbox_pyats/tests/test_graphify_scrub_guard.py": {
+    "mtime": 1784935199.2128444,
+    "ast_hash": "c2fb7fa6701dfb7a4d878cfbfd558749",
+    "semantic_hash": ""
+  },
+  "netbox_pyats/tests/test_secret_detection.py": {
+    "mtime": 1784936772.8424313,
+    "ast_hash": "59fe2314f9b6bdd52dce80d4b7c31ec9",
+    "semantic_hash": ""
+  },
+  "scripts/graphify-scrub-guard.sh": {
+    "mtime": 1784935199.2128444,
+    "ast_hash": "ccbce871bdea4a233f3ef03ffb040408",
+    "semantic_hash": ""
+  },
+  ".pre-commit-config.yaml": {
+    "mtime": 1784936772.8384311,
+    "ast_hash": "387bc3070ce9c25d0386bf57b3ea1b9e",
+    "semantic_hash": ""
+  },
+  "docs/developer/remote-access.md": {
+    "mtime": 1784863916.2681637,
+    "ast_hash": "f5ca2fdbeeb79e2b0a1e3ea6943ad4cd",
     "semantic_hash": ""
   }
 }
