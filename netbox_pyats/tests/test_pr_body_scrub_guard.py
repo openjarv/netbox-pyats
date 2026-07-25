@@ -69,8 +69,7 @@ _FAKE_CEO_PREFIX = "66666666"
 def test_agent_uri_leak_fails():
     """PR #44/#45 form: `[@CTO](agent://<uuid>)`."""
     res = _run(
-        "reviewer: [@CTO](agent://%s)\n"
-        "merger: [@Chief of staff](agent://%s)" % (_FAKE_CTO_UUID, _FAKE_CEO_UUID)
+        "reviewer: [@CTO](agent://%s)\n" "merger: [@Chief of staff](agent://%s)" % (_FAKE_CTO_UUID, _FAKE_CEO_UUID)
     )
     assert res.returncode == 1, res.stdout + res.stderr
     assert "agent:// URI" in res.stderr
@@ -85,10 +84,7 @@ def test_bare_uuid_leak_fails():
 
 def test_agent_prefix_leak_fails():
     """PR #47 form: `reviewer: @CTO (agent <prefix>)`."""
-    res = _run(
-        "reviewer: @CTO (agent %s)\nmerger: @CEO (agent %s)"
-        % (_FAKE_CTO_PREFIX, _FAKE_CEO_PREFIX)
-    )
+    res = _run("reviewer: @CTO (agent %s)\nmerger: @CEO (agent %s)" % (_FAKE_CTO_PREFIX, _FAKE_CEO_PREFIX))
     assert res.returncode == 1, res.stdout + res.stderr
     assert "agent <prefix>" in res.stderr
 
@@ -96,7 +92,6 @@ def test_agent_prefix_leak_fails():
 def test_pr47_full_form_fails():
     """The exact PR #47 leaked line — prefix + role, caught by the prefix."""
     res = _run(
-        "reviewer: @CTO (agent %s)\nmerger: @CEO (agent %s, Chief of staff)"
-        % (_FAKE_CTO_PREFIX, _FAKE_CEO_PREFIX)
+        "reviewer: @CTO (agent %s)\nmerger: @CEO (agent %s, Chief of staff)" % (_FAKE_CTO_PREFIX, _FAKE_CEO_PREFIX)
     )
     assert res.returncode == 1, res.stdout + res.stderr
