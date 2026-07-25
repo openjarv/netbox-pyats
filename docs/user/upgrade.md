@@ -1,8 +1,8 @@
 # Upgrade guide
 
-Upgrading **netbox-pyats** follows the same pattern you already use to upgrade NetBox: back up, review the release notes, update the software, apply database migrations, and restart the NetBox services. The one extra rule is the dedicated **pyats worker** — it is a NetBox worker, so it must run the same NetBox release as the web container and the same plugin version as the web process.
+Upgrading **netbox-pyats** follows the same pattern you already use to upgrade NetBox: back up, review the release notes, update the software, apply database migrations, and restart the NetBox services. The one extra thing to know is the dedicated **pyats worker** — covered by the rule just below.
 
-> **The pyats worker must run the same NetBox release as the web container.** The worker image (`dev/Dockerfile.pyats-worker`) is built `FROM` the official NetBox image and runs `python manage.py rqworker pyats`, so it shares NetBox's Django models, settings, and migrations. A worker on a different NetBox release than the web container is unsupported — the migration state and model fields will not match. **pyATS itself is independent of the NetBox release** and only needs to change when the plugin's `pyats` extra raises its minimum or when the NetBox image's Python version forces a rebuild (see [ADR-0003](../adr/0003-netbox46-migration-and-worker-toolchain.md)).
+> **The pyats worker must run the same NetBox release as the web container.** The worker image (`dev/Dockerfile.pyats-worker`) is built `FROM` the official NetBox image and runs `python manage.py rqworker pyats`, so it shares NetBox's Django models, settings, and migrations. A worker on a different NetBox release than the web container is unsupported — the migration state and model fields will not match. See [ADR-0003](../adr/0003-netbox46-migration-and-worker-toolchain.md) for the rationale.
 
 ## Before you begin
 
@@ -13,15 +13,17 @@ As with any NetBox upgrade, **back up your deployment first** — database and c
 
 ## What stays in sync with what
 
-The plugin is installed into the same virtualenv as NetBox on both the web process and the pyats worker (`pip install netbox-pyats` on the web, `pip install netbox-pyats[pyats]` on the worker). The worker needs the same plugin code as the web process because they share models and migrations.
-
 | Container | NetBox release | Plugin version | Has pyATS? |
 |-----------|-----------------|----------------|------------|
 | NetBox web | source of truth | must match the worker | no |
 | NetBox default RQ worker | must match the web | must match the web | no |
 | pyats worker | **must match the web** | **must match the web** | yes |
 
-`pyats[full]` is worker-only and pinned independently (`pyats[full]>=26.0` in `pyproject.toml`), so it is **not** tied to the NetBox release. The plugin's own migrations live in `netbox_pyats/migrations/` and are independent of NetBox's dcim/ipam migrations (ADR-0003: `dependencies = []` on the initial migration). A NetBox upgrade does **not** break the plugin's migration graph, and a plugin upgrade runs only the plugin's own migrations.
+The plugin is installed into the same virtualenv as NetBox on both the web process and the pyats worker: `pip install netbox-pyats` on the web, `pip install netbox-pyats[pyats]` on the worker. The worker needs the same plugin code as the web process because they share models and migrations.
+
+`pyats[full]` is worker-only and pinned independently (`pyats[full]>=26.0` in `pyproject.toml`), so it is **not** tied to the NetBox release. **pyATS itself is independent of the NetBox release** and only needs to change when the plugin's `pyats` extra raises its minimum, or when the NetBox image's Python version forces a rebuild (the ADR-0003 `ruamel-yaml-clib` toolchain case).
+
+The plugin's own migrations live in `netbox_pyats/migrations/` and are independent of NetBox's dcim/ipam migrations (ADR-0003: `dependencies = []` on the initial migration). A NetBox upgrade does **not** break the plugin's migration graph, and a plugin upgrade runs only the plugin's own migrations.
 
 ## Plugin upgrade (NetBox release unchanged)
 
@@ -47,7 +49,7 @@ The plugin upgrade mirrors the standard NetBox package-upgrade flow: update the 
 
 > Upgrading the plugin on the web host and not on the worker (or vice versa) leaves them out of sync and is unsupported — they share models and migrations.
 
-## NetBox upgrade (plugin version unchanged)
+## NetBox upgrade (plugin release unchanged)
 
 A NetBox upgrade uses the standard NetBox upgrade procedure on the web container, with one extra step: the pyats worker image must be rebuilt against the new NetBox image tag so it stays on the same release.
 
@@ -82,7 +84,7 @@ A NetBox upgrade uses the standard NetBox upgrade procedure on the web container
 
 Do the **NetBox upgrade first**, then the plugin upgrade. This keeps the migration graph clean: NetBox's migrations first, then the plugin's.
 
-1. **Upgrade NetBox on the web container** (standard NetBox upgrade procedure), and **rebuild the pyats worker image** against the new NetBox tag (same step as [NetBox upgrade](#netbox-upgrade-plugin-version-unchanged) above). Restart both.
+1. **Upgrade NetBox on the web container** (standard NetBox upgrade procedure), and **rebuild the pyats worker image** against the new NetBox tag (same step as [NetBox upgrade](#netbox-upgrade-plugin-release-unchanged) above). Restart both.
 2. **Apply NetBox's database migrations:**
    ```bash
    cd /opt/netbox
