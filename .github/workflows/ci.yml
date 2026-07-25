@@ -81,6 +81,24 @@ jobs:
       - name: Run scrub guard (check mode)
         run: bash scripts/graphify-scrub-guard.sh
 
+  pr-body-scrub-guard:
+    # CI guard against Paperclip control-plane metadata (agent UUIDs,
+    # `agent://` URIs, internal org-role titles) leaking into public GitHub
+    # PR bodies — the repeat finding across PRs #44–#47 (ATW-159). Scans the
+    # PR *description* (not the diff); the diff is Security's gate (ATW-112
+    # / gitleaks). Fails the lane if any forbidden pattern is present so a
+    # leak is caught before merge, not after a Security escalation.
+    # Refs: ATW-159, ATW-112, ATW-55. Sibling: graphify-scrub-guard lane.
+    name: PR body scrub guard
+    runs-on: ubuntu-latest
+    # Only PR events carry a body to scan; push events pass through (the
+    # guard itself no-ops on non-pull_request events).
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run PR body scrub guard
+        run: bash scripts/pr-body-scrub-guard.sh
+
   unit:
     name: Unit tests (py${{ matrix.python-version }})
     runs-on: ubuntu-latest
@@ -117,6 +135,7 @@ jobs:
                  netbox_pyats/tests/test_compliance.py \
                  netbox_pyats/tests/test_supported_platforms.py \
                  netbox_pyats/tests/test_graphify_scrub_guard.py \
+                 netbox_pyats/tests/test_pr_body_scrub_guard.py \
                  -v
 
   integration:
