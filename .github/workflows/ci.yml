@@ -99,6 +99,29 @@ jobs:
       - name: Run PR body scrub guard
         run: bash scripts/pr-body-scrub-guard.sh
 
+  gitleaks-fixture-regression:
+    # ATW-167 companion CI assertion for the secret-detection fixture path
+    # allowlist. .gitleaks.toml path-allowlists test_secret_detection.py so
+    # gitleaks does not block commits containing the deliberately-real-shaped
+    # positive test values. A path allowlist is content-blind — it cannot
+    # detect a real secret placed inside that file (the ATW-163 root-cause
+    # hole). This lane runs scripts/gitleaks-fixture-regression.sh, which
+    # copies the fixture outside the allowlist, injects a real-shaped value,
+    # and asserts gitleaks catches it. If the path allowlist ever silently
+    # regressed into a real-secret blind spot, this lane fails. Refs:
+    # ATW-167, ATW-163, ATW-159, ATW-112.
+    name: Gitleaks fixture regression (ATW-167)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install gitleaks
+        run: |
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz \
+            | tar -xz -C /usr/local/bin gitleaks
+          gitleaks version
+      - name: Run fixture regression guard
+        run: bash scripts/gitleaks-fixture-regression.sh
+
   unit:
     name: Unit tests (py${{ matrix.python-version }})
     runs-on: ubuntu-latest
@@ -136,6 +159,7 @@ jobs:
                  netbox_pyats/tests/test_supported_platforms.py \
                  netbox_pyats/tests/test_graphify_scrub_guard.py \
                  netbox_pyats/tests/test_pr_body_scrub_guard.py \
+                 netbox_pyats/tests/test_secret_detection.py \
                  -v
 
   integration:

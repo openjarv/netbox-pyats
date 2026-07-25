@@ -25,14 +25,27 @@ title = "netbox-pyats secret/PII detection"
 # Paperclip rules on top.
 useDefault = true
 
-# Global path allowlist: the secret-detection regression test deliberately
-# contains synthetic positive fixtures (fake Tailscale IPs, fake FQDNs, fake
-# tokens, a fake PEM header) that MUST match the rules — that is the point of
-# the test. Excluding the test file from the scan prevents gitleaks from
-# blocking the commit that adds the test itself. The fixtures are synthetic
-# and are not real infra values.
+# ATW-167: the regression-test fixture file
+# netbox_pyats/tests/test_secret_detection.py is path-allowlisted so gitleaks
+# does not block commits that contain the deliberately-real-shaped positive
+# test values (the test asserts the rules fire on them — that is the point).
+#
+# This is NO LONGER a path-alone allowlist. The root-cause gap that allowed
+# ATW-163 (a live Paperclip agent-ID prefix sat in the allowlisted file
+# undetected because the path allowlist is content-blind) is closed by a
+# companion CI assertion: scripts/gitleaks-fixture-regression.sh copies the
+# fixture to a temp path OUTSIDE the allowlist, injects a real-shaped value
+# not in the synthetic set, runs gitleaks, and asserts a finding. The CI
+# lane gitleaks-fixture-regression (ci.yml) gates this on every PR/push. If
+# the path allowlist ever silently regressed to masking a real secret, the
+# companion assertion would still prove gitleaks catches real-shaped values
+# in the fixture's content class.
+#
+# The pure-Python regression test (SecretDetectionATW167Regression in
+# test_secret_detection.py) independently proves the rules catch real-shaped
+# values in the ATW-163 content class.
 [allowlist]
-description = "Exclude the secret-detection regression test (synthetic fixtures)"
+description = "Exclude the secret-detection regression test (synthetic fixtures). Backed by scripts/gitleaks-fixture-regression.sh companion CI assertion (ATW-167) — no longer a path-alone allowlist."
 paths = [
   '''netbox_pyats/tests/test_secret_detection\.py''',
 ]
@@ -50,16 +63,26 @@ paths = [
 [[rules]]
 id = "tailscale-cgnat-ip"
 description = "Tailscale CGNAT IP (100.64.0.0/10) — never commit a concrete value"
-regex = '''\b100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.\d{1,3}\.\d{1,3}\b'''
+# NOTE (ATW-167): gitleaks reports the FIRST capture group as the "Secret".
+# Using a capturing group here made the Secret a bare 2-3 digit octet (e.g.
+# `64`), which none of the allowlist regexes could match — so the allowlist
+# was structurally inert for this rule (only hidden because the original
+# `[[rules.allowlist]]` syntax broke config loading entirely). Use a
+# non-capturing group so the full IP is the Secret and the allowlist can
+# match real captured segments.
+regex = '''\b100\.(?:6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.\d{1,3}\.\d{1,3}\b'''
 keywords = ["100."]
-# Allow the placeholder and the literal example form used in the runbook.
-[[rules.allowlist]]
+[rules.allowlist]
 title = "placeholder / example Tailscale IP forms"
-description = "Ignore <TAILSCALE_IP>, 100.x.y.z, and 100.0.0.0/10 range headers"
+description = "Ignore <TAILSCALE_IP>, 100.x.y.z, and the range-header IP 100.64.0.0 (from `100.64.0.0/10` — gitleaks captures the IP up to the word boundary before `/10`), plus the high-range example 100.127.255.255"
+# NOTE: gitleaks allowlist regexes match the CAPTURED secret segment, not the
+# full line. With a non-capturing group in the rule regex, the captured
+# segment is the full IP. For `100.64.0.0/10` the word boundary stops at `0`
+# before `/`, so the segment is `100.64.0.0` — allowlist that form.
 regexes = [
   '''<TAILSCALE_IP>''',
   '''100\.x\.y\.z''',
-  '''100\.64\.0\.0/10''',
+  '''100\.64\.0\.0''',
   '''100\.127\.255\.255''',
 ]
 
@@ -72,12 +95,12 @@ id = "tailscale-dns-fqdn"
 description = "Tailscale DNS / tailnet FQDN (*.ts.net, *.tscale.net, *.tailscale.com)"
 regex = '''\b[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.(?:ts\.net|tscale\.net|tailscale\.com)\b'''
 keywords = [".ts.net", ".tscale.net", ".tailscale.com"]
-[[rules.allowlist]]
+[rules.allowlist]
 title = "placeholder / example tailnet FQDN forms"
-description = "Ignore <TAILNET_FQDN> and the your-host.tailnet-name.ts.net example"
+description = "Ignore <TAILNET_FQDN> and the example FQDN form. gitleaks captures a single label before the TLD, so for `your-host.tailnet-name.ts.net` the captured segment is `tailnet-name.ts.net`; allowlist that form (not the full two-label string)."
 regexes = [
   '''<TAILNET_FQDN>''',
-  '''your-host\.tailnet-name\.ts\.net''',
+  '''tailnet-name\.ts\.net''',
 ]
 
 # --- Paperclip agent/server identifiers --------------------------------------
@@ -90,7 +113,7 @@ id = "paperclip-identifier"
 description = "Paperclip agent/server identifier (API key, agent ID, run ID)"
 regex = '''(?i)\bPAPERCLIP_(?:API_KEY|AGENT_ID|RUN_ID|COMPANY_ID|TASK_ID)\b[=:]\s*["']?[A-Za-z0-9._-]{8,}["']?'''
 keywords = ["paperclip_api_key", "paperclip_agent_id", "paperclip_run_id", "paperclip_company_id", "paperclip_task_id"]
-[[rules.allowlist]]
+[rules.allowlist]
 title = "dev-only sentinel / placeholder Paperclip values"
 description = "Ignore sentinel and template forms that are not real secrets"
 regexes = [
