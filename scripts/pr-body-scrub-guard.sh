@@ -29,7 +29,7 @@
 #   8-char hex prefix in a
 #     "(agent <prefix>)" or
 #     "agent <prefix>" context — the redacted-prefix form that leaked on
-#                               PR #47 (`reviewer: @CTO (agent 1c41beee)`)
+#                               PR #47 (`reviewer: @CTO (agent <8-char-prefix>)`)
 #   internal org-role titles  — "Chief of staff", "CTO", "QA Engineer",
 #     in a reviewer/merger line   "Security Engineer", "Community Manager",
 #                               "Senior Dev Engineer" when paired with a
@@ -94,7 +94,7 @@ PAT_AGENT_URI='agent://[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{
 PAT_UUID='[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
 
 # 3. 8-char hex prefix in an "(agent <prefix>)" / "agent <prefix>" context.
-#    This is the PR #47 form: `reviewer: @CTO (agent 1c41beee)`. We require
+#    This is the PR #47 form: `reviewer: @CTO (agent <8-char-prefix>)`. We require
 #    the "agent" keyword nearby to avoid flagging incidental 8-char hex
 #    strings (commit short-SHAs, etc.).
 PAT_AGENT_PREFIX='agent[: ]+[0-9a-fA-F]{8}\b'
