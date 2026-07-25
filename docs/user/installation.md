@@ -12,6 +12,8 @@ The plugin targets NetBox 4.6+ (current: 4.6.5). `pyats[full]` is **not** an ins
 
 > **Note on the community Docker image:** `netboxcommunity/netbox:4.6.x` ships Python 3.14 (Ubuntu 26.04). The plugin and its migrations apply cleanly against that image (verified on `v4.6-5.0.2`). The pyats worker image needs `python3.14-dev` + `gcc` to compile `ruamel-yaml-clib` against Python 3.14 — `dev/Dockerfile.pyats-worker` installs them as a dev-only build step. See [ADR-0003](../adr/0003-netbox46-migration-and-worker-toolchain.md) for the rationale.
 
+For upgrading an existing install, see [Upgrade guide](upgrade.md).
+
 ## Step 1 — Install the plugin
 
 ```bash

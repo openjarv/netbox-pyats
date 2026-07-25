@@ -11,6 +11,7 @@ You know NetBox. You want to install the plugin, capture a snapshot, diff two sn
 - [Installation](user/installation.md) — install the plugin, configure NetBox, and run your first capture.
 - [Usage guide](user/usage.md) — the capture → diff → compliance workflow with exact UI paths.
 - [PyATS worker deployment](user/workers.md) — run the dedicated `pyats` RQ queue (required for snapshots, diffs, and compliance).
+- [Upgrade guide](user/upgrade.md) — upgrade the plugin, upgrade NetBox with the plugin installed, and keep the pyats worker aligned.
 - [Credential encryption](user/credentials.md) — how plugin-local device credentials are encrypted and rotated.
 - [Compliance engine](user/compliance.md) — what the golden-config compliance check classifies and why.
 - [Troubleshooting](user/troubleshooting.md) — operator-facing fixes for the most common failure modes.

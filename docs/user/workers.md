@@ -24,6 +24,8 @@ python manage.py rqworker pyats
 
 The worker needs the same NetBox configuration (`configuration.py`, `PLUGINS`, `PLUGINS_CONFIG`) and database/Redis access as the default worker — it is a NetBox worker, just with pyats installed and a different queue argument.
 
+For upgrading the plugin or NetBox (the worker must match the web container's NetBox version), see [Upgrade guide](upgrade.md).
+
 ### Option B — the shipped worker image (reference / dev)
 
 A ready-to-build worker image is in `dev/Dockerfile.pyats-worker`. It layers `pyats[full]` onto the official NetBox image so the worker shares NetBox's Django environment (models, settings, RQ) and has Genie installed. The dev compose file wires it up:

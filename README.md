@@ -75,6 +75,7 @@ Full documentation lives under [docs/](docs/README.md). The quick paths:
 - [Installation](docs/user/installation.md) — install, configure NetBox, first capture.
 - [Usage guide](docs/user/usage.md) — the capture → diff → compliance workflow with exact UI paths.
 - [PyATS worker deployment](docs/user/workers.md) — the dedicated `pyats` RQ queue.
+- [Upgrade guide](docs/user/upgrade.md) — upgrade the plugin, upgrade NetBox with the plugin installed, keep the pyats worker aligned.
 - [Credential encryption](docs/user/credentials.md) — how secrets are protected and rotated.
 - [Compliance engine](docs/user/compliance.md) — what the golden-config check classifies and why.
 - [Troubleshooting](docs/user/troubleshooting.md) — operator-facing fixes for common failure modes.
