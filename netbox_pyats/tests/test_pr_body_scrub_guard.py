@@ -56,11 +56,21 @@ def test_empty_body_passes():
 # --- leaked bodies (must fail) ---------------------------------------------
 
 
+# Synthetic UUIDs (RFC-4122 variant, documentation/test-only) — do NOT resolve
+# to any real Paperclip agent. The guard patterns are shape-keyed, so these
+# exercise identical coverage without leaking the live agent fleet.
+_FAKE_CTO_UUID = "11111111-2222-4333-8444-555555555555"
+_FAKE_CEO_UUID = "66666666-7777-4888-8999-000000000000"
+_FAKE_BARE_UUID = "aaaaaaa1-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+_FAKE_CTO_PREFIX = "11111111"
+_FAKE_CEO_PREFIX = "66666666"
+
+
 def test_agent_uri_leak_fails():
     """PR #44/#45 form: `[@CTO](agent://<uuid>)`."""
     res = _run(
-        "reviewer: [@CTO](agent://1c41beee-4613-48aa-8091-1abf2515554a)\n"
-        "merger: [@Chief of staff](agent://079d5850-ecce-4631-8ad7-5e65b6a21c00)"
+        "reviewer: [@CTO](agent://%s)\n"
+        "merger: [@Chief of staff](agent://%s)" % (_FAKE_CTO_UUID, _FAKE_CEO_UUID)
     )
     assert res.returncode == 1, res.stdout + res.stderr
     assert "agent:// URI" in res.stderr
@@ -68,19 +78,25 @@ def test_agent_uri_leak_fails():
 
 def test_bare_uuid_leak_fails():
     """A bare RFC-4122 UUID anywhere in the body is caught."""
-    res = _run("## Notes\nContact: 1d4de5ef-b2b8-48c4-ab9c-fcd338ad27d7 for review.")
+    res = _run("## Notes\nContact: %s for review." % _FAKE_BARE_UUID)
     assert res.returncode == 1, res.stdout + res.stderr
     assert "bare UUID" in res.stderr
 
 
 def test_agent_prefix_leak_fails():
-    """PR #47 form: `reviewer: @CTO (agent 1c41beee)`."""
-    res = _run("reviewer: @CTO (agent 1c41beee)\nmerger: @CEO (agent 079d5850)")
+    """PR #47 form: `reviewer: @CTO (agent <prefix>)`."""
+    res = _run(
+        "reviewer: @CTO (agent %s)\nmerger: @CEO (agent %s)"
+        % (_FAKE_CTO_PREFIX, _FAKE_CEO_PREFIX)
+    )
     assert res.returncode == 1, res.stdout + res.stderr
     assert "agent <prefix>" in res.stderr
 
 
 def test_pr47_full_form_fails():
     """The exact PR #47 leaked line — prefix + role, caught by the prefix."""
-    res = _run("reviewer: @CTO (agent 1c41beee)\nmerger: @CEO (agent 079d5850, Chief of staff)")
+    res = _run(
+        "reviewer: @CTO (agent %s)\nmerger: @CEO (agent %s, Chief of staff)"
+        % (_FAKE_CTO_PREFIX, _FAKE_CEO_PREFIX)
+    )
     assert res.returncode == 1, res.stdout + res.stderr
