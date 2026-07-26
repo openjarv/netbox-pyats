@@ -52,6 +52,51 @@ Never `git checkout` a feature branch in the trunk worktree at
 `/home/hermes/netbox-pyats`. Ad-hoc `docker compose up` from arbitrary
 directories is out of bounds — use `dev-worktree.sh up` from a worktree.
 
+### Base branch policy (ATW-208)
+
+Every new worktree branch is based on the latest `origin/main`, not on
+whatever the trunk happens to be checked out to. This keeps issue branches
+from silently inheriting an unrelated feature branch's commits, and makes
+the base of every worktree auditable.
+
+`scripts/dev-worktree.sh add` enforces this. When you run `add`:
+
+1. It refuses to create the worktree if the trunk working tree is not on
+   `main` (or a branch tracking `origin/main`). A detached HEAD or a
+   feature branch is rejected with a recovery message:
+   ```bash
+   git -C /home/hermes/netbox-pyats fetch origin main
+   git -C /home/hermes/netbox-pyats branch -f main origin/main
+   git -C /home/hermes/netbox-pyats checkout main
+   ```
+   Then re-run `dev-worktree.sh add`.
+2. It runs `git fetch --quiet origin main` so the base is current. If the
+   fetch fails (no network), it prints a warning and continues offline from
+   local `main` when one exists — it never falls back to `HEAD` or another
+   feature branch.
+3. It refreshes (fast-forward) or creates local `main` from `origin/main`
+   so the trunk worktree can return to it. If local `main` has diverged
+   from `origin/main`, it refuses to rewrite local `main` and prints a
+   warning instead.
+4. It bases the new branch on `origin/main` (online) or local `main`
+   (offline only), and prints the base ref and base SHA so the worktree's
+   origin is auditable in the issue thread:
+   ```
+   base:            origin/main
+   base SHA:        26797bd2dd1a9833b56fb3aaae428bae6f292d36
+   ```
+
+**Alternate base, by exception.** If a piece of work genuinely needs to
+build on something other than `origin/main` — a hotfix branched from a
+release tag, or work that builds on a merged-but-unreleased feature branch
+— record the alternate base and the reason on the originating issue, then
+run `git worktree add` by hand. No recorded reason on the issue = base
+from `main`. The default has no comment because the default is `main`.
+
+This applies to everyone creating worktrees in this repo, agents and humans
+alike. See [ATW-208](/ATW/issues/ATW-208) for the script change that
+enforces it and [ATW-200](/ATW/issues/ATW-200) for the policy decision.
+
 ## Bring-up
 
 From inside a worktree (after `dev-worktree.sh add`):
