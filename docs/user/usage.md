@@ -15,6 +15,8 @@ The plugin adds a **PyATS** tab to every NetBox device page. From that tab you c
 
 Pick a device, enter username + password (+ optional enable secret). The secrets are encrypted with Fernet before they hit the database — see [Credential encryption](credentials.md). The credential is never returned by the REST API, GraphQL, or the detail view template; only ciphertext is persisted.
 
+<img src="../screenshots/credential-add-form.png" alt="The Add Credential form with the device picker open showing available devices" width="720">
+
 ## 2 — Capture a snapshot
 
 Open the device's detail page → **PyATS** tab → pick a kind → **Capture**.
@@ -33,6 +35,8 @@ The job is enqueued on the `pyats` queue. When the worker finishes, the snapshot
 
 Each snapshot also carries `parsed_os` (the pyATS os string used by the capture, e.g. `iosxe` / `iosxr` / `nxos`) so future structured compliance can pick the right Genie parser even after the device row is deleted.
 
+<img src="../screenshots/device-pyats-tab.png" alt="A device's PyATS tab showing the capture form and recent-snapshot history with status badges" width="720">
+
 ## 3 — Diff two snapshots
 
 From the same device's **PyATS** tab → **Diff two snapshots** picker (only offered when the device has ≥2 snapshots) → pick a **before** and an **after** snapshot → **Diff**.
@@ -46,6 +50,8 @@ The `run_diff` job is enqueued on the `pyats` queue. When the worker finishes, t
 - parser warnings.
 
 The diff engine is pure-Python and operates on already-serialized JSONB — no pyATS needed for diffs. Empty/unsupported snapshots yield `status="empty"` (neutral badge); malformed inputs yield `status="error"` with a warning — a diff row is always created so the outcome is visible in-line.
+
+<img src="../screenshots/diff-viewer.png" alt="The snapshot diff viewer showing a collapsible before/after tree with summary badges" width="720">
 
 ## 4 — Add a golden config
 
@@ -67,6 +73,8 @@ The `run_compliance` job is enqueued on the `pyats` queue. The worker extracts t
 
 The compliance-run viewer (`/plugins/pyats/compliance-runs/<pk>/`) reuses the Phase 3 diff-tree partial, so the same collapsible before/after tree renders the golden-vs-snapshot divergence, plus a result badge and any warnings. See [Compliance engine](compliance.md) for the full classification rules and the v1 line-set diff semantics.
 
+<img src="../screenshots/compliance-run-drift.png" alt="The compliance-run viewer showing a drift result with a collapsible before/after diff tree" width="720">
+
 ## 6 — Browse everything
 
 **Plugins → PyATS →** the relevant list:
@@ -76,8 +84,11 @@ The compliance-run viewer (`/plugins/pyats/compliance-runs/<pk>/`) reuses the Ph
 - **PyATS Snapshot Diffs** — filterable by device, status.
 - **Golden Configs** — filterable by device, source.
 - **PyATS Compliance Runs** — filterable by device, result.
+- **PyATS Jobs** (`/plugins/pyats/jobs/`) — one row per capture / diff / compliance / batch-capture job, with a `pending` → `running` → `success` / `error` / `partial` status lifecycle and typed links to the result row each job produced. Filterable by type, status, and device.
 
 Each detail view renders the JSONB payload / diff tree / golden text / compliance diff and any warnings.
+
+<img src="../screenshots/jobs-view.png" alt="The unified PyATS Jobs view showing capture and batch-capture jobs with status badges including a partial row" width="720">
 
 ## 7 — Build a testbed programmatically
 
@@ -100,6 +111,10 @@ for entry in report.unsupported:
 Genie parsers cover Cisco IOS/XE/XR/NX-OS/ASA, Juniper JunOS, Arista EOS, and Nokia SR OS. The plugin maps NetBox Platform slugs to pyATS `os` strings (see `netbox_pyats/testbed.py`). Platforms with no matching Genie parser are surfaced with `os = "unsupported - no parser"` and `custom['netbox_pyats']['supported'] = False` — they are included on the testbed by default (`on_unsupported="flag"`) so the UI can show them as unsupported; pass `on_unsupported="skip"` to omit them silently in batch runs.
 
 Adding a slug to the map is a commitment that Genie has real parser coverage for that os; unknown slugs degrade gracefully rather than silently producing empty snapshots.
+
+The supported-platforms report at **Plugins → PyATS → Supported Platforms** renders the static map the capture job uses, with a per-slug NetBox device count, so you can see what a batch capture will reach before you run it.
+
+<img src="../screenshots/supported-platforms.png" alt="The supported-platforms report showing the platform slug to pyATS os map with per-slug device counts" width="720">
 
 ## REST and GraphQL
 
