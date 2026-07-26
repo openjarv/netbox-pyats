@@ -4,13 +4,18 @@ The list views for ``PyatsSnapshot``, ``PyatsSnapshotDiff``,
 ``PyatsComplianceRun``, and ``PyatsJob`` must render HTTP 200 even though
 those models are append-only and register no ``*_edit`` URL.
 
-Before the fix in this commit, each list view returned 500 with
+Before the fix, each list view returned 500 with
 ``NoReverseMatch: 'pyats<model>_edit' is not a valid view function or pattern
 name.``: ``PyatsSnapshotTable`` / ``PyatsSnapshotDiffTable`` /
 ``PyatsComplianceRunTable`` / ``PyatsJobTable`` all inherited
-``NetBoxTable.Meta`` without overriding ``actions``, so the default
-``ActionsColumn(actions=('edit', 'delete', 'changelog'))`` reversed the
-non-existent ``plugins:netbox_pyats:<model>_edit`` URL at render time.
+``NetBoxTable``'s class-level ``actions = columns.ActionsColumn()`` (which
+defaults to ``actions=('edit', 'delete', 'changelog')``), so the actions
+column reversed the non-existent ``plugins:netbox_pyats:<model>_edit`` URL
+at render time. Setting ``Meta.actions = ('delete', 'changelog')`` does NOT
+override the class-level ``ActionsColumn`` constructor argument — it only
+controls the django-tables2 column sequence. The correct fix overrides the
+``actions`` column at the class level on each append-only table:
+``actions = ActionsColumn(actions=('delete', 'changelog'))``.
 
 These tests render each list view inside a real request context (logged-in
 admin user, at least one row in the queryset) so the actions column is
