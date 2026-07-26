@@ -55,6 +55,16 @@ services:
       SUPERUSER_PASSWORD: admin
       SUPERUSER_EMAIL: admin@example.com
       SKIP_SUPERUSER: "false"
+      # Dev: 1 granian worker is plenty for local UI iteration + pytest, and
+      # keeps the container's memory footprint low. The NetBox image's
+      # /opt/netbox/launch-netbox.sh defaults to 4 workers, which is ~1064 MB
+      # of RSS before pytest even starts — that OOM-kills the dev container at
+      # the default 1 GiB mem_limit during `docker compose exec netbox pytest`.
+      # 1 worker (~258 MB) + master (~31 MB) + pytest (~250 MB) fits the 2g
+      # default below with headroom. Override with NETBOX_GRANIAN_WORKERS for
+      # load testing. (ATW-188 / ATW-193.)
+      GRANIAN_WORKERS: "${NETBOX_GRANIAN_WORKERS:-1}"
+      GRANIAN_BACKPRESSURE: "${NETBOX_GRANIAN_BACKPRESSURE:-${NETBOX_GRANIAN_WORKERS:-1}}"
     healthcheck:
       test: curl -f http://localhost:8080/login/ || exit 1
       # NetBox 4.6 cold start runs ~200 migrations + trace_paths + reindex +
@@ -97,9 +107,15 @@ services:
     # unable to reach /login/ and the container in a restart loop.
     command: ["/opt/netbox/launch-netbox.sh"]
     # Dev resource cap. Override via shell env if you need more headroom,
-    # e.g. NETBOX_CPUS=2 NETBOX_MEM=2g docker compose ... up -d
+    # e.g. NETBOX_CPUS=2 NETBOX_MEM=4g docker compose ... up -d. Default is 2g
+    # (matches the CI integration lane's NETBOX_MEM=2g, so local behaves like
+    # CI): 1 granian worker + the pytest test runner + Django's ~200-migration
+    # test-DB setup peak comfortably fits in 2g. The historical 1g default
+    # OOM-killed the container during pytest because granian's 4 default
+    # workers alone exceed 1 GiB — see the GRANIAN_WORKERS env note above and
+    # ATW-188 / ATW-193. (ATW-35 hardening, ATW-193 mem default raised.)
     cpus: ${NETBOX_CPUS:-1.0}
-    mem_limit: ${NETBOX_MEM:-1g}
+    mem_limit: ${NETBOX_MEM:-2g}
 
   netbox-worker:
     # Shares the NETBOX_IMAGE override so the web + worker always run the same
