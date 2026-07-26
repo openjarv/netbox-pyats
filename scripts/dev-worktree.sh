@@ -254,18 +254,48 @@ cmd_remove() {
   echo "  git -C \"$TRUNK_ROOT\" branch -D <branch>"
 }
 
+# List compose project names that own at least one container (running or
+# stopped) and look like a netbox dev stack. (ATW-201)
+container_netbox_projects() {
+  docker ps -a --format '{{.Label "com.docker.compose.project"}}' 2>/dev/null \
+    | grep -E '^(netbox-pyats|[Aa][Tt][Ww]-?[0-9]+)$' \
+    | sort -u || true
+}
+
+# List compose project names derived from orphaned netbox volumes — volumes
+# whose names match the `${project}_netbox-*` compose convention but whose
+# project has no containers at all. This is the common accumulation case:
+# volumes outlive their containers unless `docker compose down -v` ran, so the
+# project is invisible to container-label discovery. (ATW-204)
+volume_netbox_projects() {
+  # Compose names volumes `<project>_<service>_<instance>` or
+  # `<project>_<volume_name>`. Netbox dev stacks always create at least one
+  # volume starting with `<project>_netbox`, so prefix-match on that.
+  docker volume ls --format '{{.Name}}' 2>/dev/null \
+    | grep -iE '^(netbox-pyats|[Aa][Tt][Ww]-?[0-9]+)_netbox' \
+    | sed -E 's/^(.*)_netbox-.*/\1/' \
+    | sort -u || true
+}
+
 cmd_cleanup() {
   # Find and tear down orphaned compose projects — netbox dev stacks whose
   # worktree directory is gone or whose containers are all stopped. Skips
   # stacks that have at least one running container (so it won't kill a live
   # dev session or a QA testbed). Safe to run on a schedule. (ATW-201)
+  #
+  # Project discovery is the union of:
+  #   - container-label discovery (projects with any container), and
+  #   - volume-name discovery (projects whose containers are gone but whose
+  #     `<project>_netbox-*` volumes remain — the orphaned-volume case that
+  #     container-only discovery silently misses). (ATW-204)
   echo "=== dev-worktree cleanup: scanning for orphaned stacks ==="
 
-  # Gather all compose projects that have containers (running or stopped).
-  local all_projects
-  all_projects="$(docker ps -a --format '{{.Label "com.docker.compose.project"}}' 2>/dev/null \
-    | grep -E '^(netbox-pyats|[Aa][Tt][Ww]-?[0-9]+)$' \
-    | sort -u || true)"
+  local container_projects volume_projects all_projects
+  container_projects="$(container_netbox_projects)"
+  volume_projects="$(volume_netbox_projects)"
+  # Union the two project sets (both already sorted-u, awk dedups again).
+  all_projects="$(printf '%s\n%s\n' "$container_projects" "$volume_projects" \
+    | awk 'NF' | sort -u)"
 
   if [ -z "$all_projects" ]; then
     echo "no netbox dev compose projects found — nothing to clean."
@@ -299,9 +329,18 @@ cmd_cleanup() {
     done
 
     if [ -z "$config_file" ]; then
-      # No compose file found — tear down containers directly by label.
-      echo "  $proj: stopped, no compose file — removing containers by label"
-      docker rm -f "$(docker ps -aq --filter "label=com.docker.compose.project=$proj")" 2>/dev/null || true
+      # No compose file found. Two sub-cases:
+      #   - stopped containers with no recoverable compose file, or
+      #   - pure orphaned volumes (no containers at all — discovered via
+      #     volume-name prefix). (ATW-204)
+      local stopped_ids
+      stopped_ids="$(docker ps -aq --filter "label=com.docker.compose.project=$proj" 2>/dev/null)"
+      if [ -n "$stopped_ids" ]; then
+        echo "  $proj: stopped, no compose file — removing containers by label"
+        docker rm -f $stopped_ids 2>/dev/null || true
+      else
+        echo "  $proj: no containers, no compose file — removing orphaned volumes"
+      fi
     else
       echo "  $proj: stopped — running 'docker compose down -v' from $config_file"
       if [ -n "$env_file" ]; then
@@ -317,7 +356,11 @@ cmd_cleanup() {
     dangling_volumes="$(docker volume ls --format '{{.Name}}' 2>/dev/null \
       | grep -iE "^${proj}_netbox-" || true)"
     for v in $dangling_volumes; do
-      docker volume rm "$v" 2>/dev/null && echo "    removed volume: $v" || true
+      if docker volume rm "$v" >/dev/null 2>&1; then
+        echo "    removed volume: $v"
+      else
+        echo "    warning: could not remove volume: $v" >&2
+      fi
     done
 
     cleaned=$((cleaned + 1))
@@ -335,13 +378,16 @@ cmd_audit() {
   echo
 
   echo "--- running netbox dev stacks ---"
+  # Match the same project-name regex as running_netbox_projects so running
+  # atw-* stacks show up here too, not just the trunk netbox-pyats project.
+  # (ATW-204 follow-up)
   local running
-  running="$(docker ps --format '{{.Names}}\t{{.Label "com.docker.compose.project"}}\t{{.Image}}\t{{.Ports}}' \
-    --filter 'label=com.docker.compose.project=netbox-pyats' 2>/dev/null || true)"
+  running="$(docker ps --format '{{.Names}}\t{{.Label "com.docker.compose.project"}}\t{{.Image}}\t{{.Ports}}' 2>/dev/null \
+    | grep -E "$(printf '\t(netbox-pyats|[Aa][Tt][Ww]-?[0-9]+)\t')" || true)"
   if [ -z "$running" ]; then
     echo "  (none)"
   else
-    printf '  %s\n' "$running" | sed 's/^/  /'
+    printf '%s\n' "$running" | sed 's/^/  /'
   fi
   echo
 
