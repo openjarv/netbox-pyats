@@ -67,6 +67,7 @@ class PyatsSnapshotTable(NetBoxTable):
 
     class Meta(NetBoxTable.Meta):
         model = PyatsSnapshot
+        actions = ("delete", "changelog")
         fields = (
             "id",
             "device",
@@ -118,6 +119,7 @@ class PyatsSnapshotDiffTable(NetBoxTable):
 
     class Meta(NetBoxTable.Meta):
         model = PyatsSnapshotDiff
+        actions = ("delete", "changelog")
         fields = (
             "id",
             "device",
@@ -202,6 +204,7 @@ class PyatsComplianceRunTable(NetBoxTable):
 
     class Meta(NetBoxTable.Meta):
         model = PyatsComplianceRun
+        actions = ("delete", "changelog")
         fields = (
             "id",
             "device",
@@ -254,6 +257,7 @@ class PyatsJobTable(NetBoxTable):
 
     class Meta(NetBoxTable.Meta):
         model = PyatsJob
+        actions = ("delete", "changelog")
         fields = (
             "id",
             "job_type",
