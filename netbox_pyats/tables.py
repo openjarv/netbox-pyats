@@ -1,7 +1,10 @@
 import django_tables2 as tables
 from netbox.tables import NetBoxTable
+from netbox.tables.columns import ActionsColumn
 
 from .models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsJob, PyatsSnapshot, PyatsSnapshotDiff
+
+_APPEND_ONLY_ACTIONS = ("delete", "changelog")
 
 
 class PyatsCredentialTable(NetBoxTable):
@@ -65,9 +68,10 @@ class PyatsSnapshotTable(NetBoxTable):
     genie_version = tables.Column(verbose_name="Genie")
     pyats_version = tables.Column(verbose_name="pyATS")
 
+    actions = ActionsColumn(actions=_APPEND_ONLY_ACTIONS)
+
     class Meta(NetBoxTable.Meta):
         model = PyatsSnapshot
-        actions = ("delete", "changelog")
         fields = (
             "id",
             "device",
@@ -117,9 +121,10 @@ class PyatsSnapshotDiffTable(NetBoxTable):
     has_warnings = tables.BooleanColumn(verbose_name="Warnings")
     created = tables.DateTimeColumn(verbose_name="Created at")
 
+    actions = ActionsColumn(actions=_APPEND_ONLY_ACTIONS)
+
     class Meta(NetBoxTable.Meta):
         model = PyatsSnapshotDiff
-        actions = ("delete", "changelog")
         fields = (
             "id",
             "device",
@@ -202,9 +207,10 @@ class PyatsComplianceRunTable(NetBoxTable):
     has_warnings = tables.BooleanColumn(verbose_name="Warnings")
     created = tables.DateTimeColumn(verbose_name="Created at")
 
+    actions = ActionsColumn(actions=_APPEND_ONLY_ACTIONS)
+
     class Meta(NetBoxTable.Meta):
         model = PyatsComplianceRun
-        actions = ("delete", "changelog")
         fields = (
             "id",
             "device",
@@ -255,9 +261,10 @@ class PyatsJobTable(NetBoxTable):
     finished_at = tables.DateTimeColumn(verbose_name="Finished at")
     created = tables.DateTimeColumn(verbose_name="Created at")
 
+    actions = ActionsColumn(actions=_APPEND_ONLY_ACTIONS)
+
     class Meta(NetBoxTable.Meta):
         model = PyatsJob
-        actions = ("delete", "changelog")
         fields = (
             "id",
             "job_type",
