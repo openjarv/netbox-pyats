@@ -21,8 +21,26 @@
 #       Run `docker compose down -v` in the worktree, then `git worktree remove`.
 #       Use when the issue reaches a terminal state (done/cancelled).
 #
+#   dev-worktree.sh cleanup
+#       Find and tear down orphaned compose projects (netbox dev stacks whose
+#       worktree directory no longer exists or has no running containers).
+#       Removes their containers, volumes, and networks. Safe to run on a
+#       schedule — skips stacks with running containers. (ATW-201)
+#
+#   dev-worktree.sh audit
+#       Print a report of running/stopped compose stacks, orphaned volumes,
+#       images, networks, and host port-exposure check. Post the output back
+#       to the originating issue. (ATW-201)
+#
 # Port pool: 8001..8010 (10 ports). Scans ../netbox-pyats-wt/*/.dev-port for
 # claimed ports. Fails loud if the pool is exhausted.
+#
+# OOM guardrail (ATW-201): The dev host has 7.8 GiB RAM + 2 GiB swap. One netbox
+# dev stack (netbox 2g + worker 1g + pyats-worker 2g + postgres 512m + redis
+# 256m ≈ 5.7 GiB of mem_limit) consumes ~58% of RAM. Two concurrent stacks
+# (11.4 GiB) exceed total RAM+swap (9.8 GiB) and guarantee OOM. `cmd_up` refuses
+# to start a new stack if another netbox dev stack is already running unless
+# MAX_CONCURRENT_STACKS is set >1 (not recommended on this host).
 
 set -euo pipefail
 
@@ -48,7 +66,23 @@ WT_ROOT="$(dirname "$TRUNK_ROOT")/$(basename "$TRUNK_ROOT")-wt"
 PORT_MIN=8001
 PORT_MAX=8010
 
+# Maximum concurrent netbox dev stacks allowed on the host (ATW-201 OOM
+# guardrail). The host has 7.8 GiB RAM + 2 GiB swap; one stack is ~5.7 GiB of
+# mem_limit, so 2 concurrent stacks guarantee OOM. Override to 2+ only on a
+# host with more RAM. The guardrail counts running containers labelled as
+# netbox dev compose projects — it does not count stopped stacks.
+MAX_CONCURRENT_STACKS="${MAX_CONCURRENT_STACKS:-1}"
+
 die() { echo "error: $*" >&2; exit 1; }
+
+# List running compose project names that look like netbox dev stacks.
+# Matches the `COMPOSE_PROJECT_NAME` convention used by dev-worktree.sh add
+# (issue-id like `atw-44`, `ATW-201`) plus the trunk `netbox-pyats` project.
+running_netbox_projects() {
+  docker ps --format '{{.Label "com.docker.compose.project"}}' 2>/dev/null \
+    | grep -E '^(netbox-pyats|[Aa][Tt][Ww]-?[0-9]+)$' \
+    | sort -u || true
+}
 
 next_free_port() {
   local claimed=""
@@ -73,11 +107,15 @@ usage: dev-worktree.sh <command> [args]
   add <issue-id> <type> <slug>     create a worktree for an issue
   up                               bring up the compose stack in the current worktree
   remove <issue-id>                tear down the worktree + its compose stack
+  cleanup                          tear down orphaned/stopped compose stacks (ATW-201)
+  audit                            print exposure + cleanup report (ATW-201)
 
 examples:
   dev-worktree.sh add atw-44 chore dev-worktree-helper
   dev-worktree.sh up
   dev-worktree.sh remove atw-44
+  dev-worktree.sh cleanup
+  dev-worktree.sh audit
 EOF
   exit 2
 }
@@ -149,6 +187,34 @@ cmd_up() {
 
   local port
   port="$(grep -E '^NETBOX_PORT=' .env | cut -d= -f2-)"
+
+  # OOM guardrail (ATW-201): refuse to start a new stack if another netbox dev
+  # stack is already running and we're at the concurrency cap. Each stack is
+  # ~5.7 GiB of mem_limit; the host has 7.8 GiB RAM + 2 GiB swap, so 2
+  # concurrent stacks guarantee OOM.
+  local current_proj
+  current_proj="$(grep -E '^COMPOSE_PROJECT_NAME=' .env | cut -d= -f2-)"
+  local running
+  running="$(running_netbox_projects | grep -vxF "$current_proj" || true)"
+  if [ -n "$running" ]; then
+    local count
+    count="$(printf '%s\n' "$running" | wc -l)"
+    if [ "$count" -ge "$MAX_CONCURRENT_STACKS" ]; then
+      echo "error: $count other netbox dev stack(s) already running:" >&2
+      printf '  - %s\n' $running >&2
+      cat >&2 <<EOF
+  Host has 7.8 GiB RAM + 2 GiB swap; one stack ≈ 5.7 GiB mem_limit.
+  $((count + 1)) concurrent stacks would exceed total memory and OOM.
+
+  Tear down the other stack(s) first:
+    scripts/dev-worktree.sh remove <issue-id>
+  Or override (dangerous on this host):
+    MAX_CONCURRENT_STACKS=$((count + 1)) scripts/dev-worktree.sh up
+EOF
+      exit 1
+    fi
+  fi
+
   echo "bringing up compose stack on 127.0.0.1:$port ..."
   docker compose -f docker-compose.dev.yml --env-file .env up -d
   echo
@@ -188,12 +254,168 @@ cmd_remove() {
   echo "  git -C \"$TRUNK_ROOT\" branch -D <branch>"
 }
 
+cmd_cleanup() {
+  # Find and tear down orphaned compose projects — netbox dev stacks whose
+  # worktree directory is gone or whose containers are all stopped. Skips
+  # stacks that have at least one running container (so it won't kill a live
+  # dev session or a QA testbed). Safe to run on a schedule. (ATW-201)
+  echo "=== dev-worktree cleanup: scanning for orphaned stacks ==="
+
+  # Gather all compose projects that have containers (running or stopped).
+  local all_projects
+  all_projects="$(docker ps -a --format '{{.Label "com.docker.compose.project"}}' 2>/dev/null \
+    | grep -E '^(netbox-pyats|[Aa][Tt][Ww]-?[0-9]+)$' \
+    | sort -u || true)"
+
+  if [ -z "$all_projects" ]; then
+    echo "no netbox dev compose projects found — nothing to clean."
+    return 0
+  fi
+
+  local cleaned=0
+  local skipped=0
+  for proj in $all_projects; do
+    local has_running
+    has_running="$(docker ps --filter "label=com.docker.compose.project=$proj" -q 2>/dev/null | head -1)"
+    if [ -n "$has_running" ]; then
+      echo "  $proj: running containers found — skipping (live dev session or QA testbed)"
+      skipped=$((skipped + 1))
+      continue
+    fi
+
+    # All containers stopped. Find the compose config file to run `down -v`.
+    # Try worktree paths first, then /tmp fallback.
+    local config_file="" env_file=""
+    local norm_proj
+    norm_proj="$(printf '%s' "$proj" | tr '[:upper:]' '[:lower:]')"
+    for wt_dir in "$WT_ROOT/$proj" "$WT_ROOT/$norm_proj" "/tmp/netbox-pyats-wt/$proj" "/tmp/netbox-pyats-wt/$norm_proj"; do
+      if [ -f "$wt_dir/docker-compose.dev.yml" ]; then
+        config_file="$wt_dir/docker-compose.dev.yml"
+        if [ -f "$wt_dir/.env" ]; then
+          env_file="$wt_dir/.env"
+        fi
+        break
+      fi
+    done
+
+    if [ -z "$config_file" ]; then
+      # No compose file found — tear down containers directly by label.
+      echo "  $proj: stopped, no compose file — removing containers by label"
+      docker rm -f "$(docker ps -aq --filter "label=com.docker.compose.project=$proj")" 2>/dev/null || true
+    else
+      echo "  $proj: stopped — running 'docker compose down -v' from $config_file"
+      if [ -n "$env_file" ]; then
+        docker compose -f "$config_file" --env-file "$env_file" down -v 2>&1 | sed 's/^/    /' || true
+      else
+        docker compose -f "$config_file" down -v 2>&1 | sed 's/^/    /' || true
+      fi
+    fi
+
+    # Remove orphaned volumes for this project (compose down -v should handle
+    # it, but catch stragglers).
+    local dangling_volumes
+    dangling_volumes="$(docker volume ls --format '{{.Name}}' 2>/dev/null \
+      | grep -iE "^${proj}_netbox-" || true)"
+    for v in $dangling_volumes; do
+      docker volume rm "$v" 2>/dev/null && echo "    removed volume: $v" || true
+    done
+
+    cleaned=$((cleaned + 1))
+  done
+
+  echo
+  echo "cleanup complete: $cleaned stack(s) torn down, $skipped active stack(s) skipped."
+}
+
+cmd_audit() {
+  # Print a report of running/stopped compose stacks, orphaned volumes,
+  # images, networks, and host port-exposure. Post the output back to the
+  # originating issue. (ATW-201)
+  echo "=== dev-worktree audit: $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
+  echo
+
+  echo "--- running netbox dev stacks ---"
+  local running
+  running="$(docker ps --format '{{.Names}}\t{{.Label "com.docker.compose.project"}}\t{{.Image}}\t{{.Ports}}' \
+    --filter 'label=com.docker.compose.project=netbox-pyats' 2>/dev/null || true)"
+  if [ -z "$running" ]; then
+    echo "  (none)"
+  else
+    printf '  %s\n' "$running" | sed 's/^/  /'
+  fi
+  echo
+
+  echo "--- stopped netbox dev containers (orphaned) ---"
+  local stopped
+  stopped="$(docker ps -a --filter 'status=exited' \
+    --format '{{.Names}}\t{{.Label "com.docker.compose.project"}}\t{{.Status}}' \
+    | grep -iE '(netbox|atw-[0-9])' || true)"
+  if [ -z "$stopped" ]; then
+    echo "  (none)"
+  else
+    echo "$stopped" | sed 's/^/  /'
+  fi
+  echo
+
+  echo "--- host memory ---"
+  free -h | sed 's/^/  /'
+  echo
+
+  echo "--- docker disk usage ---"
+  docker system df | sed 's/^/  /'
+  echo
+
+  echo "--- netbox-related volumes ---"
+  docker volume ls --format '{{.Name}}' 2>/dev/null \
+    | grep -iE '(netbox|atw-[0-9])' | sed 's/^/  /' || echo "  (none)"
+  echo
+
+  echo "--- images (dev stack) ---"
+  docker images --format '  {{.Repository}}:{{.Tag}}\t{{.Size}}' 2>/dev/null \
+    | grep -iE '(netbox|atw-|pyats|valkey|postgres|redis)' || echo "  (none)"
+  echo
+
+  echo "--- networks ---"
+  docker network ls --format '{{.Name}}' 2>/dev/null \
+    | grep -iE '(netbox|atw|devnet)' | sed 's/^/  /' || echo "  (none)"
+  echo
+
+  echo "--- host port exposure check (public IP) ---"
+  # Any listening port bound to a non-loopback address is a potential exposure.
+  ss -tlnp 2>/dev/null | grep -vE '127\.0\.0|::1|\[::1\]|\*' \
+    | grep -E ':[0-9]+' | sed 's/^/  /' || echo "  (no non-loopback bindings)"
+  echo
+  echo "--- wildcard (*) bindings (review for public exposure) ---"
+  ss -tlnp 2>/dev/null | grep -E '\*:[0-9]+' | sed 's/^/  /' || echo "  (none)"
+  echo
+
+  echo "--- worktree inventory ---"
+  git -C "$TRUNK_ROOT" worktree list 2>/dev/null | sed 's/^/  /' || echo "  (no worktrees)"
+  echo
+
+  echo "--- orphaned /tmp worktree dirs (no matching git worktree) ---"
+  if [ -d /tmp/netbox-pyats-wt ]; then
+    local git_wts
+    git_wts="$(git -C "$TRUNK_ROOT" worktree list --porcelain 2>/dev/null \
+      | awk '/^worktree /{print $2}' || true)"
+    for d in /tmp/netbox-pyats-wt/*/; do
+      if ! printf '%s\n' "$git_wts" | grep -qxF "${d%/}"; then
+        echo "  $d"
+      fi
+    done
+  else
+    echo "  (none)"
+  fi
+}
+
 [ $# -ge 1 ] || usage
 sub="$1"; shift
 case "$sub" in
-  add)    cmd_add "$@" ;;
-  up)     cmd_up "$@" ;;
-  remove) cmd_remove "$@" ;;
+  add)     cmd_add "$@" ;;
+  up)      cmd_up "$@" ;;
+  remove)  cmd_remove "$@" ;;
+  cleanup) cmd_cleanup "$@" ;;
+  audit)   cmd_audit "$@" ;;
   -h|--help|help) usage ;;
-  *)      usage ;;
+  *)       usage ;;
 esac
