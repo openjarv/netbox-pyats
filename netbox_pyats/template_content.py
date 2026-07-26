@@ -35,7 +35,7 @@ from __future__ import annotations
 from netbox.plugins import PluginTemplateExtension
 
 from .choices import SnapshotKindChoices
-from .testbed import UNSUPPORTED_OS, platform_to_pyats_os
+from .panel_support import resolve_panel_platform_support
 
 # How many recent snapshots / diffs / compliance runs to show in the
 # device-page panel. Kept small so the device page stays fast; the full
@@ -69,11 +69,11 @@ class DevicePyATSPanel(PluginTemplateExtension):
         )
 
         # Surface the platform support status so the operator knows before
-        # clicking whether captures will succeed. We map the device's
-        # platform to a pyATS os; the unsupported sentinel means Genie has no
-        # parser for it and captures will be skipped.
-        os_value = platform_to_pyats_os(getattr(device, "platform", None))
-        platform_supported = os_value != UNSUPPORTED_OS
+        # clicking whether captures will succeed. The decision combines the
+        # static platform map with the most recent snapshot's observed status
+        # so the panel never shows a green supported badge next to a snapshot
+        # row marked 'Unsupported platform' (ATW-184).
+        platform_supported, os_value = resolve_panel_platform_support(device, snapshots[0] if snapshots else None)
 
         # Compliance picker needs at least one golden config and at least one
         # snapshot whose data carries a config payload (config or full kind).
