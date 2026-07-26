@@ -97,6 +97,36 @@ Run the plugin's tests inside the `netbox` container (from the worktree):
 docker compose -f docker-compose.dev.yml exec netbox pytest netbox_pyats/tests
 ```
 
+The full integration suite (model, view, API) runs inside the NetBox container
+where the NetBox models are importable. The model/view/API tests use
+`pytest.importorskip("netbox")` and skip cleanly outside a NetBox environment.
+
+**Canonical local test workflow (one run per fresh stack).** The first
+`pytest` run after a fresh `down -v && up --wait` is reliable: Django creates
+`test_netbox`, runs ~200 NetBox migrations (~8-9 min cold), runs the suite,
+then drops `test_netbox`. A *second* `pytest` run against the same stack
+usually fails in ~10s with `database "test_netbox" already exists` / `is being
+accessed by other users` — a granian worker in the same container holds an
+idle connection to `test_netbox` between runs (see the ATW-85 / ATW-188
+troubleshooting section below for the root cause and recovery). So either:
+
+- run `pytest` once per fresh stack (mirrors CI, which does `up --wait` →
+  `exec pytest` → `down -v`), or
+- run the recovery sequence in the ATW-85 section between `pytest` runs.
+
+```bash
+# Canonical one-run-per-fresh-stack path (matches CI):
+docker compose -f docker-compose.dev.yml down -v
+docker compose -f docker-compose.dev.yml up -d --wait
+docker compose -f docker-compose.dev.yml exec -w /opt/netbox/netbox/netbox_pyats_src \
+  netbox pytest netbox_pyats/tests -v
+docker compose -f docker-compose.dev.yml down -v
+```
+
+The `-w /opt/netbox/netbox/netbox_pyats_src` is needed because the container's
+default working dir is `/opt/netbox/netbox` (granian's cwd), not the
+bind-mounted plugin source.
+
 ## Teardown
 
 Stop one worktree's stack (keeps volumes) — run from inside the worktree:
@@ -125,18 +155,29 @@ Each service has a default CPU + memory cap. Override any of them via shell
 environment variables before `up`:
 
 ```bash
-NETBOX_CPUS=2 NETBOX_MEM=2g \
+NETBOX_CPUS=2 NETBOX_MEM=4g \
 PYATS_WORKER_CPUS=2 PYATS_WORKER_MEM=3g \
 docker compose -f docker-compose.dev.yml up -d
 ```
 
 | Service              | Var prefix          | Default CPU | Default mem |
 | -------------------- | ------------------- | ----------- | ----------- |
-| `netbox`             | `NETBOX_`           | 1.0         | 1g          |
+| `netbox`             | `NETBOX_`           | 1.0         | 2g          |
 | `netbox-worker`      | `WORKER_`           | 1.0         | 1g          |
 | `netbox-pyats-worker`| `PYATS_WORKER_`     | 1.5         | 2g          |
 | `postgres`           | `POSTGRES_`         | 0.5         | 512m        |
 | `redis`              | `REDIS_`            | 0.5         | 256m        |
+
+The `netbox` service also exposes `NETBOX_GRANIAN_WORKERS` (default `1`), which
+sets the NetBox image's `GRANIAN_WORKERS` env var controlling how many granian
+worker processes the web server spawns. The image's own default is 4 workers,
+which is ~1064 MB of RSS before pytest even starts and OOM-kills the container
+at the historical 1 GiB `mem_limit` during `docker compose exec netbox pytest`.
+1 worker is plenty for local UI iteration and keeps the dev footprint low; raise
+it (`NETBOX_GRANIAN_WORKERS=4`) only for local load testing. The `mem_limit`
+default was raised from 1g to 2g to match the CI integration lane's
+`NETBOX_MEM=2g` so local behaves like CI. See ATW-188 for the root-cause
+diagnosis.
 
 ### Image overrides (compatibility sweeps)
 
@@ -253,6 +294,27 @@ restart it while it is healthy. Verified on 2026-07-21 (ATW-85): container
 across the atw-83 stack; a clean `python manage.py test
 netbox_pyats.tests.test_models` run created `test_netbox`, ran all
 migrations, ran the tests, and Django tore the test DB down — no SIGKILL.
+
+**Root cause (confirmed 2026-07-26, ATW-188):** the `netbox` container runs
+granian (the web server) *and* `pytest` in the same container. Granian's
+worker processes hold persistent Django DB connections
+(`CONN_MAX_AGE: 300` in `dev/configuration/configuration.py`). When pytest
+finishes and Django's test runner drops `test_netbox`, a granian worker's
+idle connection to `test_netbox` is left `idle in transaction` (verified via
+`pg_stat_activity` — the connection's `client_addr` is the `netbox`
+container's own IP on the `devnet` bridge). The next `pytest` run then fails:
+`CREATE DATABASE test_netbox` → `DuplicateDatabase` (the previous DB wasn't
+dropped), retry `DROP DATABASE` → `is being accessed by other users (1 other
+session)` → `SystemExit: 2`. This is *not* a mystery monitor — it is the
+container's own granian worker reconnecting to `test_netbox` between
+`DROP` and `CREATE`. Reproduced deterministically: fresh `down -v && up --wait`
+→ first `pytest` passes (~8-9 min); second `pytest` immediately after fails
+in ~10s with the exact error above.
+
+The `GRANIAN_WORKERS` default of 1 (set in `docker-compose.dev.yml`, ATW-193)
+reduces the race surface to a single idle connection, but does not eliminate
+it entirely — 1 worker can still hold `test_netbox`. The reliable workflow is
+**one `pytest` run per fresh stack** (below).
 
 The real cause, in order of likelihood:
 
