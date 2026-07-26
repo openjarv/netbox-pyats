@@ -275,8 +275,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1784936772.839431,
-    "ast_hash": "32bf95c1e1285e301fc4b628b96e8e0f",
+    "mtime": 1785019407.400215,
+    "ast_hash": "6a5375fe481a4201e41e3e441ed8a3a1",
     "semantic_hash": ""
   },
   "docker-compose.dev.yml": {
@@ -375,8 +375,8 @@
     "semantic_hash": ""
   },
   ".github/workflows/ci.yml": {
-    "mtime": 1784935199.202844,
-    "ast_hash": "1d16497e7ec2a53fc2756c0d2f2eb761",
+    "mtime": 1785019514.3286018,
+    "ast_hash": "76d1f068151769e6a9273e43ea8d63b2",
     "semantic_hash": ""
   },
   "netbox_pyats/templates/netbox_pyats/pyatscompliancerun.html": {
@@ -440,8 +440,8 @@
     "semantic_hash": ""
   },
   "docs/README.md": {
-    "mtime": 1784691085.3953958,
-    "ast_hash": "47db5030b04bef01583853cd41c9e9db",
+    "mtime": 1785019407.4012148,
+    "ast_hash": "d721b28fde1c78f12611c59ca910d2dd",
     "semantic_hash": ""
   },
   "docs/adr/0004-compliance-golden-parse-shape.md": {
@@ -460,8 +460,8 @@
     "semantic_hash": ""
   },
   "docs/developer/contributing.md": {
-    "mtime": 1784936772.8414311,
-    "ast_hash": "8c86732b3a15d08b070412aebf0585c4",
+    "mtime": 1785019407.4022148,
+    "ast_hash": "b7556292f89d12d0ad210c781467e429",
     "semantic_hash": ""
   },
   "docs/developer/graphify-mcp-http.md": {
@@ -490,8 +490,8 @@
     "semantic_hash": ""
   },
   "docs/user/installation.md": {
-    "mtime": 1784936772.8424313,
-    "ast_hash": "3dc036f87fb25b94589e1d7912d8cb99",
+    "mtime": 1785019407.4022148,
+    "ast_hash": "d4294fada4296b7e4b968a24bdcea2c8",
     "semantic_hash": ""
   },
   "docs/user/troubleshooting.md": {
@@ -505,8 +505,8 @@
     "semantic_hash": ""
   },
   "docs/user/workers.md": {
-    "mtime": 1784691085.4063962,
-    "ast_hash": "3ccefb665396fbbe3982f33b65d801c3",
+    "mtime": 1785019407.403215,
+    "ast_hash": "e4e50cda6c37466c9524b321a7120d32",
     "semantic_hash": ""
   },
   "netbox_pyats/templates/netbox_pyats/device_bulk_capture.html": {
@@ -530,8 +530,8 @@
     "semantic_hash": ""
   },
   "netbox_pyats/tests/test_secret_detection.py": {
-    "mtime": 1784936772.8424313,
-    "ast_hash": "59fe2314f9b6bdd52dce80d4b7c31ec9",
+    "mtime": 1785019487.9967616,
+    "ast_hash": "d0e82f393fda881243fc36ec244bdee8",
     "semantic_hash": ""
   },
   "scripts/graphify-scrub-guard.sh": {
@@ -547,6 +547,36 @@
   "docs/developer/remote-access.md": {
     "mtime": 1784863916.2681637,
     "ast_hash": "f5ca2fdbeeb79e2b0a1e3ea6943ad4cd",
+    "semantic_hash": ""
+  },
+  "netbox_pyats/tests/test_pr_body_scrub_guard.py": {
+    "mtime": 1785019407.4042149,
+    "ast_hash": "b4376964579eef88ae68f07e1d844dd2",
+    "semantic_hash": ""
+  },
+  "scripts/gitleaks-fixture-regression.sh": {
+    "mtime": 1785019395.9228566,
+    "ast_hash": "9f44ea61c830ff8a7ace2a25e51f55f5",
+    "semantic_hash": ""
+  },
+  "scripts/pr-body-scrub-guard.sh": {
+    "mtime": 1785019407.4042149,
+    "ast_hash": "0c740c72a229692968f0574c84a94e3e",
+    "semantic_hash": ""
+  },
+  ".github/PULL_REQUEST_TEMPLATE.md": {
+    "mtime": 1785019407.3982148,
+    "ast_hash": "054fede39b7c67398a7a454337685f19",
+    "semantic_hash": ""
+  },
+  "docs/adr/0006-pr-body-hygiene.md": {
+    "mtime": 1785019407.4012148,
+    "ast_hash": "0952aba585519dc7f66f3f661e512650",
+    "semantic_hash": ""
+  },
+  "docs/user/upgrade.md": {
+    "mtime": 1785019407.4022148,
+    "ast_hash": "0208d30df033ad7d1d69b5ea67db3e14",
     "semantic_hash": ""
   }
 }
