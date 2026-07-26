@@ -24,6 +24,7 @@ The diff and compliance views render the same collapsible before/after tree:
   <img src="docs/screenshots/compliance-run-drift.png" alt="Compliance run viewer showing a drift result with a collapsible diff tree" width="45%">
 </p>
 <p align="center"><em>Left: the snapshot diff viewer. Right: a compliance run with a <code>drift</code> result.</em></p>
+
 ## What it does
 
 **netbox-pyats** turns your NetBox device inventory into a live PyATS testbed — no static YAML testbed to maintain. From each device's page you can capture running-config and state snapshots, diff any two snapshots, and check a captured config against a golden config for compliance. Every snapshot, diff, and compliance run is stored inside NetBox as a first-class record, so you get a permanent, queryable history for pre/post-change checks and config-compliance audits.
