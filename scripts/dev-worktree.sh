@@ -11,7 +11,11 @@
 # Commands:
 #   dev-worktree.sh add <issue-id> <type> <slug>
 #       Create ../netbox-pyats-wt/<issue-id> on branch <type>/<issue-id>-<slug>
-#       from main, write .env with a unique port, and print path + port.
+#       based on the latest origin/main (fetch first; offline fallback to local
+#       main), write .env with a unique port, and print path + port + base SHA.
+#       Refuses to run when the trunk worktree is not on main (or a branch
+#       tracking origin/main) so worktrees never branch from a stale feature
+#       branch. (ATW-208)
 #
 #   dev-worktree.sh up
 #       Run `docker compose -f docker-compose.dev.yml up -d` in the current
@@ -34,6 +38,14 @@
 #
 # Port pool: 8001..8010 (10 ports). Scans ../netbox-pyats-wt/*/.dev-port for
 # claimed ports. Fails loud if the pool is exhausted.
+#
+# Base branch policy (ATW-208): every new worktree branch is based on the
+# latest origin/main, unless a documented reason on the originating issue
+# names an alternate base. The script fetches origin/main before branching,
+# bases on origin/main (falling back to local main only when offline and
+# local main exists), refreshes local main from origin/main when present,
+# refuses to add when the trunk is off main, and prints the base SHA used.
+# See docs/developer/setup.md "Base branch policy".
 #
 # OOM guardrail (ATW-201): The dev host has 7.8 GiB RAM + 2 GiB swap. One netbox
 # dev stack (netbox 2g + worker 1g + pyats-worker 2g + postgres 512m + redis
@@ -149,10 +161,119 @@ cmd_add() {
     die "branch already exists: $branch (delete it or pick a new slug)"
   fi
 
+  # --- Base branch policy (ATW-208) ---------------------------------------
+  # Every new worktree branches from the latest origin/main. We:
+  #   1. Refuse to add when the trunk working tree is not on main (or a
+  #      branch tracking origin/main), so worktrees never silently branch
+  #      from a stale feature branch.
+  #   2. Fetch origin/main (non-fatal on network failure with a warning).
+  #   3. Refresh local main from origin/main when present, or create it
+  #      from origin/main when missing, so the trunk worktree can return
+  #      to it.
+  #   4. Base the new branch on origin/main; fall back to local main only
+  #      when offline and local main exists. Never fall back to the current
+  #      HEAD or another feature branch.
+  #   5. Print the base SHA used so the worktree's origin is auditable.
+
+  local trunk_branch
+  trunk_branch="$(git -C "$TRUNK_ROOT" branch --show-current 2>/dev/null || true)"
+
+  # A branch is an acceptable trunk base iff it is `main` or tracks
+  # origin/main. Anything else (a feature branch, detached HEAD) is refused.
+  local trunk_tracks_main=0
+  if [ "$trunk_branch" = "main" ]; then
+    trunk_tracks_main=1
+  elif [ -n "$trunk_branch" ]; then
+    local upstream
+    upstream="$(git -C "$TRUNK_ROOT" rev-parse --abbrev-ref --symbolic-full-name "$trunk_branch@{upstream}" 2>/dev/null || true)"
+    if [ "$upstream" = "refs/remotes/origin/main" ]; then
+      trunk_tracks_main=1
+    fi
+  fi
+
+  if [ "$trunk_tracks_main" -ne 1 ]; then
+    cat >&2 <<EOF
+error: trunk worktree is not on main (or a branch tracking origin/main).
+  trunk branch: ${trunk_branch:-<detached HEAD>}
+  trunk root:   $TRUNK_ROOT
+
+Worktrees must branch from the latest origin/main, not from the current
+checkout. Restore the trunk to main first:
+
+  git -C "$TRUNK_ROOT" fetch origin main
+  git -C "$TRUNK_ROOT" branch -f main origin/main
+  git -C "$TRUNK_ROOT" checkout main
+
+Then re-run: $0 add $issue_id $type $slug
+
+If you genuinely need to base this work on a different branch, record the
+alternate base and the reason on the originating issue, then run git
+worktree add by hand.
+EOF
+    exit 1
+  fi
+
+  # Fetch origin/main so the base is current. Non-fatal on network failure:
+  # we fall back to local main below. (ATW-208)
+  local online=1
+  if ! git -C "$TRUNK_ROOT" fetch --quiet origin main 2>/dev/null; then
+    online=0
+    echo "warning: 'git fetch origin main' failed — continuing offline from local main if present" >&2
+  fi
+
+  # Resolve the base SHA. Prefer origin/main; fall back to local main only
+  # when offline and local main exists. Never fall back to HEAD.
+  local base_ref="" base_sha=""
+  if [ "$online" -eq 1 ] && git -C "$TRUNK_ROOT" rev-parse --verify --quiet origin/main >/dev/null 2>&1; then
+    base_ref="origin/main"
+    base_sha="$(git -C "$TRUNK_ROOT" rev-parse origin/main)"
+  elif git -C "$TRUNK_ROOT" rev-parse --verify --quiet main >/dev/null 2>&1; then
+    if [ "$online" -eq 1 ]; then
+      base_ref="origin/main"
+      base_sha="$(git -C "$TRUNK_ROOT" rev-parse origin/main)"
+    else
+      base_ref="main (offline — may be stale; fetch when network returns)"
+      base_sha="$(git -C "$TRUNK_ROOT" rev-parse main)"
+    fi
+  else
+    die "no origin/main and no local main to base on. Run: git -C \"$TRUNK_ROOT\" fetch origin main && git -C \"$TRUNK_ROOT\" branch -f main origin/main"
+  fi
+
+  # Refresh / create local main from origin/main so the trunk worktree can
+  # return to it. Only when online and origin/main moved ahead of local main
+  # (or local main is missing). (ATW-208)
+  if [ "$online" -eq 1 ]; then
+    if ! git -C "$TRUNK_ROOT" rev-parse --verify --quiet main >/dev/null 2>&1; then
+      echo "local main missing — creating from origin/main" >&2
+      git -C "$TRUNK_ROOT" branch main origin/main
+    else
+      local local_main_sha
+      local_main_sha="$(git -C "$TRUNK_ROOT" rev-parse main)"
+      if [ "$local_main_sha" != "$base_sha" ]; then
+        # Fast-forward local main to origin/main. Use -f only as a safety net;
+        # origin/main is an ancestor-fast-forward of main in normal flow, but
+        # if local main diverged we refuse rather than rewrite history.
+        if git -C "$TRUNK_ROOT" merge-base --is-ancestor "$local_main_sha" "$base_sha"; then
+          git -C "$TRUNK_ROOT" branch -f main "$base_sha" >/dev/null 2>&1 || true
+        else
+          echo "warning: local main ($local_main_sha) has diverged from origin/main ($base_sha) — not rewriting local main. Trunk checkout unchanged." >&2
+        fi
+      fi
+    fi
+  fi
+
   local port
   port="$(next_free_port)"
 
-  git -C "$TRUNK_ROOT" worktree add "$wt" -b "$branch" main
+  # Create the worktree branched from the resolved base. Use origin/main
+  # directly when online so the new branch starts at the fetched tip; use
+  # local main only when offline.
+  local create_from="$base_sha"
+  if [ "$online" -eq 1 ]; then
+    create_from="origin/main"
+  fi
+  git -C "$TRUNK_ROOT" worktree add "$wt" -b "$branch" "$create_from"
+  base_sha="$(git -C "$wt" rev-parse HEAD)"
 
   # Record the claimed port and write the worktree .env so docker compose picks
   # up the project name + published port. COMPOSE_PROJECT_NAME namespaces
@@ -171,6 +292,8 @@ EOF
   cat <<EOF
 created worktree: $wt
 branch:          $branch
+base:            $base_ref
+base SHA:        $base_sha
 compose project: $issue_id
 netbox port:     127.0.0.1:$port
 
