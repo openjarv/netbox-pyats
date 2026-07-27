@@ -113,11 +113,11 @@ class RefreshParserCatalogJobTest(TestCase):
 
         return (
             mock.patch(
-                "netbox_pyats.jobs.refresh_parser_catalog_for_os",
+                "netbox_pyats.parser_catalog.refresh_parser_catalog_for_os",
                 side_effect=_fake_refresh,
             ),
             mock.patch(
-                "netbox_pyats.jobs.supported_os_values",
+                "netbox_pyats.parser_catalog.supported_os_values",
                 return_value=iter(supported_os_values_patch),
             ),
         )
