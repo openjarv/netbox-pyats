@@ -116,11 +116,19 @@ class TestPlatformToOs(unittest.TestCase):
     def test_platform_with_no_slug_returns_unsupported(self):
         self.assertEqual(platform_to_pyats_os(FakePlatform(None)), UNSUPPORTED_OS)
 
-    def test_manufacturer_fallback(self):
-        # A platform with a non-matching slug but a known manufacturer should
-        # fall back to the manufacturer's default os.
+    def test_manufacturer_fallback_is_not_used(self):
+        # ATW-184: the manufacturer-name fallback was removed because Genie
+        # parsers are platform-specific, not vendor-specific. A device with a
+        # non-matching slug but a known manufacturer must surface as
+        # unsupported rather than silently promising a capture that will fail.
         p = FakePlatform("some-custom-slug", manufacturer_name="Juniper")
-        self.assertEqual(platform_to_pyats_os(p), "junos")
+        self.assertEqual(platform_to_pyats_os(p), UNSUPPORTED_OS)
+
+    def test_cisco_manufacturer_does_not_imply_iosxe(self):
+        # ATW-184 regression guard: the reported bug was a Cisco-manufacturer
+        # device with an unknown platform slug showing a green 'iosxe' badge.
+        p = FakePlatform("mystery-os", manufacturer_name="Cisco")
+        self.assertEqual(platform_to_pyats_os(p), UNSUPPORTED_OS)
 
 
 # --------------------------------------------------------------------------- #

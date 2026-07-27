@@ -16,13 +16,7 @@ Two lanes:
 import importlib
 import sys
 
-from netbox_pyats.testbed import (
-    MANUFACTURER_NAME_TO_PYATS_OS,
-    PLATFORM_SLUG_TO_PYATS_OS,
-    UNSUPPORTED_OS,
-    is_supported_os,
-    platform_to_pyats_os,
-)
+from netbox_pyats.testbed import PLATFORM_SLUG_TO_PYATS_OS, UNSUPPORTED_OS, is_supported_os, platform_to_pyats_os
 
 # Pure-Python lane: these tests run anywhere (laptop, CI unit job, NetBox
 # container) without NetBox or Genie installed. They guard the contract the
@@ -59,19 +53,35 @@ class TestSupportedPlatformsMap:
         for os_value in mapped_oses:
             assert is_supported_os(os_value) is True
 
-    def test_manufacturer_fallback_map_is_subset_of_supported_oses(self):
-        # Manufacturer fallbacks must map to os strings that are themselves
-        # supported (otherwise a device with a generic platform slug would
-        # round-trip to an unsupported os via the fallback, contradicting the
-        # report).
-        for manufacturer_os in MANUFACTURER_NAME_TO_PYATS_OS.values():
-            assert is_supported_os(manufacturer_os) is True
+    def test_manufacturer_fallback_was_removed(self):
+        # ATW-184: the manufacturer-name fallback was removed because Genie
+        # parsers are platform-specific, not vendor-specific. Every mapped os
+        # is reachable only via an explicit platform slug; there is no
+        # vendor-level shortcut that could silently promise a capture that
+        # will fail. This test pins the absence of the fallback map so a
+        # future reintroduction is caught.
+        import netbox_pyats.testbed as testbed_mod
+
+        assert not hasattr(testbed_mod, "MANUFACTURER_NAME_TO_PYATS_OS")
 
     def test_platform_to_pyats_os_unknown_slug_returns_unsupported(self):
         class FakePlatform:
             slug = "totally-fake-vendor-os"
             name = "Fake"
             manufacturer = None
+
+        assert platform_to_pyats_os(FakePlatform()) == UNSUPPORTED_OS
+
+    def test_platform_to_pyats_os_unknown_slug_with_known_manufacturer_returns_unsupported(self):
+        # ATW-184 regression guard: a Cisco-manufacturer device with an unknown
+        # platform slug must surface as unsupported, not silently map to iosxe.
+        class FakeManufacturer:
+            name = "Cisco"
+
+        class FakePlatform:
+            slug = "mystery-os"
+            name = "Mystery OS"
+            manufacturer = FakeManufacturer()
 
         assert platform_to_pyats_os(FakePlatform()) == UNSUPPORTED_OS
 

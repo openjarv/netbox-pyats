@@ -7,12 +7,15 @@ required: the plugin materializes the testbed at runtime, which is the core
 integration insight from the ATW-10 research doc.
 
 Multi-vendor support is bounded by Genie parser availability. NetBox
-``Platform`` rows carry a ``slug`` and ``name``; we map the slug (and, as a
-fallback, the manufacturer name) to a pyATS ``os`` string. Devices whose
-platform has no matching Genie parser are surfaced as "unsupported - no parser"
-on the returned testbed entry (stored in ``device.custom['netbox_pyats']``)
-rather than raising, so batch operations can skip them gracefully — the UX
-contract locked in ATW-10 scoping.
+``Platform`` rows carry a ``slug`` and ``name``; we map the slug to a pyATS
+``os`` string. Devices whose platform has no matching Genie parser are
+surfaced as "unsupported - no parser" on the returned testbed entry (stored in
+``device.custom['netbox_pyats']``) rather than raising, so batch operations
+can skip them gracefully — the UX contract locked in ATW-10 scoping.
+
+We deliberately do not fall back on the platform's manufacturer name: Genie
+parsers are platform-specific, not vendor-specific, and a generic 'Cisco' →
+'iosxe' guess silently promises a capture that will fail (ATW-184).
 
 The pyATS import is lazy (module-level function call) so the NetBox web process
 can import the plugin without pyATS installed; pyATS only needs to be present
@@ -58,6 +61,11 @@ def _resolve_credential(device):
 # real parser coverage for. Adding a slug here is a commitment that snapshots
 # for that os will actually produce structured output. Unknown slugs surface
 # as unsupported rather than silently producing empty snapshots.
+#
+# We deliberately do NOT fall back on the platform's manufacturer name. Genie
+# parsers are platform-specific, not vendor-specific: a generic 'Cisco' →
+# 'iosxe' guess is wrong more often than right and silently promises the
+# operator a capture that will fail (ATW-184). Unknown slug → UNSUPPORTED_OS.
 PLATFORM_SLUG_TO_PYATS_OS: dict[str, str] = {
     # Cisco
     "cisco-ios": "ios",
@@ -82,16 +90,6 @@ PLATFORM_SLUG_TO_PYATS_OS: dict[str, str] = {
     "sros": "sros",
 }
 
-# Manufacturer name (lowercased) → pyATS os. Used as a fallback when the platform
-# slug is generic (e.g. "iosxe" with no vendor prefix and an explicit
-# manufacturer). Conservative: only mapped where Genie has parser coverage.
-MANUFACTURER_NAME_TO_PYATS_OS: dict[str, str] = {
-    "cisco": "iosxe",  # default Cisco os; specific platforms override via slug
-    "juniper": "junos",
-    "arista": "eos",
-    "nokia": "sros",
-}
-
 # Sentinel os value used to mark devices Genie cannot parse. Surfaced verbatim
 # in the UI as "unsupported - no parser".
 UNSUPPORTED_OS = "unsupported - no parser"
@@ -103,6 +101,11 @@ def platform_to_pyats_os(platform) -> str:
     Returns the :data:`UNSUPPORTED_OS` sentinel for platforms Genie does not
     ship parsers for, so callers can degrade gracefully without raising.
 
+    Mapping is by platform slug only. We intentionally do NOT fall back on the
+    platform's manufacturer name: Genie parsers are platform-specific, not
+    vendor-specific, and a generic 'Cisco' → 'iosxe' guess silently promises a
+    capture that will fail (ATW-184).
+
     Args:
         platform: a NetBox ``dcim.Platform`` instance (has ``slug``,
             ``name``, and a ``manufacturer`` FK). ``None`` is tolerated and
@@ -113,11 +116,6 @@ def platform_to_pyats_os(platform) -> str:
     slug = platform.slug.lower()
     if slug in PLATFORM_SLUG_TO_PYATS_OS:
         return PLATFORM_SLUG_TO_PYATS_OS[slug]
-    # Try the manufacturer as a fallback (e.g. a platform named "IOS-XE" with
-    # slug "ios-xe" but no explicit slug match).
-    manufacturer = getattr(platform, "manufacturer", None)
-    if manufacturer and (manufacturer.name or "").lower() in MANUFACTURER_NAME_TO_PYATS_OS:
-        return MANUFACTURER_NAME_TO_PYATS_OS[(manufacturer.name or "").lower()]
     return UNSUPPORTED_OS
 
 
