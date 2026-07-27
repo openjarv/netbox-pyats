@@ -210,7 +210,75 @@ def _capture_state(pyats_device) -> dict:
     return state
 
 
-def capture_snapshot(pyats_device, *, kind: str = SnapshotKindChoices.KIND_FULL) -> CaptureResult:
+def _capture_parse(pyats_device, commands) -> tuple[dict, list]:
+    """Run on-demand parser capture for an explicit, user-supplied command list.
+
+    This is the ``kind='parse'`` core (ATW-241 child 3). For each command in
+    ``commands`` (typed or selected by the operator on the device-page PyATS
+    tab) it runs ``pyats_device.parse(<command>)`` and merges the parsed
+    output into a single dict keyed by command — the **same ``data["state"]``
+    shape** the automated :func:`_capture_state` capture writes — so the
+    existing snapshot detail template, diff engine, and compliance engine
+    work unchanged.
+
+    Graceful degradation (board-confirmed plan §5 open question): when a
+    command raises ``ParserNotFound`` (the manual text-box case where the
+    operator typed a command Genie has no parser for), the worker falls back
+    to raw ``pyats_device.execute(<command>)`` output, wrapped as
+    ``{"raw": <text>}`` — matching ``genie parse`` CLI behavior. If
+    ``execute`` also raises, the command is recorded in ``warnings`` (the
+    caller surfaces them as ``parser_warnings`` on the snapshot row) and
+    omitted from the returned state dict, so a single bad command does not
+    abort the whole capture.
+
+    Args:
+        pyats_device: a connected ``pyats.topology.Device`` (or a duck-typed
+            object with ``name``, ``os``, ``parse``, ``execute`` for tests).
+        commands: an iterable of CLI command strings to parse. Duplicates are
+            preserved verbatim (last write wins in the state dict, matching
+            the automated state path's keyed-by-command contract).
+
+    Returns:
+        A ``(state, warnings)`` pair. ``state`` maps each successfully parsed
+        (or raw-fallback) command to its structured dict (or ``{"raw": ...}``
+        for the execute fallback). ``warnings`` lists per-command failures
+        (parser + execute both failed) as human-readable strings — the caller
+        merges these into the snapshot's ``parser_warnings``.
+    """
+    state: dict[str, Any] = {}
+    warnings: list[str] = []
+    for command in commands:
+        try:
+            output = pyats_device.parse(command)
+            state[command] = output if isinstance(output, dict) else {"raw": str(output)}
+            continue
+        except Exception as exc:  # noqa: BLE001 - per-command failures are warnings, not fatal
+            # Duck-type ParserNotFound by class name so we don't import genie
+            # (worker-only) just to check the type. Any other exception is a
+            # real failure for this command — fall through to the same
+            # warning path so one bad command does not abort the capture.
+            if type(exc).__name__ != "ParserNotFound":
+                warnings.append(f"parse failed for {command!r}: {exc}")
+                logger.warning("netbox_pyats: parse(%r) failed on %s: %s", command, pyats_device.name, exc)
+                continue
+            logger.debug("netbox_pyats: no parser for %r on %s, trying execute()", command, pyats_device.name)
+
+        # ParserNotFound fallback: raw device.execute() output, genie-parse-CLI-like.
+        try:
+            raw = pyats_device.execute(command)
+            state[command] = {"raw": str(raw)}
+        except Exception as exc2:  # noqa: BLE001 - execute failure is a warning, not fatal
+            warnings.append(f"no parser and execute failed for {command!r}: {exc2}")
+            logger.warning("netbox_pyats: execute(%r) failed on %s: %s", command, pyats_device.name, exc2)
+    return state, warnings
+
+
+def capture_snapshot(
+    pyats_device,
+    *,
+    kind: str = SnapshotKindChoices.KIND_FULL,
+    commands: tuple[str, ...] | list[str] | None = None,
+) -> CaptureResult:
     """Capture a snapshot from a single, already-connected pyATS Device.
 
     This is the pure-Python core. The caller (the RQ job) is responsible for
@@ -228,16 +296,23 @@ def capture_snapshot(pyats_device, *, kind: str = SnapshotKindChoices.KIND_FULL)
     Args:
         pyats_device: a connected ``pyats.topology.Device`` (or a duck-typed
             object with ``name``, ``os``, ``parse``, ``execute`` for tests).
-        kind: one of :class:`SnapshotKindChoices` — ``config``, ``state``, or
-            ``full``.
+        kind: one of :class:`SnapshotKindChoices` — ``config``, ``state``,
+            ``full``, or ``parse``.
+        commands: required for ``kind='parse'`` — the explicit, user-supplied
+            CLI command list to parse on demand (ATW-241 child 3). Ignored for
+            the other kinds (the automated ``state`` path uses
+            :data:`STATE_COMMANDS`).
 
     Returns:
         A :class:`CaptureResult` with the payload, warnings, and worker
         version strings. Never raises for unsupported platforms or capture
-        errors; only raises for programmer error (bad ``kind``).
+        errors; only raises for programmer error (bad ``kind``, or
+        ``kind='parse'`` without ``commands``).
     """
     if kind not in SnapshotKindChoices.values:
         raise ValueError(f"kind must be one of {list(SnapshotKindChoices.values)}, got {kind!r}")
+    if kind == SnapshotKindChoices.KIND_PARSE and not commands:
+        raise ValueError("kind='parse' requires a non-empty `commands` list")
 
     genie_version, pyats_version = _worker_versions()
     os_value = getattr(pyats_device, "os", "") or ""
@@ -283,6 +358,14 @@ def capture_snapshot(pyats_device, *, kind: str = SnapshotKindChoices.KIND_FULL)
             except Exception as exc:  # noqa: BLE001 - state capture failure is a warning, not fatal
                 warnings.append(f"state capture failed: {exc}")
                 data["state"] = {}
+        if kind == SnapshotKindChoices.KIND_PARSE:
+            try:
+                state, parse_warnings = _capture_parse(pyats_device, commands)
+                data["state"] = state
+                warnings.extend(parse_warnings)
+            except Exception as exc:  # noqa: BLE001 - parse capture failure is a warning, not fatal
+                warnings.append(f"parse capture failed: {exc}")
+                data["state"] = {}
     except Exception as exc:  # noqa: BLE001 - any uncaught error → error status with traceback
         return CaptureResult(
             status=SnapshotStatusChoices.STATUS_ERROR,
@@ -302,6 +385,8 @@ def capture_snapshot(pyats_device, *, kind: str = SnapshotKindChoices.KIND_FULL)
         status = SnapshotStatusChoices.STATUS_ERROR
     elif kind == SnapshotKindChoices.KIND_STATE and not data.get("state"):
         status = SnapshotStatusChoices.STATUS_ERROR
+    elif kind == SnapshotKindChoices.KIND_PARSE and not data.get("state"):
+        status = SnapshotStatusChoices.STATUS_ERROR
     if status == SnapshotStatusChoices.STATUS_ERROR and not warnings:
         warnings.append("capture produced no data")
 
@@ -319,6 +404,7 @@ def capture_snapshot_for_netbox_device(
     netbox_device,
     *,
     kind: str = SnapshotKindChoices.KIND_FULL,
+    commands: tuple[str, ...] | list[str] | None = None,
     credential_resolver=None,
 ) -> CaptureResult:
     """Build a single-device testbed, connect, capture, disconnect.
@@ -333,6 +419,9 @@ def capture_snapshot_for_netbox_device(
     testbed builder flags them, and :func:`capture_snapshot` returns
     ``unsupported`` without connecting). Connection failures surface as
     ``status="error"`` with the connection exception in ``warnings``.
+
+    ``commands`` is forwarded to :func:`capture_snapshot` for
+    ``kind='parse'`` (ATW-241 child 3); ignored for the other kinds.
     """
     from .testbed import build_testbed  # lazy: avoids pyats import in web process
 
@@ -366,7 +455,7 @@ def capture_snapshot_for_netbox_device(
         )
 
     try:
-        return capture_snapshot(pyats_device, kind=kind)
+        return capture_snapshot(pyats_device, kind=kind, commands=commands)
     finally:
         try:
             pyats_device.disconnect()

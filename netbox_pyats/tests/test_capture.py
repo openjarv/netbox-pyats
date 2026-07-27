@@ -63,6 +63,7 @@ class FakePyatsDevice:
         unsupported_commands=None,
         parse_exc=None,
         execute_exc=None,
+        execute_outputs=None,
     ):
         self.name = name
         self.os = os
@@ -71,6 +72,7 @@ class FakePyatsDevice:
         self._unsupported = set(unsupported_commands or [])
         self._parse_exc = parse_exc
         self._execute_exc = execute_exc
+        self._execute_outputs = dict(execute_outputs or {})
 
     def parse(self, command):
         if self._parse_exc is not None:
@@ -89,6 +91,8 @@ class FakePyatsDevice:
     def execute(self, command):
         if self._execute_exc is not None:
             raise self._execute_exc
+        if command in self._execute_outputs:
+            return self._execute_outputs[command]
         return "!\nversion 15.6\n!\nend\n"
 
 
@@ -307,3 +311,154 @@ class TestBadKind:
         d = FakePyatsDevice(os="iosxe")
         with pytest.raises(ValueError):
             capture_snapshot(d, kind="bogus")
+
+    def test_parse_kind_without_commands_raises(self):
+        # kind='parse' requires an explicit command list — programmer error
+        # otherwise (the view always passes one; this guards the contract).
+        d = FakePyatsDevice(os="iosxe")
+        with pytest.raises(ValueError):
+            capture_snapshot(d, kind=SnapshotKindChoices.KIND_PARSE)
+
+    def test_parse_kind_with_empty_commands_raises(self):
+        d = FakePyatsDevice(os="iosxe")
+        with pytest.raises(ValueError):
+            capture_snapshot(d, kind=SnapshotKindChoices.KIND_PARSE, commands=[])
+
+
+class TestParseCapture:
+    """kind='parse' runs device.parse() per user-supplied command and writes
+    the same data["state"] shape the automated state capture writes, so the
+    existing snapshot detail template, diff engine, and compliance engine
+    work unchanged (ATW-241 child 3).
+    """
+
+    def test_parse_kind_writes_state_shape_keyed_by_command(self):
+        # The parsed outputs are merged into data["state"] keyed by command —
+        # the same shape automated state capture produces.
+        d = FakePyatsDevice(
+            os="iosxe",
+            state_outputs={
+                "show version": {"version": "16.12"},
+                "show ip interface brief": {"Gig0": {"ip": "10.0.0.1"}},
+            },
+        )
+        result = capture_snapshot(
+            d,
+            kind=SnapshotKindChoices.KIND_PARSE,
+            commands=["show version", "show ip interface brief"],
+        )
+        assert result.status == SnapshotStatusChoices.STATUS_SUCCESS
+        assert "state" in result.data
+        assert result.data["state"] == {
+            "show version": {"version": "16.12"},
+            "show ip interface brief": {"Gig0": {"ip": "10.0.0.1"}},
+        }
+        assert result.warnings == []
+
+    def test_parse_kind_carries_parsed_os(self):
+        d = FakePyatsDevice(os="iosxe", state_outputs={"show version": {}})
+        result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_PARSE, commands=["show version"])
+        assert result.parsed_os == "iosxe"
+
+    def test_parser_not_found_falls_back_to_raw_execute(self):
+        # Board-confirmed plan §5: when a command has no Genie parser (the
+        # manual text-box case), fall back to raw device.execute() output
+        # wrapped as {"raw": <text>} — matching `genie parse` CLI behavior.
+        d = FakePyatsDevice(
+            os="iosxe",
+            unsupported_commands=["show platform"],
+            execute_outputs={"show platform": "Platform: c9300\n"},
+        )
+        result = capture_snapshot(
+            d,
+            kind=SnapshotKindChoices.KIND_PARSE,
+            commands=["show version", "show platform"],
+        )
+        assert result.status == SnapshotStatusChoices.STATUS_SUCCESS
+        # The parsed command is structured; the no-parser command is raw text.
+        assert result.data["state"]["show platform"] == {"raw": "Platform: c9300\n"}
+        assert "show version" in result.data["state"]
+        assert result.warnings == []
+
+    def test_parser_and_execute_both_fail_records_warning(self):
+        # If a command raises neither a parseable result nor a clean execute,
+        # record it in parser_warnings and omit it from the state dict — one
+        # bad command does not abort the whole capture.
+        d = FakePyatsDevice(
+            os="iosxe",
+            unsupported_commands=["show bad"],
+            execute_exc=RuntimeError("execute boom"),
+            state_outputs={"show version": {"version": "16.12"}},
+        )
+        result = capture_snapshot(
+            d,
+            kind=SnapshotKindChoices.KIND_PARSE,
+            commands=["show version", "show bad"],
+        )
+        assert result.status == SnapshotStatusChoices.STATUS_SUCCESS
+        assert result.data["state"]["show version"] == {"version": "16.12"}
+        assert "show bad" not in result.data["state"]
+        assert any("show bad" in w for w in result.warnings)
+        assert any("execute failed" in w for w in result.warnings)
+
+    def test_parse_kind_non_parser_exception_is_warning(self):
+        # A non-ParserNotFound parse exception (e.g. a real device error) is
+        # recorded as a warning, not a fatal re-raise — same graceful-
+        # degradation contract as the automated state path.
+        d = FakePyatsDevice(
+            os="iosxe",
+            parse_exc=RuntimeError("device disconnected"),
+        )
+        result = capture_snapshot(
+            d,
+            kind=SnapshotKindChoices.KIND_PARSE,
+            commands=["show version"],
+        )
+        # The command failed to parse (non-ParserNotFound) and is omitted;
+        # state is empty → error status with a warning.
+        assert result.status == SnapshotStatusChoices.STATUS_ERROR
+        assert result.data == {"state": {}}
+        assert any("parse failed" in w for w in result.warnings)
+
+    def test_parse_kind_all_commands_failed_is_error(self):
+        # If every command failed (no parser + execute failed), the capture
+        # produced no data → error status, mirroring the automated state path.
+        d = FakePyatsDevice(
+            os="iosxe",
+            unsupported_commands=["show bad1", "show bad2"],
+            execute_exc=RuntimeError("execute boom"),
+        )
+        result = capture_snapshot(
+            d,
+            kind=SnapshotKindChoices.KIND_PARSE,
+            commands=["show bad1", "show bad2"],
+        )
+        assert result.status == SnapshotStatusChoices.STATUS_ERROR
+        assert result.data == {"state": {}}
+        assert len(result.warnings) == 2
+
+    def test_parse_kind_unsupported_platform_short_circuits(self):
+        # Unsupported os → unsupported status, no parse attempt — same
+        # contract as the other kinds.
+        d = FakePyatsDevice(os=UNSUPPORTED_OS, parse_exc=AssertionError("parse must not be called"))
+        result = capture_snapshot(
+            d,
+            kind=SnapshotKindChoices.KIND_PARSE,
+            commands=["show version"],
+        )
+        assert result.status == SnapshotStatusChoices.STATUS_UNSUPPORTED
+        assert result.data == {}
+        assert "parse must not be called" not in json.dumps(result.warnings)
+
+    def test_parse_kind_non_dict_output_wrapped_as_raw(self):
+        # If device.parse() returns a non-dict (some Genie parsers return
+        # lists/strings for edge commands), wrap it as {"raw": <str>} so the
+        # state dict stays JSON-serializable with a consistent shape.
+        d = FakePyatsDevice(os="iosxe", state_outputs={"show clock": "14:32:01.123 UTC Mon"})
+        result = capture_snapshot(
+            d,
+            kind=SnapshotKindChoices.KIND_PARSE,
+            commands=["show clock"],
+        )
+        assert result.status == SnapshotStatusChoices.STATUS_SUCCESS
+        assert result.data["state"]["show clock"] == {"raw": "14:32:01.123 UTC Mon"}
