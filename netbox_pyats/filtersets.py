@@ -1,6 +1,14 @@
 from netbox.filtersets import NetBoxModelFilterSet
 
-from .models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsJob, PyatsSnapshot, PyatsSnapshotDiff
+from .models import (
+    PyatsComplianceRun,
+    PyatsCredential,
+    PyatsGoldenConfig,
+    PyatsJob,
+    PyatsParserCatalog,
+    PyatsSnapshot,
+    PyatsSnapshotDiff,
+)
 
 
 class PyatsCredentialFilterSet(NetBoxModelFilterSet):
@@ -115,5 +123,23 @@ class PyatsJobFilterSet(NetBoxModelFilterSet):
             "device_id",
             "core_job_id",
             "rq_job_id",
+            "created",
+        ]
+
+
+class PyatsParserCatalogFilterSet(NetBoxModelFilterSet):
+    """FilterSet for the PyatsParserCatalog model (ATW-241 child 1).
+
+    Lets the catalog list view be filtered by ``pyats_os`` — the axis the
+    device-page Parse sub-tab queries on (one row per os).
+    """
+
+    class Meta:
+        model = PyatsParserCatalog
+        fields = [
+            "id",
+            "pyats_os",
+            "genie_version",
+            "pyats_version",
             "created",
         ]

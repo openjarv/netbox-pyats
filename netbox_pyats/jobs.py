@@ -979,6 +979,52 @@ def enqueue_parse(device, *, commands, user=None):
     return core_job
 
 
+# --------------------------------------------------------------------------- #
+# Parser catalog refresh job (ATW-241 child 1 / ATW-249)
+# --------------------------------------------------------------------------- #
+
+
+def enqueue_refresh_parser_catalog(*, user=None):
+    """Enqueue a parser-catalog refresh job on the dedicated ``pyats`` RQ queue.
+
+    The ATW-241 child 1 (ATW-249) entry point. The device-page Parse sub-tab's
+    "Refresh parser list" button (child 2) calls this helper. It creates a
+    plugin :class:`PyatsJob` row (``job_type=refresh_catalog``, no device —
+    the refresh covers every supported os, not one device), a NetBox
+    :class:`core.models.Job` row, and enqueues the
+    :func:`refresh_parser_catalog_job` callable on the ``pyats`` queue.
+
+    The job iterates every Genie-supported pyATS os (derived from
+    :data:`netbox_pyats.testbed.PLATFORM_SLUG_TO_PYATS_OS`), calls
+    :func:`netbox_pyats.parser_catalog.refresh_parser_catalog_for_os` (which
+    lazily imports ``genie.libs.parser.utils`` inside the worker), and
+    upserts one :class:`PyatsParserCatalog` row per os with the command list
+    and the worker version strings.
+
+    Args:
+        user: the NetBox user initiating the refresh (for the Job row).
+
+    Returns:
+        The NetBox :class:`core.models.Job` row tracking this refresh.
+    """
+    from core.models import Job
+
+    pyats_job = _create_pyats_job(job_type=PyatsJobTypeChoices.JOB_REFRESH_PARSER_CATALOG, device=None)
+
+    core_job = Job.enqueue(
+        refresh_parser_catalog_job,
+        name="PyATS refresh parser catalog",
+        user=user,
+        queue_name=PYATS_QUEUE,
+        pyats_job_id=pyats_job.pk,
+    )
+    pyats_job.core_job = core_job
+    pyats_job.rq_job_id = getattr(core_job, "job_id", "") or ""
+    pyats_job.full_clean()
+    pyats_job.save()
+    return core_job
+
+
 def parse_commands_job(job, commands: list[str], pyats_job_id: int | None = None, **kwargs):
     """RQ worker entry point — run on-demand parses and persist the snapshot.
 
@@ -1085,6 +1131,92 @@ def parse_commands_job(job, commands: list[str], pyats_job_id: int | None = None
         raise
 
 
+def refresh_parser_catalog_job(job, pyats_job_id: int | None = None, **kwargs):
+    """RQ worker entry point — refresh PyatsParserCatalog rows for every os.
+
+    NetBox's :class:`core.models.Job.enqueue` calls this with ``job`` (the
+    tracking :class:`core.models.Job` row) plus the kwargs passed through
+    from :func:`enqueue_refresh_parser_catalog`.
+
+    For each Genie-supported pyATS os (from
+    :func:`netbox_pyats.parser_catalog.supported_os_values`), the job calls
+    the pure-Python :func:`refresh_parser_catalog_for_os` helper (which lazily
+    imports genie and builds a stub ``pyats.topology.Device`` with only
+    ``.os`` set — no connection), then upserts a
+    :class:`PyatsParserCatalog` row keyed by ``pyats_os``. The catalog is
+    best-effort: an os whose parser registry load fails writes an empty
+    row (with a warning recorded in the job's ``summary``) rather than
+    aborting the whole refresh — consistent with ADR-0002's graceful
+    degradation.
+
+    ADR-0005 §3 plumbing: the :class:`PyatsJob` row is set to ``running`` at
+    entry and ``success`` on completion. The batch ``summary`` carries
+    ``{refreshed, skipped, errored, total}`` counts. The top-level
+    ``try/finally`` records ``error`` only if the refresh itself crashed
+    before producing a summary (an uncaught exception in the iteration
+    loop, not a per-os parser-registry failure — those are counted as
+    ``errored``).
+    """
+    from django.utils import timezone
+
+    from .models import PyatsParserCatalog
+    from .parser_catalog import refresh_parser_catalog_for_os, supported_os_values
+
+    if pyats_job_id is not None:
+        _mark_running(job, pyats_job_id)
+
+    counts = {"refreshed": 0, "skipped": 0, "errored": 0, "total": 0}
+    try:
+        for os_value in supported_os_values():
+            counts["total"] += 1
+            try:
+                result = refresh_parser_catalog_for_os(os_value)
+            except Exception as exc:  # noqa: BLE001 - per-os failure is counted, not fatal
+                counts["errored"] += 1
+                logger.exception("netbox_pyats: parser catalog refresh errored for os %s: %s", os_value, exc)
+                continue
+            # Upsert the catalog row keyed by pyats_os. update_or_create
+            # atomically creates-or-updates; the job is the only writer so
+            # there is no race in v1.
+            row, created = PyatsParserCatalog.objects.update_or_create(
+                pyats_os=result.pyats_os,
+                defaults={
+                    "commands": result.commands,
+                    "genie_version": result.genie_version,
+                    "pyats_version": result.pyats_version,
+                    "refreshed_at": timezone.now(),
+                },
+            )
+            if result.warnings:
+                counts["skipped"] += 1
+                logger.info(
+                    "netbox_pyats: parser catalog refresh for %s wrote warnings: %s",
+                    os_value,
+                    result.warnings,
+                )
+            else:
+                counts["refreshed"] += 1
+            logger.info(
+                "Parser catalog refresh: %s os=%s (%d commands, row %s)",
+                "created" if created else "updated",
+                os_value,
+                len(row.commands) if row.commands else 0,
+                row.pk,
+            )
+
+        if pyats_job_id is not None:
+            # success in all cases the refresh completed without crashing;
+            # per-os errors are counted in summary, not surfaced as a
+            # job-level error (mirrors batch_capture_job's partial policy,
+            # but refresh is best-effort so we do not use 'partial').
+            _finish_success(job, pyats_job_id, summary=counts)
+        return counts
+    except Exception as exc:  # noqa: BLE001 - top-level try/finally re-raises (ADR-0005 §3 step 4)
+        if pyats_job_id is not None:
+            _record_error(job, pyats_job_id, exc)
+        raise
+
+
 __all__ = (
     "PYATS_QUEUE",
     "batch_capture_job",
@@ -1094,7 +1226,9 @@ __all__ = (
     "enqueue_compliance",
     "enqueue_diff",
     "enqueue_parse",
+    "enqueue_refresh_parser_catalog",
     "parse_commands_job",
+    "refresh_parser_catalog_job",
     "run_compliance_job",
     "run_diff_job",
 )

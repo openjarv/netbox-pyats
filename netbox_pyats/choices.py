@@ -142,7 +142,11 @@ class PyatsJobTypeChoices(models.TextChoices):
     the multi-device batch capture introduced in Phase 5; ``parse`` is the
     on-demand, user-driven parse job (ATW-241 child 3) that runs an explicit
     command list via ``device.parse(...)`` with a raw ``execute()`` fallback.
-    Each maps 1:1 to an ``enqueue_*`` helper in :mod:`netbox_pyats.jobs`.
+    ``refresh_parser_catalog`` is the worker-only catalog refresh introduced
+    by ATW-241 child 1 (ATW-249): it rebuilds the
+    :class:`PyatsParserCatalog` rows from the installed ``genie.libs`` parser
+    registry. Each maps 1:1 to an ``enqueue_*`` helper in
+    :mod:`netbox_pyats.jobs`.
     """
 
     JOB_CAPTURE = "capture", "Capture"
@@ -150,6 +154,7 @@ class PyatsJobTypeChoices(models.TextChoices):
     JOB_COMPLIANCE = "compliance", "Compliance"
     JOB_BATCH_CAPTURE = "batch_capture", "Batch capture"
     JOB_PARSE = "parse", "Parse (on-demand)"
+    JOB_REFRESH_PARSER_CATALOG = "refresh_catalog", "Refresh parser catalog"
 
 
 class PyatsJobStatusChoices(models.TextChoices):

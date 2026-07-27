@@ -14,6 +14,14 @@ migration, in the phase that introduces it.
 Phase 3 (ATW-14) adds :class:`PyatsSnapshotDiff`, a JSONB-backed structured
 diff between two :class:`PyatsSnapshot` rows of the same device, written by the
 `run_diff` RQ job.
+
+ATW-241 (child 1, ATW-249) adds :class:`PyatsParserCatalog`, a small cached
+parser-discovery surface — one row per Genie-supported pyATS ``os`` string,
+holding the list of commands ``device.parse()`` can run for that os. Populated
+by the worker-only ``refresh_parser_catalog`` RQ job (which calls
+``genie.libs.parser.utils.get_parser_commands``); read by the web process to
+render the device-page Parse sub-tab checkbox list without importing genie
+(ADR-0001 §6 — the web process never imports genie).
 """
 
 from django.core.exceptions import ValidationError
@@ -215,7 +223,7 @@ class PyatsSnapshot(NetBoxModel):
         max_length=20,
         choices=SnapshotKindChoices,
         default=SnapshotKindChoices.KIND_FULL,
-        help_text="What was captured: config, state, or full (config + state).",
+        help_text="What was captured: config, state, full (config + state), or parse (manual on-demand parse).",
     )
     status = models.CharField(
         max_length=20,
@@ -780,7 +788,7 @@ class PyatsJob(NetBoxModel):
     job_type = models.CharField(
         max_length=20,
         choices=PyatsJobTypeChoices,
-        help_text="Kind of plugin job this row tracks: capture / diff / compliance / batch_capture.",
+        help_text="Kind of plugin job this row tracks: capture / diff / compliance / batch_capture / refresh_catalog.",
     )
     status = models.CharField(
         max_length=20,
@@ -943,3 +951,82 @@ class PyatsJob(NetBoxModel):
         if self.related_compliance_id:
             return self.related_compliance
         return None
+
+
+class PyatsParserCatalog(NetBoxModel):
+    """Cached parser-discovery surface for one Genie-supported pyATS os (ATW-241/249).
+
+    One row per pyATS ``os`` string (``iosxe``, ``iosxr``, ``nxos``, ``asa``,
+    ``junos``, ``sros``, ``eos``, ``ios`` — the values in
+    :data:`netbox_pyats.testbed.PLATFORM_SLUG_TO_PYATS_OS`). The
+    :attr:`commands` JSONField holds the list of CLI commands
+    ``genie.libs.parser.utils.get_parser_commands`` reports as parseable for
+    that os; the device-page Parse sub-tab (ATW-241 child 2) reads this row to
+    populate its checkbox list — **the web process never imports genie**
+    (ADR-0001 §6). The catalog is populated/refreshed by the worker-only
+    :func:`netbox_pyats.jobs.refresh_parser_catalog_job` (which lazily imports
+    ``genie.libs.parser.utils`` inside the job callable).
+
+    Why a DB row and not an in-memory cache: the web process and the worker
+    are separate processes (often separate containers); there is no shared
+    in-memory cache. A DB row is the cheapest cross-process store that already
+    fits the plugin's NetBox-model convention (ADR-0001 §1/§2). One row per os
+    keeps the table trivially small (≤ ~10 rows).
+
+    :attr:`genie_version` / :attr:`pyats_version` are captured from the worker
+    environment at refresh time so an operator can see which Genie release a
+    catalog row was built against (Genie's parser coverage drifts between
+    releases; the "Refresh parser list" button on the parse tab is the
+    mechanism for the catalog to track a ``genie.libs`` upgrade).
+    :attr:`refreshed_at` is the wall-clock time of the last refresh.
+
+    Read-only via the REST API and GraphQL (ADR-0001 §5): the catalog is
+    worker-populated, not operator-authored. The model has no edit view; the
+    refresh job is the only writer.
+    """
+
+    pyats_os = models.CharField(
+        max_length=50,
+        unique=True,
+        help_text=(
+            "pyATS os string this catalog row covers (e.g. 'iosxe', 'iosxr', "
+            "'nxos', 'asa', 'junos', 'sros', 'eos', 'ios'). One row per os."
+        ),
+    )
+    commands = models.JSONField(
+        blank=True,
+        default=list,
+        help_text=(
+            "List of CLI commands Genie can parse for this os, as reported by "
+            "genie.libs.parser.utils.get_parser_commands. Populated by the "
+            "refresh_parser_catalog worker job; read by the device-page Parse "
+            "sub-tab to render its checkbox list."
+        ),
+    )
+    genie_version = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+        help_text="genie version on the worker at the last refresh (e.g. '26.6').",
+    )
+    pyats_version = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+        help_text="pyats version on the worker at the last refresh (e.g. '26.6').",
+    )
+    refreshed_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text="When the refresh job last populated this row (wall-clock).",
+    )
+
+    clone_fields = ("pyats_os",)
+
+    class Meta:
+        ordering = ("pyats_os",)
+        verbose_name = "PyATS Parser Catalog"
+        verbose_name_plural = "PyATS Parser Catalog"
+
+    def __str__(self):
+        return f"{self.pyats_os} ({len(self.commands) if self.commands else 0} commands)"

@@ -5,6 +5,7 @@ from netbox_pyats.filtersets import (
     PyatsCredentialFilterSet,
     PyatsGoldenConfigFilterSet,
     PyatsJobFilterSet,
+    PyatsParserCatalogFilterSet,
     PyatsSnapshotDiffFilterSet,
     PyatsSnapshotFilterSet,
 )
@@ -13,6 +14,7 @@ from netbox_pyats.models import (
     PyatsCredential,
     PyatsGoldenConfig,
     PyatsJob,
+    PyatsParserCatalog,
     PyatsSnapshot,
     PyatsSnapshotDiff,
 )
@@ -22,6 +24,7 @@ from .serializers import (
     PyatsCredentialSerializer,
     PyatsGoldenConfigSerializer,
     PyatsJobSerializer,
+    PyatsParserCatalogSerializer,
     PyatsSnapshotDiffSerializer,
     PyatsSnapshotSerializer,
 )
@@ -106,4 +109,20 @@ class PyatsJobViewSet(NetBoxModelViewSet):
     queryset = PyatsJob.objects.all()
     serializer_class = PyatsJobSerializer
     filterset_class = PyatsJobFilterSet
+    http_method_names = ["get", "head", "options"]
+
+
+class PyatsParserCatalogViewSet(NetBoxModelViewSet):
+    """API viewset for the PyatsParserCatalog model (ATW-241 child 1).
+
+    Read-only in v1 (catalog rows are produced by the worker-only
+    ``refresh_parser_catalog`` RQ job, not by direct API writes). The HTTP
+    methods that would mutate a catalog row are restricted via
+    ``http_method_names``; the serializer's read-only fields enforce the
+    data-layer constraint.
+    """
+
+    queryset = PyatsParserCatalog.objects.all()
+    serializer_class = PyatsParserCatalogSerializer
+    filterset_class = PyatsParserCatalogFilterSet
     http_method_names = ["get", "head", "options"]
