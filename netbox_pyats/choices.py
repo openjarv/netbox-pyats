@@ -28,7 +28,7 @@ class SnapshotKindChoices(models.TextChoices):
 
     ``config`` runs parser-based config capture (``show running-config`` via
     ``device.parse(...)``). ``state`` runs a small OS-agnostic state command
-    set (``show version``, ``show inventory``, ``show ip interface brief``),
+    set (see :data:`netbox_pyats.capture.STATE_COMMANDS`),
     each parsed via ``device.parse(...)``; commands whose parser is missing
     for the device's os are skipped with a warning. ``full`` runs both and
     stores them under ``data["config"]`` and ``data["state"]`` respectively,

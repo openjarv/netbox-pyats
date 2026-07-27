@@ -47,6 +47,11 @@ STATE_COMMANDS: tuple[str, ...] = (
     "show version",
     "show inventory",
     "show ip interface brief",
+    "show interfaces",
+    "show ip route",
+    "show cdp neighbors",
+    "show lldp neighbors",
+    "show arp",
 )
 
 

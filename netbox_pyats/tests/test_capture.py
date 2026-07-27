@@ -199,6 +199,11 @@ class TestStateCapture:
             "show version": {"version": "16.12"},
             "show inventory": {"chassis": "C9300"},
             "show ip interface brief": {"Gig0": {"ip": "10.0.0.1"}},
+            "show interfaces": {"Gig0": {"oper_status": "up"}},
+            "show ip route": {"10.0.0.0/8": {"protocol": "connected"}},
+            "show cdp neighbors": {"Gig0": {"neighbors": ["sw01"]}},
+            "show lldp neighbors": {"Gig0": {"neighbors": ["sw01"]}},
+            "show arp": {"10.0.0.2": {"mac": "00:11:22:33:44:55"}},
         }
         d = FakePyatsDevice(os="iosxe", state_outputs=state_outputs)
         result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_STATE)
@@ -209,27 +214,40 @@ class TestStateCapture:
             assert command in result.data["state"]
         assert result.data["state"]["show version"] == {"version": "16.12"}
         assert result.data["state"]["show ip interface brief"] == {"Gig0": {"ip": "10.0.0.1"}}
+        assert result.data["state"]["show interfaces"] == {"Gig0": {"oper_status": "up"}}
+        assert result.data["state"]["show ip route"] == {"10.0.0.0/8": {"protocol": "connected"}}
+        assert result.data["state"]["show cdp neighbors"] == {"Gig0": {"neighbors": ["sw01"]}}
+        assert result.data["state"]["show lldp neighbors"] == {"Gig0": {"neighbors": ["sw01"]}}
+        assert result.data["state"]["show arp"] == {"10.0.0.2": {"mac": "00:11:22:33:44:55"}}
         assert result.warnings == []
 
     def test_state_capture_skips_commands_without_a_parser(self):
         """Per-command ParserNotFound is recorded as a warning, not a failure."""
-        # 'show inventory' has no parser on this os; the other two do.
+        # 'show inventory' and the v1-expansion commands have no parser on
+        # this os; the rest do. The skip-with-warning contract must hold
+        # uniformly across old and new commands (no per-OS gating).
         d = FakePyatsDevice(
             os="iosxe",
-            unsupported_commands=["show inventory"],
+            unsupported_commands=["show inventory", "show cdp neighbors", "show lldp neighbors", "show arp"],
             state_outputs={
                 "show version": {"version": "16.12"},
                 "show ip interface brief": {},
+                "show interfaces": {},
+                "show ip route": {},
             },
         )
         result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_STATE)
         assert result.status == SnapshotStatusChoices.STATUS_SUCCESS
-        # The unsupported command is recorded as None in the state dict.
+        # The unsupported commands are recorded as None in the state dict.
         assert result.data["state"]["show inventory"] is None
+        assert result.data["state"]["show cdp neighbors"] is None
+        assert result.data["state"]["show lldp neighbors"] is None
+        assert result.data["state"]["show arp"] is None
         # The supported commands are captured.
         assert result.data["state"]["show version"] == {"version": "16.12"}
-        # A warning was recorded for the skipped command.
-        assert any("show inventory" in w for w in result.warnings)
+        # A warning was recorded for each skipped command.
+        for skipped in ("show inventory", "show cdp neighbors", "show lldp neighbors", "show arp"):
+            assert any(skipped in w for w in result.warnings)
         assert any("no Genie parser" in w for w in result.warnings)
 
 
