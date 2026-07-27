@@ -5,6 +5,26 @@
 
 An [Atw](https://github.com/openjarv) [NetBox](https://netbox.dev) plugin that brings [Cisco PyATS / Genie](https://developer.cisco.com/pyats/) into the NetBox UI — dynamic testbed building from the NetBox ORM, plugin-local encrypted credentials, device snapshots stored as JSONB, structured snapshot diffs, and config compliance (golden config vs. snapshot) from the device page.
 
+> **Phase 5 (this release):** everything in Phases 1–4, plus a unified jobs view — `PyatsJob` model tracking every capture / diff / compliance / batch-capture job with typed FKs to the result rows it produced, a batch capture action on the device list (one job → N snapshots with a `supported`/`unsupported`/`errored`/`total` summary and a `partial` status when not every device captured cleanly), and a web-process-safe supported-platforms report (static `PLATFORM_SLUG_TO_PYATS_OS` map, no Genie import). See the [changelog](CHANGELOG.md) for the full feature history.
+
+## At a glance
+
+Once installed, the plugin lives under **Plugins → PyATS** in the NetBox navigation menu, and every device page gains a **PyATS** tab.
+
+<p align="center">
+  <img src="docs/screenshots/nav-pyats-menu.png" alt="NetBox navigation menu with the Plugins → PyATS submenu expanded" width="45%">&nbsp;&nbsp;
+  <img src="docs/screenshots/device-pyats-tab.png" alt="A device's PyATS tab showing the capture form and recent-snapshot history with status badges" width="45%">
+</p>
+<p align="center"><em>Left: the PyATS entry under Plugins in the NetBox nav. Right: the device-page PyATS tab — capture form and recent snapshots with status badges.</em></p>
+
+The diff and compliance views render the same collapsible before/after tree:
+
+<p align="center">
+  <img src="docs/screenshots/diff-viewer.png" alt="Snapshot diff viewer with a collapsible before/after tree and summary badges" width="45%">&nbsp;&nbsp;
+  <img src="docs/screenshots/compliance-run-drift.png" alt="Compliance run viewer showing a drift result with a collapsible diff tree" width="45%">
+</p>
+<p align="center"><em>Left: the snapshot diff viewer. Right: a compliance run with a <code>drift</code> result.</em></p>
+
 ## What it does
 
 **netbox-pyats** turns your NetBox device inventory into a live PyATS testbed — no static YAML testbed to maintain. From each device's page you can capture running-config and state snapshots, diff any two snapshots, and check a captured config against a golden config for compliance. Every snapshot, diff, and compliance run is stored inside NetBox as a first-class record, so you get a permanent, queryable history for pre/post-change checks and config-compliance audits.
