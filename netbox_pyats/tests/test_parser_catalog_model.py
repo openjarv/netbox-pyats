@@ -98,13 +98,16 @@ class RefreshParserCatalogJobTest(TestCase):
     def _fake_job(self):
         return types.SimpleNamespace(object=None)
 
-    def _patch_refresh_for_os(self, results_by_os):
+    def _patch_refresh_for_os(self, results_by_os, all_oses=None):
         """Patch the pure-Python helper to return canned results per os.
 
         ``results_by_os`` maps os string → CatalogRefreshResult. Oses not in
-        the map raise to simulate a per-os failure.
+        the map raise to simulate a per-os failure. ``all_oses`` is the full
+        list of oses the job iterates; it defaults to the results keys (so
+        only the succeeding oses are visited) and should include the failing
+        oses when a test exercises the per-os error path.
         """
-        supported_os_values_patch = list(results_by_os.keys())
+        supported_os_values_patch = all_oses if all_oses is not None else list(results_by_os.keys())
 
         def _fake_refresh(os_value):
             if os_value in results_by_os:
@@ -181,7 +184,7 @@ class RefreshParserCatalogJobTest(TestCase):
             ),
             # 'nxos' omitted → the stubbed refresh_for_os raises for it.
         }
-        refresh_patch, os_patch = self._patch_refresh_for_os(results)
+        refresh_patch, os_patch = self._patch_refresh_for_os(results, all_oses=["iosxe", "nxos"])
         with refresh_patch, os_patch:
             jobs.refresh_parser_catalog_job(self._fake_job(), pyats_job_id=pyats_job.pk)
 
