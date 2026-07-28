@@ -28,16 +28,29 @@ class SnapshotKindChoices(models.TextChoices):
 
     ``config`` runs parser-based config capture (``show running-config`` via
     ``device.parse(...)``). ``state`` runs a small OS-agnostic state command
-    set (see :data:`netbox_pyats.capture.STATE_COMMANDS`),
-    each parsed via ``device.parse(...)``; commands whose parser is missing
-    for the device's os are skipped with a warning. ``full`` runs both and
-    stores them under ``data["config"]`` and ``data["state"]`` respectively,
-    so a single row captures a complete pre/post-change picture.
+    set (see :data:`netbox_pyats.capture.STATE_COMMANDS`), each parsed via
+    ``device.parse(...)``; commands whose parser is missing for the device's
+    os are skipped with a warning. ``full`` runs both and stores them under
+    ``data["config"]`` and ``data["state"]`` respectively, so a single row
+    captures a complete pre/post-change picture.
+
+    ``parse`` (ATW-241 child 3) is the on-demand, user-driven capture: the
+    operator types or selects one or more CLI commands on the device-page
+    PyATS tab and the worker runs ``device.parse(<command>)`` for each, then
+    stores the parsed outputs under ``data["state"]`` — the **same shape** the
+    automated ``state`` capture writes — so the existing snapshot detail
+    template, diff engine, and compliance engine work unchanged. When a
+    command has no Genie parser (the manual text-box case), the worker falls
+    back to raw ``device.execute(<command>)`` output (matching ``genie parse``
+    CLI behavior); if that also fails, the command is recorded in
+    ``parser_warnings``. ``parse`` captures are always
+    ``triggered_by='user'`` (see :class:`SnapshotTriggerChoices`).
     """
 
     KIND_CONFIG = "config", "Config"
     KIND_STATE = "state", "State"
     KIND_FULL = "full", "Full (config + state)"
+    KIND_PARSE = "parse", "Parse (on-demand commands)"
 
 
 class SnapshotTriggerChoices(models.TextChoices):
@@ -126,14 +139,17 @@ class PyatsJobTypeChoices(models.TextChoices):
     Extends the plugin's job-tracking surface (ADR-0005 §1) so the unified jobs
     view can filter by the kind of work. ``capture`` / ``diff`` / ``compliance``
     are the single-device jobs shipped in Phases 2/3/4; ``batch_capture`` is
-    the multi-device batch capture introduced in Phase 5. Each maps 1:1 to an
-    ``enqueue_*`` helper in :mod:`netbox_pyats.jobs`.
+    the multi-device batch capture introduced in Phase 5; ``parse`` is the
+    on-demand, user-driven parse job (ATW-241 child 3) that runs an explicit
+    command list via ``device.parse(...)`` with a raw ``execute()`` fallback.
+    Each maps 1:1 to an ``enqueue_*`` helper in :mod:`netbox_pyats.jobs`.
     """
 
     JOB_CAPTURE = "capture", "Capture"
     JOB_DIFF = "diff", "Diff"
     JOB_COMPLIANCE = "compliance", "Compliance"
     JOB_BATCH_CAPTURE = "batch_capture", "Batch capture"
+    JOB_PARSE = "parse", "Parse (on-demand)"
 
 
 class PyatsJobStatusChoices(models.TextChoices):

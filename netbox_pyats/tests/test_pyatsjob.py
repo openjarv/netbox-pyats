@@ -33,6 +33,7 @@ from netbox_pyats.choices import (
     PyatsJobTypeChoices,
     SnapshotKindChoices,
     SnapshotStatusChoices,
+    SnapshotTriggerChoices,
 )
 from netbox_pyats.models import PyatsJob, PyatsSnapshot
 
@@ -433,6 +434,178 @@ class BatchCaptureJobTest(TestCase):
         assert counts == {"supported": 2, "unsupported": 0, "errored": 0, "total": 2}
         reloaded = PyatsJob.objects.get(pk=pyats_job.pk)
         assert reloaded.status == PyatsJobStatusChoices.STATUS_SUCCESS
+
+
+class ParseJobPyatsJobPlumbingTest(TestCase):
+    """ADR-0005 §3 plumbing for ``parse_commands_job`` (ATW-241 child 3)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.site = Site.objects.create(name="PJP01", slug="pjp01")
+        cls.mfr = Manufacturer.objects.create(name="Cisco-PJ", slug="cisco-pj")
+        cls.device_type = DeviceType.objects.create(model="C9300-PJ", slug="c9300-pj", manufacturer=cls.mfr)
+        cls.role = DeviceRole.objects.create(name="Router-PJ", slug="router-pj")
+        cls.device = Device.objects.create(name="pjrtr01", site=cls.site, device_type=cls.device_type, role=cls.role)
+
+    def _fake_job(self):
+        return types.SimpleNamespace(object=self.device)
+
+    def test_success_sets_running_then_success_with_snapshot_fk(self):
+        pyats_job = PyatsJob(
+            job_type=PyatsJobTypeChoices.JOB_PARSE,
+            status=PyatsJobStatusChoices.STATUS_PENDING,
+            device=self.device,
+        )
+        pyats_job.full_clean()
+        pyats_job.save()
+
+        success_result = CaptureResult(
+            status=SnapshotStatusChoices.STATUS_SUCCESS,
+            data={"state": {"show version": {"version": "16.12"}}},
+            parsed_os="iosxe",
+        )
+
+        with mock.patch(
+            "netbox_pyats.capture.capture_snapshot_for_netbox_device",
+            return_value=success_result,
+        ):
+            jobs.parse_commands_job(
+                self._fake_job(),
+                commands=["show version"],
+                pyats_job_id=pyats_job.pk,
+            )
+
+        reloaded = PyatsJob.objects.get(pk=pyats_job.pk)
+        assert reloaded.status == PyatsJobStatusChoices.STATUS_SUCCESS
+        assert reloaded.related_snapshot_id is not None
+        assert reloaded.started_at is not None
+        assert reloaded.finished_at is not None
+        assert reloaded.error == ""
+        snap = PyatsSnapshot.objects.get(pk=reloaded.related_snapshot_id)
+        assert snap.kind == SnapshotKindChoices.KIND_PARSE
+        assert snap.triggered_by == SnapshotTriggerChoices.TRIGGER_USER
+        assert snap.data == {"state": {"show version": {"version": "16.12"}}}
+        assert snap.parsed_os == "iosxe"
+
+    def test_unsupported_snapshot_is_still_job_success(self):
+        pyats_job = PyatsJob(
+            job_type=PyatsJobTypeChoices.JOB_PARSE,
+            status=PyatsJobStatusChoices.STATUS_PENDING,
+            device=self.device,
+        )
+        pyats_job.full_clean()
+        pyats_job.save()
+
+        unsupported_result = CaptureResult(
+            status=SnapshotStatusChoices.STATUS_UNSUPPORTED,
+            data={},
+            warnings=["platform has no Genie parser; skipped"],
+        )
+
+        with mock.patch(
+            "netbox_pyats.capture.capture_snapshot_for_netbox_device",
+            return_value=unsupported_result,
+        ):
+            jobs.parse_commands_job(
+                self._fake_job(),
+                commands=["show version"],
+                pyats_job_id=pyats_job.pk,
+            )
+
+        reloaded = PyatsJob.objects.get(pk=pyats_job.pk)
+        assert reloaded.status == PyatsJobStatusChoices.STATUS_SUCCESS
+        assert reloaded.related_snapshot_id is not None
+        snap = PyatsSnapshot.objects.get(pk=reloaded.related_snapshot_id)
+        assert snap.status == SnapshotStatusChoices.STATUS_UNSUPPORTED
+        assert snap.kind == SnapshotKindChoices.KIND_PARSE
+
+    def test_error_when_result_row_write_fails_records_error_text(self):
+        pyats_job = PyatsJob(
+            job_type=PyatsJobTypeChoices.JOB_PARSE,
+            status=PyatsJobStatusChoices.STATUS_PENDING,
+            device=self.device,
+        )
+        pyats_job.full_clean()
+        pyats_job.save()
+
+        with (
+            mock.patch(
+                "netbox_pyats.capture.capture_snapshot_for_netbox_device",
+                side_effect=RuntimeError("connection refused"),
+            ),
+            mock.patch(
+                "netbox_pyats.models.PyatsSnapshot.full_clean",
+                side_effect=RuntimeError("full_clean failed"),
+            ),
+        ):
+            with pytest.raises(RuntimeError):
+                jobs.parse_commands_job(
+                    self._fake_job(),
+                    commands=["show version"],
+                    pyats_job_id=pyats_job.pk,
+                )
+
+        reloaded = PyatsJob.objects.get(pk=pyats_job.pk)
+        assert reloaded.status == PyatsJobStatusChoices.STATUS_ERROR
+        assert "connection refused" in reloaded.error
+        assert reloaded.related_snapshot_id is None
+        assert reloaded.finished_at is not None
+
+    def test_capture_raises_but_error_row_written_sets_fk(self):
+        pyats_job = PyatsJob(
+            job_type=PyatsJobTypeChoices.JOB_PARSE,
+            status=PyatsJobStatusChoices.STATUS_PENDING,
+            device=self.device,
+        )
+        pyats_job.full_clean()
+        pyats_job.save()
+
+        with mock.patch(
+            "netbox_pyats.capture.capture_snapshot_for_netbox_device",
+            side_effect=RuntimeError("connection refused"),
+        ):
+            with pytest.raises(RuntimeError):
+                jobs.parse_commands_job(
+                    self._fake_job(),
+                    commands=["show version"],
+                    pyats_job_id=pyats_job.pk,
+                )
+
+        reloaded = PyatsJob.objects.get(pk=pyats_job.pk)
+        assert reloaded.status == PyatsJobStatusChoices.STATUS_SUCCESS
+        assert reloaded.related_snapshot_id is not None
+        assert reloaded.error == ""
+        assert reloaded.finished_at is not None
+        snap = PyatsSnapshot.objects.get(pk=reloaded.related_snapshot_id)
+        assert snap.status == SnapshotStatusChoices.STATUS_ERROR
+        assert snap.kind == SnapshotKindChoices.KIND_PARSE
+
+    def test_parse_job_type_is_set_on_row(self):
+        pyats_job = PyatsJob(
+            job_type=PyatsJobTypeChoices.JOB_PARSE,
+            status=PyatsJobStatusChoices.STATUS_PENDING,
+            device=self.device,
+        )
+        pyats_job.full_clean()
+        pyats_job.save()
+
+        success_result = CaptureResult(
+            status=SnapshotStatusChoices.STATUS_SUCCESS,
+            data={"state": {"show version": {}}},
+        )
+
+        with mock.patch(
+            "netbox_pyats.capture.capture_snapshot_for_netbox_device",
+            return_value=success_result,
+        ):
+            jobs.parse_commands_job(
+                self._fake_job(),
+                commands=["show version"],
+                pyats_job_id=pyats_job.pk,
+            )
+
+        reloaded = PyatsJob.objects.get(pk=pyats_job.pk)
+        assert reloaded.job_type == PyatsJobTypeChoices.JOB_PARSE
 
 
 class DeviceBulkCaptureViewTest(TestCase):

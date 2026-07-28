@@ -930,6 +930,161 @@ def batch_capture_job(
         raise
 
 
+# --------------------------------------------------------------------------- #
+# Parse job (ATW-241 child 3 — on-demand Genie parser runs)
+# --------------------------------------------------------------------------- #
+
+
+def enqueue_parse(device, *, commands, user=None):
+    """Enqueue an on-demand parse job on the dedicated ``pyats`` RQ queue.
+
+    This is the entry point the device-page PyATS tab calls when the operator
+    types or selects one or more CLI commands and clicks "Parse". It creates
+    a plugin :class:`PyatsJob` row with ``job_type=parse`` (ADR-0005 §3), a
+    NetBox :class:`core.models.Job` row (for status tracking in the NetBox
+    jobs UI), and enqueues the :func:`parse_commands_job` callable on the
+    ``pyats`` queue.
+
+    The command list is passed straight through to the job callable as RQ
+    kwargs; the worker re-resolves the device by id (via ``job.object``) so
+    it sees the current DB state, not a stale snapshot taken at enqueue.
+
+    Args:
+        device: a NetBox ``dcim.Device`` instance.
+        commands: a list of CLI command strings to parse on the device. The
+            view validates/sanitizes this before enqueue (see child 2,
+            ATW-250); the job treats it as opaque.
+        user: the NetBox user initiating the parse (for the Job row).
+
+    Returns:
+        The NetBox :class:`core.models.Job` row tracking this parse run.
+    """
+    from core.models import Job
+
+    pyats_job = _create_pyats_job(job_type=PyatsJobTypeChoices.JOB_PARSE, device=device)
+
+    core_job = Job.enqueue(
+        parse_commands_job,
+        instance=device,
+        name=f"PyATS parse: {device} ({len(commands)} command(s))",
+        user=user,
+        queue_name=PYATS_QUEUE,
+        commands=list(commands),
+        pyats_job_id=pyats_job.pk,
+    )
+    pyats_job.core_job = core_job
+    pyats_job.rq_job_id = getattr(core_job, "job_id", "") or ""
+    pyats_job.full_clean()
+    pyats_job.save()
+    return core_job
+
+
+def parse_commands_job(job, commands: list[str], pyats_job_id: int | None = None, **kwargs):
+    """RQ worker entry point — run on-demand parses and persist the snapshot.
+
+    NetBox's :class:`core.models.Job.enqueue` calls this with ``job`` (the
+    tracking :class:`core.models.Job` row) plus the kwargs passed through from
+    :func:`enqueue_parse`. ``job.object`` is the NetBox Device.
+
+    The parse logic lives in :func:`netbox_pyats.capture.capture_snapshot`
+    (``kind='parse'``); this function only handles the NetBox-side plumbing
+    (load the Device, run the capture, write the :class:`PyatsSnapshot` row,
+    log to the Job). Multi-vendor graceful degradation is enforced in
+    :func:`capture.capture_snapshot` — unsupported platforms and capture
+    errors still produce a row so the device-page history shows the outcome
+    in-line, mirroring the automated capture job.
+
+    ``triggered_by`` is always ``user`` for parse captures (the operator
+    typed/selected the commands on the device page — see
+    :class:`SnapshotTriggerChoices`).
+
+    ADR-0005 §3 plumbing: the :class:`PyatsJob` row (resolved via
+    ``pyats_job_id``) is set to ``running`` at entry, ``success`` (with the
+    snapshot FK) on a clean parse (including the ``unsupported``/``error``
+    *snapshot row* — those are successful *jobs* producing error result rows
+    per ADR-0002), or ``error`` when the job raised and the result row could
+    not be written. The top-level ``try/finally`` re-raises so RQ/``core.Job``
+    is also marked failed.
+    """
+    from dcim.models import Device
+
+    from .capture import capture_snapshot_for_netbox_device
+    from .models import PyatsSnapshot
+
+    device: Device = job.object
+    logger.info("Parsing %d command(s) for device %s", len(commands), device)
+
+    if pyats_job_id is not None:
+        _mark_running(job, pyats_job_id)
+
+    snapshot = None
+    try:
+        try:
+            result = capture_snapshot_for_netbox_device(
+                device,
+                kind=SnapshotKindChoices.KIND_PARSE,
+                commands=commands,
+            )
+        except Exception as exc:  # noqa: BLE001 - any uncaught error → error row + job failure
+            # Still write a row so the operator sees the failure in the history,
+            # then re-raise so NetBox marks the Job as errored.
+            try:
+                snapshot = PyatsSnapshot(
+                    device=device,
+                    kind=SnapshotKindChoices.KIND_PARSE,
+                    status="error",
+                    triggered_by=SnapshotTriggerChoices.TRIGGER_USER,
+                    data={},
+                    parser_warnings=[f"parse error: {exc}", traceback.format_exc()],
+                    genie_version="",
+                    pyats_version="",
+                    parsed_os="",
+                    size_bytes=0,
+                )
+                snapshot.full_clean()
+                snapshot.save()
+            except Exception:  # noqa: BLE001 - never mask the original error
+                snapshot = None
+                logger.exception("netbox_pyats: failed to persist error-row parse snapshot")
+            if pyats_job_id is not None and snapshot is not None:
+                _finish_success(job, pyats_job_id, related_snapshot=snapshot)
+            raise
+
+        snapshot = PyatsSnapshot(
+            device=device,
+            kind=SnapshotKindChoices.KIND_PARSE,
+            status=result.status,
+            triggered_by=SnapshotTriggerChoices.TRIGGER_USER,
+            data=result.data,
+            parser_warnings=result.warnings,
+            genie_version=result.genie_version,
+            pyats_version=result.pyats_version,
+            parsed_os=result.parsed_os,
+            size_bytes=result.size_bytes,
+        )
+        snapshot.full_clean()
+        snapshot.save()
+
+        logger.info(
+            "Parse snapshot %s stored (status=%s, %d bytes)",
+            snapshot.pk,
+            result.status,
+            result.size_bytes,
+        )
+        if result.warnings:
+            for w in result.warnings[:5]:  # keep the job log readable
+                logger.warning("parse warning: %s", w)
+
+        if pyats_job_id is not None:
+            _finish_success(job, pyats_job_id, related_snapshot=snapshot)
+
+        return snapshot.pk
+    except Exception as exc:  # noqa: BLE001 - top-level try/finally re-raises (ADR-0005 §3 step 4)
+        if pyats_job_id is not None and snapshot is None:
+            _record_error(job, pyats_job_id, exc)
+        raise
+
+
 __all__ = (
     "PYATS_QUEUE",
     "batch_capture_job",
@@ -938,6 +1093,8 @@ __all__ = (
     "enqueue_capture",
     "enqueue_compliance",
     "enqueue_diff",
+    "enqueue_parse",
+    "parse_commands_job",
     "run_compliance_job",
     "run_diff_job",
 )
