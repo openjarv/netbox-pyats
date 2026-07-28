@@ -89,24 +89,30 @@ die() { echo "error: $*" >&2; exit 1; }
 
 # Regex matching compose project names that look like netbox dev stacks.
 # Matches the `COMPOSE_PROJECT_NAME` convention used by dev-worktree.sh add
-# (issue-id like `atw-44`, `ATW-201`) plus the trunk `netbox-pyats` project,
-# and bare-numeric project names (e.g. `251`) that arise when a stack is
-# brought up with a numeric COMPOSE_PROJECT_NAME (observed during ATW-270:
-# a `251` stack was missed by the audit's running-stacks section and by
-# cleanup's container-label discovery). The bare-numeric alternative is
-# intentionally narrow (`^[0-9]+$`) so it does not match unrelated numeric
-# labels from other tooling. Single source of truth — every helper and the
-# audit report use this so the project-name filter never drifts. (ATW-271)
-NETBOX_PROJECT_RE='^(netbox-pyats|[Aa][Tt][Ww]-?[0-9]+|[0-9]+)$'
+# (issue-id like `atw-44`, `ATW-201`) plus the trunk `netbox-pyats` project.
+# Deliberately does NOT include a bare-numeric `[0-9]+` alternative: that
+# would match any pure-numeric compose project on the dev host, and
+# NETBOX_PROJECT_RE feeds container_netbox_projects() which feeds the
+# destructive cmd_cleanup() path (docker rm -f). Bare-numeric projects are
+# instead discovered via NETBOX_VOLUME_RE (volume-name prefix), which is
+# netbox-specific. (ATW-271 Security finding, ATW-272)
+NETBOX_PROJECT_RE='^(netbox-pyats|[Aa][Tt][Ww]-?[0-9]+)$'
 
 # Same regex anchored for volume-name prefix matching:
 # `<project>_netbox-*`. Compose names volumes `<project>_<svc>_<n>`, so the
-# project segment is everything before the first `_netbox`. (ATW-204/ATW-271)
+# project segment is everything before the first `_netbox`. Includes the
+# bare-numeric `[0-9]+` alternative because the `_netbox` suffix is a strong
+# netbox-specific signal — an unrelated numeric project will not have
+# `<proj>_netbox-*` volumes unless it is running a netbox stack.
+# (ATW-204/ATW-271)
 NETBOX_VOLUME_RE='^(netbox-pyats|[Aa][Tt][Ww]-?[0-9]+|[0-9]+)_netbox'
 
 # Non-anchored alternation (no `^`/`$`) for embedding inside larger regexes
-# such as the audit report's tab-delimited project filter. Kept in sync with
-# NETBOX_PROJECT_RE. (ATW-271)
+# such as the audit report's tab-delimited project filter. Includes the
+# bare-numeric alternative because the audit's running-stacks and
+# stopped-containers sections are display-only (non-destructive) — a looser
+# match is safe there and ensures bare-numeric stacks are reported.
+# (ATW-271)
 NETBOX_PROJECT_ALT='netbox-pyats|[Aa][Tt][Ww]-?[0-9]+|[0-9]+'
 
 # List running compose project names that look like netbox dev stacks.
@@ -398,7 +404,11 @@ cmd_remove() {
 }
 
 # List compose project names that own at least one container (running or
-# stopped) and look like a netbox dev stack. (ATW-201/ATW-271)
+# stopped) and look like a netbox dev stack. Does NOT match bare-numeric
+# projects — those are discovered via volume_netbox_projects() which is
+# netbox-specific (requires `<proj>_netbox-*` prefix). This prevents
+# cmd_cleanup() from force-removing stopped containers of unrelated
+# numeric-named compose projects on the dev host. (ATW-201/ATW-271/ATW-272)
 container_netbox_projects() {
   docker ps -a --format '{{.Label "com.docker.compose.project"}}' 2>/dev/null \
     | grep -E "$NETBOX_PROJECT_RE" \
