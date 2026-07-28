@@ -87,12 +87,32 @@ MAX_CONCURRENT_STACKS="${MAX_CONCURRENT_STACKS:-1}"
 
 die() { echo "error: $*" >&2; exit 1; }
 
-# List running compose project names that look like netbox dev stacks.
+# Regex matching compose project names that look like netbox dev stacks.
 # Matches the `COMPOSE_PROJECT_NAME` convention used by dev-worktree.sh add
-# (issue-id like `atw-44`, `ATW-201`) plus the trunk `netbox-pyats` project.
+# (issue-id like `atw-44`, `ATW-201`) plus the trunk `netbox-pyats` project,
+# and bare-numeric project names (e.g. `251`) that arise when a stack is
+# brought up with a numeric COMPOSE_PROJECT_NAME (observed during ATW-270:
+# a `251` stack was missed by the audit's running-stacks section and by
+# cleanup's container-label discovery). The bare-numeric alternative is
+# intentionally narrow (`^[0-9]+$`) so it does not match unrelated numeric
+# labels from other tooling. Single source of truth — every helper and the
+# audit report use this so the project-name filter never drifts. (ATW-271)
+NETBOX_PROJECT_RE='^(netbox-pyats|[Aa][Tt][Ww]-?[0-9]+|[0-9]+)$'
+
+# Same regex anchored for volume-name prefix matching:
+# `<project>_netbox-*`. Compose names volumes `<project>_<svc>_<n>`, so the
+# project segment is everything before the first `_netbox`. (ATW-204/ATW-271)
+NETBOX_VOLUME_RE='^(netbox-pyats|[Aa][Tt][Ww]-?[0-9]+|[0-9]+)_netbox'
+
+# Non-anchored alternation (no `^`/`$`) for embedding inside larger regexes
+# such as the audit report's tab-delimited project filter. Kept in sync with
+# NETBOX_PROJECT_RE. (ATW-271)
+NETBOX_PROJECT_ALT='netbox-pyats|[Aa][Tt][Ww]-?[0-9]+|[0-9]+'
+
+# List running compose project names that look like netbox dev stacks.
 running_netbox_projects() {
   docker ps --format '{{.Label "com.docker.compose.project"}}' 2>/dev/null \
-    | grep -E '^(netbox-pyats|[Aa][Tt][Ww]-?[0-9]+)$' \
+    | grep -E "$NETBOX_PROJECT_RE" \
     | sort -u || true
 }
 
@@ -378,10 +398,10 @@ cmd_remove() {
 }
 
 # List compose project names that own at least one container (running or
-# stopped) and look like a netbox dev stack. (ATW-201)
+# stopped) and look like a netbox dev stack. (ATW-201/ATW-271)
 container_netbox_projects() {
   docker ps -a --format '{{.Label "com.docker.compose.project"}}' 2>/dev/null \
-    | grep -E '^(netbox-pyats|[Aa][Tt][Ww]-?[0-9]+)$' \
+    | grep -E "$NETBOX_PROJECT_RE" \
     | sort -u || true
 }
 
@@ -394,8 +414,10 @@ volume_netbox_projects() {
   # Compose names volumes `<project>_<service>_<instance>` or
   # `<project>_<volume_name>`. Netbox dev stacks always create at least one
   # volume starting with `<project>_netbox`, so prefix-match on that.
+  # Uses the shared NETBOX_VOLUME_RE so bare-numeric projects (e.g. `251`)
+  # are discovered alongside `atw-*`. (ATW-204/ATW-271)
   docker volume ls --format '{{.Name}}' 2>/dev/null \
-    | grep -iE '^(netbox-pyats|[Aa][Tt][Ww]-?[0-9]+)_netbox' \
+    | grep -iE "$NETBOX_VOLUME_RE" \
     | sed -E 's/^(.*)_netbox-.*/\1/' \
     | sort -u || true
 }
@@ -501,12 +523,12 @@ cmd_audit() {
   echo
 
   echo "--- running netbox dev stacks ---"
-  # Match the same project-name regex as running_netbox_projects so running
-  # atw-* stacks show up here too, not just the trunk netbox-pyats project.
-  # (ATW-204 follow-up)
+  # Match the same project-name alternation as running_netbox_projects so
+  # running atw-* and bare-numeric stacks show up here too, not just the
+  # trunk netbox-pyats project. (ATW-204/ATW-271)
   local running
   running="$(docker ps --format '{{.Names}}\t{{.Label "com.docker.compose.project"}}\t{{.Image}}\t{{.Ports}}' 2>/dev/null \
-    | grep -E "$(printf '\t(netbox-pyats|[Aa][Tt][Ww]-?[0-9]+)\t')" || true)"
+    | grep -E "$(printf '\t(%s)\t' "$NETBOX_PROJECT_ALT")" || true)"
   if [ -z "$running" ]; then
     echo "  (none)"
   else
@@ -515,10 +537,18 @@ cmd_audit() {
   echo
 
   echo "--- stopped netbox dev containers (orphaned) ---"
+  # Match the project alternation on the tab-delimited project label so
+  # bare-numeric stacks (e.g. `251-postgres-1`) are not missed. The `netbox`
+  # fallback catches containers whose project label is absent but whose name
+  # contains `netbox`. The tab-delimited project filter must use real tab
+  # characters (built via printf) because grep -E does not interpret `\t`.
+  # (ATW-271)
+  local stopped_tab_re
+  stopped_tab_re="$(printf '\t(%s)\t' "$NETBOX_PROJECT_ALT")"
   local stopped
   stopped="$(docker ps -a --filter 'status=exited' \
     --format '{{.Names}}\t{{.Label "com.docker.compose.project"}}\t{{.Status}}' \
-    | grep -iE '(netbox|atw-[0-9])' || true)"
+    | grep -iE "(netbox|$stopped_tab_re)" || true)"
   if [ -z "$stopped" ]; then
     echo "  (none)"
   else
@@ -535,8 +565,11 @@ cmd_audit() {
   echo
 
   echo "--- netbox-related volumes ---"
+  # Use the shared volume regex so bare-numeric project volumes (e.g.
+  # `251_netbox-postgres`) are listed alongside `atw-*` and `netbox-pyats`.
+  # (ATW-271)
   docker volume ls --format '{{.Name}}' 2>/dev/null \
-    | grep -iE '(netbox|atw-[0-9])' | sed 's/^/  /' || echo "  (none)"
+    | grep -iE "$NETBOX_VOLUME_RE" | sed 's/^/  /' || echo "  (none)"
   echo
 
   echo "--- images (dev stack) ---"
