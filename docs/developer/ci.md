@@ -34,7 +34,10 @@ The integration lane runs a **single cell**, not a PostgreSQL × Redis matrix. A
 
 The integration lane is a **required** check: no merge is green without it passing. Python is not swept here because the NetBox community image pins Python internally; the `unit` lane above exercises Python 3.10/3.11/3.12.
 
+The bring-up is **scoped** to `netbox postgres redis` — the `netbox-worker` and `netbox-pyats-worker` services are not started. The plugin's test suite is designed to run without workers: `conftest.py` dual-mode skips cleanly when the RQ backend is absent, test files gate themselves with `pytest.importorskip`, and job-callable tests invoke `run_*_job` directly rather than going through the queue. The workers are only needed for live device capture from the UI, so starting just `netbox` (with its `depends_on: [postgres, redis]`) shaves cold-start cost and avoids containers the suite never uses. Refs: [ATW-244](/ATW/issues/ATW-244), [ATW-245](/ATW/issues/ATW-245).
+
 ```bash
+docker compose -f docker-compose.dev.yml up -d --wait netbox postgres redis
 docker compose -f docker-compose.dev.yml exec netbox pytest netbox_pyats/tests
 ```
 

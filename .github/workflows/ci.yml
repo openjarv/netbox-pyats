@@ -186,6 +186,21 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Bring up NetBox dev stack
+        # Scoped bring-up: only `netbox` (+ its `depends_on: [postgres, redis]`)
+        # is started. The `netbox-worker` and `netbox-pyats-worker` services are
+        # intentionally excluded — the plugin's test suite is designed to run
+        # without them:
+        #   - conftest.py dual-mode skips cleanly when the RQ backend is absent.
+        #   - test files gate themselves with pytest.importorskip("pyats") /
+        #     pytest.importorskip("netbox") so the suite does not require a live
+        #     worker to import or collect.
+        #   - job-callable tests invoke run_*_job directly rather than going
+        #     through the queue, so no worker process is needed to exercise the
+        #     capture/compliance job logic.
+        # The workers are only required for live device capture from the UI, not
+        # for the test suite. Bringing just netbox+postgres+redis shaves the
+        # cold-start cost and avoids spinning up containers the suite never uses.
+        # Refs: ATW-244 (review), ATW-245 (scope decision).
         # NETBOX_MEM=2g gives the migration + granian + pytest test runner enough
         # headroom; the default 1g cap OOM-kills the test suite. The netbox
         # healthcheck's start_period (600s in docker-compose.dev.yml) covers the
@@ -193,7 +208,7 @@ jobs:
         env:
           NETBOX_MEM: 2g
         run: |
-          docker compose -f docker-compose.dev.yml up -d --wait
+          docker compose -f docker-compose.dev.yml up -d --wait netbox postgres redis
           docker compose -f docker-compose.dev.yml ps
 
       - name: Run NetBox-dependent suite
