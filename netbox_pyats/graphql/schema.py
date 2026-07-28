@@ -1,6 +1,6 @@
 from netbox.graphql.types import NetBoxObjectType
 
-from netbox_pyats.models import PyatsCredential, PyatsJob, PyatsSnapshot, PyatsSnapshotDiff
+from netbox_pyats.models import PyatsCredential, PyatsJob, PyatsParserCatalog, PyatsSnapshot, PyatsSnapshotDiff
 
 
 class PyatsCredentialType(NetBoxObjectType):
@@ -116,3 +116,27 @@ class PyatsJobType(NetBoxObjectType):
 
 class Query:
     pass
+
+
+class PyatsParserCatalogType(NetBoxObjectType):
+    """GraphQL type for the PyatsParserCatalog model (ATW-241 child 1).
+
+    Exposes the full JSONB ``commands`` list (it is the catalog) plus the
+    worker version strings and ``refreshed_at``. Read-only by nature (catalog
+    rows are produced by the worker-only refresh_parser_catalog job —
+    ADR-0001 §5/§6).
+    """
+
+    class Meta:
+        model = PyatsParserCatalog
+        fields = (
+            "id",
+            "pyats_os",
+            "commands",
+            "genie_version",
+            "pyats_version",
+            "refreshed_at",
+            "tags",
+            "created",
+            "last_updated",
+        )

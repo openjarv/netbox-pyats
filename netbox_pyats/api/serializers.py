@@ -6,6 +6,7 @@ from netbox_pyats.models import (
     PyatsCredential,
     PyatsGoldenConfig,
     PyatsJob,
+    PyatsParserCatalog,
     PyatsSnapshot,
     PyatsSnapshotDiff,
 )
@@ -297,6 +298,42 @@ class PyatsJobSerializer(NetBoxModelSerializer):
             "finished_at",
             "error",
             "summary",
+            "created",
+            "last_updated",
+        )
+
+
+class PyatsParserCatalogSerializer(NetBoxModelSerializer):
+    """Serializer for the PyatsParserCatalog model (ATW-241 child 1, ATW-249).
+
+    Read-only via the REST API in v1 (ADR-0001 §5): the catalog is populated
+    by the worker-only ``refresh_parser_catalog`` RQ job, not by direct API
+    writes. The full ``commands`` JSONB list is returned (it is the catalog),
+    along with the worker version strings and ``refreshed_at``.
+    """
+
+    class Meta:
+        model = PyatsParserCatalog
+        fields = [
+            "id",
+            "url",
+            "pyats_os",
+            "commands",
+            "genie_version",
+            "pyats_version",
+            "refreshed_at",
+            "tags",
+            "created",
+            "last_updated",
+        ]
+        read_only_fields = (
+            "id",
+            "url",
+            "pyats_os",
+            "commands",
+            "genie_version",
+            "pyats_version",
+            "refreshed_at",
             "created",
             "last_updated",
         )
