@@ -74,4 +74,18 @@ urlpatterns = [
     # Device-list bulk action (Phase 5, ATW-16). Wired under /devices/bulk-capture/
     # so NetBox's bulk-action machinery can route the device-list form POST here.
     path("devices/bulk-capture/", views.DeviceBulkCaptureView.as_view(), name="device_bulk_capture"),
+    # Device-page Parse sub-tab (ATW-241 child 2, ATW-250). A GET form view + POST
+    # enqueue (unlike the POST-only endpoints above — the operator needs to see
+    # the cached parser command list and pick). Reads the PyatsParserCatalog
+    # row from the DB only; enqueues the parse job on the pyats queue. No
+    # Genie import in the web process (ADR-0001 §6).
+    path("devices/<int:device_id>/parse/", views.DeviceParseView.as_view(), name="device_parse"),
+    # "Refresh parser list" button on the parse sub-tab — enqueues the
+    # worker-only catalog refresh job (ATW-249) and redirects back to the
+    # parse page.
+    path(
+        "devices/<int:device_id>/refresh-parser-catalog/",
+        views.DeviceRefreshCatalogView.as_view(),
+        name="device_refresh_parser_catalog",
+    ),
 ]

@@ -48,8 +48,16 @@ from utilities.views import register_model_view
 
 from . import filtersets, forms, jobs, tables
 from .choices import SnapshotKindChoices, SnapshotTriggerChoices
-from .models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsJob, PyatsSnapshot, PyatsSnapshotDiff
-from .testbed import PLATFORM_SLUG_TO_PYATS_OS, UNSUPPORTED_OS
+from .models import (
+    PyatsComplianceRun,
+    PyatsCredential,
+    PyatsGoldenConfig,
+    PyatsJob,
+    PyatsParserCatalog,
+    PyatsSnapshot,
+    PyatsSnapshotDiff,
+)
+from .testbed import PLATFORM_SLUG_TO_PYATS_OS, UNSUPPORTED_OS, is_supported_os, platform_to_pyats_os
 
 
 class PyatsCredentialListView(generic.ObjectListView):
@@ -573,3 +581,186 @@ class SupportedPlatformsReportView(View):
                 "unsupported_os_sentinel": UNSUPPORTED_OS,
             },
         )
+
+
+# --------------------------------------------------------------------------- #
+# Device parse views (ATW-241 child 2, ATW-250)
+# --------------------------------------------------------------------------- #
+
+
+def _resolve_parse_context(device):
+    """Resolve the pyATS os + catalog row + command choices for a device.
+
+    Web-process-safe: reads :func:`netbox_pyats.testbed.platform_to_pyats_os`
+    (the static platform map — no Genie import) and the
+    :class:`PyatsParserCatalog` row (DB only). Returns a dict the parse view
+    hands to the template:
+
+    - ``pyats_os``: the resolved os string (or :data:`UNSUPPORTED_OS`).
+    - ``platform_supported``: True if the os is Genie-supported.
+    - ``catalog_row``: the :class:`PyatsParserCatalog` row for this os, or
+      ``None`` when the platform is unsupported or no row exists yet.
+    - ``command_choices``: list of ``(command, command)`` tuples for the
+      ``DeviceParseForm.commands`` MultipleChoiceField, sorted (the catalog
+      row's ``commands`` is already sorted by the refresh job; we preserve
+      that order). Empty when no catalog row.
+    - ``catalog_present``: True if a catalog row exists for this os (False for
+      unsupported os or not-yet-refreshed supported os).
+    """
+    pyats_os = platform_to_pyats_os(getattr(device, "platform", None))
+    platform_supported = is_supported_os(pyats_os)
+    catalog_row = None
+    command_choices: list[tuple[str, str]] = []
+    if platform_supported:
+        catalog_row = PyatsParserCatalog.objects.filter(pyats_os=pyats_os).first()
+        if catalog_row is not None and catalog_row.commands:
+            # The catalog row's commands list is already sorted/deduped by
+            # the refresh job; preserve that order. Each choice is
+            # (value, label) — value == label == the command string.
+            command_choices = [(str(c), str(c)) for c in catalog_row.commands]
+    return {
+        "pyats_os": pyats_os,
+        "platform_supported": platform_supported,
+        "catalog_row": catalog_row,
+        "command_choices": command_choices,
+        "catalog_present": catalog_row is not None,
+    }
+
+
+class DeviceParseView(PermissionRequiredMixin, View):
+    """Device-page "Parse" sub-tab (ATW-241 child 2, ATW-250).
+
+    A GET form view + POST enqueue (unlike the existing
+    ``device_capture``/``device_diff``/``device_compliance`` POST-only
+    endpoints — the operator needs to see the cached parser command list and
+    pick). On GET, resolves the device's pyATS os, reads the
+    :class:`PyatsParserCatalog` row for that os (DB only — no Genie import,
+    ADR-0001 §6), builds a :class:`forms.DeviceParseForm` with the command
+    choices, and renders :template:`netbox_pyats/device_parse.html`.
+
+    On POST, validates the form (requires at least one of ``commands`` or
+    ``manual_command``), builds a de-duplicated, order-preserving command
+    list (selected commands first, then the manual command), enqueues the
+    parse job via :func:`jobs.enqueue_parse` on the dedicated ``pyats`` RQ
+    queue, and redirects back to the device page. The actual parse runs on
+    the worker; the result lands as a ``kind='parse'`` :class:`PyatsSnapshot`
+    row (ATW-251) and appears in the device-page snapshot history once the
+    worker finishes.
+
+    Requires ``netbox_pyats.add_pyatsparseresult`` so only authorized
+    operators can trigger on-demand parses (per-action permission pattern,
+    declared on :class:`PyatsSnapshot.Meta` — the parse result is stored as
+    a ``kind='parse'`` snapshot, not a separate model).
+    """
+
+    permission_required = "netbox_pyats.add_pyatsparseresult"
+    template_name = "netbox_pyats/device_parse.html"
+
+    def get(self, request, device_id):
+        from dcim.models import Device
+
+        device = get_object_or_404(Device, pk=device_id)
+        ctx = _resolve_parse_context(device)
+        form = forms.DeviceParseForm(command_choices=ctx["command_choices"])
+        return self._render(request, device, form, ctx)
+
+    def post(self, request, device_id):
+        from dcim.models import Device
+
+        device = get_object_or_404(Device, pk=device_id)
+        ctx = _resolve_parse_context(device)
+        form = forms.DeviceParseForm(request.POST, command_choices=ctx["command_choices"])
+        if not form.is_valid():
+            return self._render(request, device, form, ctx)
+
+        # Build the command list: selected checkbox commands first (in the
+        # catalog's order), then the manual command (if any). De-duplicate
+        # while preserving order so a manual command that matches a checked
+        # box does not run twice.
+        commands: list[str] = []
+        seen: set[str] = set()
+        for cmd in form.cleaned_data.get("commands") or []:
+            if cmd and cmd not in seen:
+                commands.append(cmd)
+                seen.add(cmd)
+        manual = (form.cleaned_data.get("manual_command") or "").strip()
+        if manual and manual not in seen:
+            commands.append(manual)
+
+        # form.clean() guarantees commands is non-empty, but defensive: a
+        # malformed POST (e.g. only whitespace in manual_command after strip)
+        # should re-render rather than enqueue an empty job.
+        if not commands:
+            form.add_error(None, "Select at least one parser command or type a manual command.")
+            return self._render(request, device, form, ctx)
+
+        core_job = jobs.enqueue_parse(device, commands=commands, user=request.user)
+        messages.success(
+            request,
+            f"PyATS parse queued for {device} ({len(commands)} command(s)); "
+            f"core.Job #{core_job.pk}. The result will appear in the PyATS "
+            "tab snapshot history when the worker finishes.",
+        )
+        return redirect(device.get_absolute_url())
+
+    def _render(self, request, device, form, ctx):
+        from django.shortcuts import render
+
+        return render(
+            request,
+            self.template_name,
+            {
+                "device": device,
+                "form": form,
+                "pyats_os": ctx["pyats_os"],
+                "platform_supported": ctx["platform_supported"],
+                "catalog_row": ctx["catalog_row"],
+                "catalog_present": ctx["catalog_present"],
+                "command_count": len(ctx["command_choices"]),
+                "refresh_url": _refresh_parser_catalog_url_for_device(device),
+                "device_url": device.get_absolute_url(),
+            },
+        )
+
+
+class DeviceRefreshCatalogView(PermissionRequiredMixin, View):
+    """Device-page "Refresh parser list" button (ATW-241 child 2, ATW-250).
+
+    A small POST-only endpoint enqueued by the "Refresh parser list" button
+    on the parse sub-tab. It calls :func:`jobs.enqueue_refresh_parser_catalog`
+    (ATW-249), which enqueues the worker-only catalog refresh on the
+    dedicated ``pyats`` RQ queue, then redirects back to the parse page with
+    a "refresh queued" message. The refresh covers every Genie-supported os
+    (one row per os, not per device — see :func:`jobs.enqueue_refresh_parser_catalog`),
+    so the operator only needs to click it once on any device of a given os
+    after a ``genie.libs`` upgrade.
+
+    Requires ``netbox_pyats.add_pyatsparseresult`` so the operator who can
+    enqueue a parse can also refresh the catalog the parse form reads — same
+    permission surface, no separate role.
+    """
+
+    permission_required = "netbox_pyats.add_pyatsparseresult"
+
+    def post(self, request, device_id):
+        from dcim.models import Device
+
+        device = get_object_or_404(Device, pk=device_id)
+        core_job = jobs.enqueue_refresh_parser_catalog(user=request.user)
+        messages.success(
+            request,
+            f"PyATS parser catalog refresh queued (core.Job #{core_job.pk}). "
+            "The checkbox list on the Parse tab will populate when the worker "
+            "finishes; refresh this page afterwards.",
+        )
+        return redirect("plugins:netbox_pyats:device_parse", device_id=device.pk)
+
+
+def _refresh_parser_catalog_url_for_device(device):
+    """Return the POST URL for the device-page "Refresh parser list" button."""
+    from django.urls import reverse
+
+    return reverse(
+        "plugins:netbox_pyats:device_refresh_parser_catalog",
+        kwargs={"device_id": device.pk},
+    )

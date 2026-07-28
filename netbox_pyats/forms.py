@@ -337,3 +337,79 @@ class DeviceBulkCaptureForm(forms.Form):
         required=True,
         label="Capture kind",
     )
+
+
+# --------------------------------------------------------------------------- #
+# Device parse form (ATW-241 child 2, ATW-250)
+# --------------------------------------------------------------------------- #
+
+
+class DeviceParseForm(forms.Form):
+    """Form backing the device-page "Parse" sub-tab (ATW-241 child 2, ATW-250).
+
+    Posted to the :class:`DeviceParseView`. The operator may check one or more
+    commands from the cached parser catalog (populated by the worker-only
+    ``refresh_parser_catalog`` job — ATW-249) AND/OR type a free-text
+    ``manual_command``; both inputs are accepted in the same submission. Each
+    selected/typed command becomes one entry in the parse job's command list.
+    The view resolves the device's pyATS os from
+    :func:`netbox_pyats.testbed.platform_to_pyats_os` and passes it to the
+    form constructor so ``__init__`` can populate ``commands`` choices from the
+    catalog row for that os.
+
+    No Genie import happens in the form (or the web process at all —
+    ADR-0001 §6): the catalog is read from the DB only.
+    """
+
+    commands = forms.MultipleChoiceField(
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label="Parser commands",
+        help_text=(
+            "Cached list of CLI commands Genie can parse for this device's "
+            "os, as reported by the worker's genie.libs.parser.utils."
+            "get_parser_commands. Refresh the catalog after a genie.libs "
+            "upgrade."
+        ),
+    )
+    manual_command = forms.CharField(
+        required=False,
+        strip=False,
+        widget=forms.Textarea(attrs={"rows": 3, "class": "font-monospace"}),
+        label="Manual command",
+        help_text=(
+            "Optional free-text CLI command to parse. Useful when the command "
+            "is not in the cached catalog or you want a one-off parse. May be "
+            "submitted together with checkbox selections."
+        ),
+    )
+
+    def __init__(self, *args, command_choices=None, **kwargs):
+        """Initialize the form, optionally pinning the ``commands`` choices.
+
+        Args:
+            command_choices: an iterable of ``(value, label)`` tuples for the
+                ``commands`` MultipleChoiceField. The view passes the catalog
+                row's command list so the rendered checkboxes reflect the
+                worker-populated catalog. When ``None`` (e.g. an unbound GET
+                with no catalog row), the field has no choices — the manual
+                text box still works.
+        """
+        super().__init__(*args, **kwargs)
+        if command_choices is not None:
+            self.fields["commands"].choices = list(command_choices)
+
+    def clean(self):
+        """Require at least one of ``commands`` or ``manual_command``.
+
+        The parse job takes a non-empty command list; an empty submission has
+        nothing to run. Raises :class:`django.core.exceptions.ValidationError`
+        so the view re-renders the form with the error rather than enqueueing
+        an empty job.
+        """
+        super().clean()
+        commands = self.cleaned_data.get("commands") or []
+        manual_command = (self.cleaned_data.get("manual_command") or "").strip()
+        if not commands and not manual_command:
+            raise forms.ValidationError("Select at least one parser command or type a manual command.")
+        return self.cleaned_data

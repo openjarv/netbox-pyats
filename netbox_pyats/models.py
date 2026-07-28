@@ -301,6 +301,14 @@ class PyatsSnapshot(NetBoxModel):
             models.Index(fields=("device", "-captured_at"), name="pyats_snap_dev_capt_idx"),
             models.Index(fields=("device", "kind", "-captured_at"), name="pyats_snap_dev_kind_idx"),
         ]
+        # Per-action permission for the on-demand parse UI (ATW-241 child 2,
+        # ATW-250). The parse result is stored as a `kind='parse'`
+        # PyatsSnapshot row (no separate PyatsParserResult model — plan §1.3),
+        # so the per-action permission is declared here as a custom
+        # permission rather than auto-derived from a model name. Django's
+        # post-migrate signal creates the `auth_permission` row from this
+        # tuple; the device-page Parse view requires it.
+        permissions = (("add_pyatsparseresult", "Can enqueue an on-demand PyATS parse run"),)
 
     def __str__(self):
         return f"{self.device} · {self.get_kind_display()} · {self.captured_at:%Y-%m-%d %H:%M:%S}"
