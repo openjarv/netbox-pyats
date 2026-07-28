@@ -83,7 +83,7 @@ class DeviceParseViewTest(TestCase):
     """View tests for :class:`views.DeviceParseView` (ATW-250)."""
 
     user_permissions = (
-        "netbox_pyats.add_pyatsparseresult",
+        "netbox_pyats.add_pyatssnapshot",
         "dcim.view_device",
     )
 
@@ -201,7 +201,7 @@ class DeviceRefreshCatalogViewTest(TestCase):
     """View tests for :class:`views.DeviceRefreshCatalogView` (ATW-250)."""
 
     user_permissions = (
-        "netbox_pyats.add_pyatsparseresult",
+        "netbox_pyats.add_pyatssnapshot",
         "dcim.view_device",
     )
 

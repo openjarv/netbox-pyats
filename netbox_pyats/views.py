@@ -647,13 +647,19 @@ class DeviceParseView(PermissionRequiredMixin, View):
     row (ATW-251) and appears in the device-page snapshot history once the
     worker finishes.
 
-    Requires ``netbox_pyats.add_pyatsparseresult`` so only authorized
-    operators can trigger on-demand parses (per-action permission pattern,
-    declared on :class:`PyatsSnapshot.Meta` — the parse result is stored as
-    a ``kind='parse'`` snapshot, not a separate model).
+    Requires ``netbox_pyats.add_pyatssnapshot`` so only authorized operators
+    can trigger on-demand parses. The parse result is stored as a
+    ``kind='parse'`` :class:`PyatsSnapshot` row (ATW-251, plan §1.3 — no
+    separate ``PyatsParserResult`` model), so the existing per-action
+    ``add_pyatssnapshot`` permission is the right gate: NetBox's permission
+    resolver (``utilities/permissions.resolve_permission``) splits
+    ``<app>.<action>_<model>`` and looks up the matching ``ContentType``, so a
+    custom ``add_pyatsparseresult`` codename (with no ``pyatsparseresult``
+    model/ContentType) is unresolvable. Reusing ``add_pyatssnapshot`` keeps the
+    permission surface to models that actually exist (ATW-250).
     """
 
-    permission_required = "netbox_pyats.add_pyatsparseresult"
+    permission_required = "netbox_pyats.add_pyatssnapshot"
     template_name = "netbox_pyats/device_parse.html"
 
     def get(self, request, device_id):
@@ -735,12 +741,12 @@ class DeviceRefreshCatalogView(PermissionRequiredMixin, View):
     so the operator only needs to click it once on any device of a given os
     after a ``genie.libs`` upgrade.
 
-    Requires ``netbox_pyats.add_pyatsparseresult`` so the operator who can
+    Requires ``netbox_pyats.add_pyatssnapshot`` so the operator who can
     enqueue a parse can also refresh the catalog the parse form reads — same
     permission surface, no separate role.
     """
 
-    permission_required = "netbox_pyats.add_pyatsparseresult"
+    permission_required = "netbox_pyats.add_pyatssnapshot"
 
     def post(self, request, device_id):
         from dcim.models import Device
