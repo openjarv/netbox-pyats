@@ -76,6 +76,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `PyatsJob` REST API viewset (read-only in v1, `http_method_names = ["get","head","options"]`) + GraphQL type + search index + filterset + table + filter form.
 - ADR-0005 (`docs/adr/0005-pyatsjob-model.md`) accepted: PyatsJob unified job-tracking model + status vocabulary extension.
 - Tests: `test_pyatsjob.py` (model persistence, `related_result` accessor, status color map, ADR-0005 §3 plumbing for capture/diff/compliance — success / unsupported-result-row / error-row-write-failure / DoesNotExist / batch summary + `partial` status, deleted-device-skip) and `test_supported_platforms.py` (static-map invariants, web-process-safety, rendered report contents).
+- Device-page diff picker kind filter (ATW-241 child 4): `DeviceDiffForm.clean()` enforces that the two selected snapshots share the same `kind` (a `kind='parse'` row is only diffable against another `parse` row; `state`/`full` rows only against their own kind). The picker template groups options by `kind` via `<optgroup>` as a visual hint (no JS, ADR-0001 §4). NetBox-gated tests in `test_diff_form.py` cover same-kind-allowed, mismatched-kind-rejected, and the view's enqueue/no-enqueue paths.
 
 ### Dev
 

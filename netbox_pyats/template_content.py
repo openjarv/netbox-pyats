@@ -81,11 +81,18 @@ class DevicePyATSPanel(PluginTemplateExtension):
             s for s in snapshots if s.kind in (SnapshotKindChoices.KIND_CONFIG, SnapshotKindChoices.KIND_FULL)
         ]
 
+        # Diff picker groups snapshots by kind (ATW-241 child 4): a parse row
+        # is only diffable against another parse row, and state/full rows only
+        # against their own kind. The template renders one <optgroup> per kind
+        # so the operator sees the grouping; DeviceDiffForm.clean enforces it.
+        diff_snapshots_by_kind = _group_snapshots_by_kind(snapshots)
+
         return self.render(
             "netbox_pyats/inc/device_panel.html",
             extra_context={
                 "device": device,
                 "snapshots": snapshots,
+                "diff_snapshots_by_kind": diff_snapshots_by_kind,
                 "diffs": diffs,
                 "golden_configs": golden_configs,
                 "compliance_runs": compliance_runs,
@@ -127,6 +134,21 @@ def _snapshot_list_url_for_device(device):
     from django.urls import reverse
 
     return f"{reverse('plugins:netbox_pyats:pyatssnapshot_list')}?device_id={device.pk}"
+
+
+def _group_snapshots_by_kind(snapshots):
+    """Group snapshots by ``kind`` for the diff picker (ATW-241 child 4).
+
+    Returns an ordered list of ``(kind_value, kind_label, [snapshots])`` tuples
+    so the template can render one ``<optgroup>`` per kind. The order follows
+    ``SnapshotKindChoices.choices`` (the single source of truth for kind order);
+    kinds with no snapshots are omitted. Keeping the grouping server-side
+    avoids any JS in the picker (ADR-0001 §4).
+    """
+    by_kind = {}
+    for snap in snapshots:
+        by_kind.setdefault(snap.kind, []).append(snap)
+    return [(value, label, by_kind[value]) for value, label in SnapshotKindChoices.choices if value in by_kind]
 
 
 template_extensions = [DevicePyATSPanel]
