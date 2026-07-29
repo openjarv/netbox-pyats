@@ -22,8 +22,10 @@
 #       worktree (uses the worktree's .env for project name + port).
 #
 #   dev-worktree.sh remove <issue-id>
-#       Run `docker compose down -v` in the worktree, then `git worktree remove`.
-#       Use when the issue reaches a terminal state (done/cancelled).
+#       Run `docker compose down -v` in the worktree, `git worktree remove`,
+#       then delete the matching branch <type>/<issue-id>-* with `git branch -D`,
+#       printing the last SHA so the operator can recover the commits if needed.
+#       Use when the issue reaches a terminal state (done/cancelled). (ATW-258)
 #
 #   dev-worktree.sh cleanup
 #       Find and tear down orphaned compose projects (netbox dev stacks whose
@@ -391,16 +393,25 @@ cmd_remove() {
   # Clean up the worktree directory if git left it behind.
   rmdir "$wt" 2>/dev/null || true
 
-  # Delete the branch too. Refuse if it has unmerged commits; print the SHA so
-  # the operator can recover it if they really meant to keep it.
-  local branch
-  branch="$(git -C "$TRUNK_ROOT" worktree list --porcelain 2>/dev/null \
-            | awk -v wt="$wt/" 'BEGIN{found=0} /^worktree /{g=substr($2,1,length(wt)); if(g==wt) found=1; else found=0} found && /^branch /{print $2; exit}')"
-  # The branch lookup above ran after removal, so it won't find anything. Track
-  # branches by convention instead: <type>/<issue-id>-<slug>.
+  # Delete the matching branch(es) by convention: <type>/<issue-id>-<slug>.
+  # Use `git branch -D` (force) so unmerged work isn't left behind, and print
+  # the SHA before deletion so the operator can recover the commits if needed.
+  local branches
+  branches="$(git -C "$TRUNK_ROOT" branch --format='%(refname:short)' \
+    | grep -iE "^[^/]+/${issue_id}-" || true)"
+  if [ -n "$branches" ]; then
+    echo "deleting matching branch(es) for $issue_id:"
+    local b
+    for b in $branches; do
+      local sha
+      sha="$(git -C "$TRUNK_ROOT" rev-parse "$b")"
+      git -C "$TRUNK_ROOT" branch -D "$b" >/dev/null
+      echo "  deleted branch: $b (was $sha)"
+    done
+  else
+    echo "no matching branches for $issue_id (<type>/$issue_id-*)"
+  fi
   echo "removed worktree: $wt"
-  echo "note: matching branches (<type>/$issue_id-*) were not auto-deleted; remove with:"
-  echo "  git -C \"$TRUNK_ROOT\" branch -D <branch>"
 }
 
 # List compose project names that own at least one container (running or
