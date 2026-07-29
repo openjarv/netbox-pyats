@@ -14,11 +14,11 @@
           </tr>
           <tr>
             <th scope="row">Golden config</th>
-            <td>{{ object.golden|linkify }} ({{ object.golden.name }})</td>
+            <td>{% if object.golden %}{{ object.golden|linkify }} ({{ object.golden.name }}){% else %}<span class="text-muted">— deleted (see warnings)</span>{% endif %}</td>
           </tr>
           <tr>
             <th scope="row">Snapshot</th>
-            <td>{{ object.snapshot|linkify }} ({{ object.snapshot.captured_at|date:'Y-m-d H:i:s' }})</td>
+            <td>{% if object.snapshot %}{{ object.snapshot|linkify }} ({{ object.snapshot.captured_at|date:'Y-m-d H:i:s' }}){% else %}<span class="text-muted">— deleted (see warnings)</span>{% endif %}</td>
           </tr>
           <tr>
             <th scope="row">Result</th>

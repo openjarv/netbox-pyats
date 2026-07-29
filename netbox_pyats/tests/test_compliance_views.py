@@ -155,6 +155,26 @@ class PyatsComplianceRunViewTest(TestCase):
         # The detail page links back to the golden and the snapshot.
         self.assertContains(response, self.golden.name)
 
+    def test_detail_view_null_fks_render_deleted_marker(self):
+        # A compliance run whose golden/snapshot FKs were SET_NULL'd (deleted
+        # between user click and worker pickup) must still render the detail
+        # page without 500ing. The error-row path renders the same
+        # "— deleted (see warnings)" fallback as the diff template
+        # (pyatssnapshotdiff.html) so error rows look consistent across the
+        # two diff-style detail pages (ATW-234, ATW-316).
+        run = PyatsComplianceRun.objects.create(
+            device=self.device,
+            golden=None,
+            snapshot=None,
+            result=ComplianceResultChoices.RESULT_ERROR,
+            diff={},
+            summary={},
+        )
+        url = reverse("plugins:netbox_pyats:pyatscompliancerun", kwargs={"pk": run.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "— deleted (see warnings)")
+
     def test_device_compliance_post_validates_device_membership(self):
         # POSTing a golden_id that belongs to a different device must be
         # rejected with an error message and a redirect (no job enqueued).
