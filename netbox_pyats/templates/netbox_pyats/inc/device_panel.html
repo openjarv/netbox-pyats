@@ -77,16 +77,24 @@
           <div class="col col-md-5">
             <label class="form-label" for="id_before_id">Before snapshot</label>
             <select name="before_id" id="id_before_id" class="form-select">
-              {% for snap in snapshots %}
-                <option value="{{ snap.pk }}">{{ snap.get_kind_display }} · {{ snap.captured_at|date:'Y-m-d H:i:s' }} · #{{ snap.pk }}</option>
+              {% for kind_value, kind_label, group_snaps in diff_snapshots_by_kind %}
+                <optgroup label="{{ kind_label }}">
+                  {% for snap in group_snaps %}
+                    <option value="{{ snap.pk }}">{{ snap.captured_at|date:'Y-m-d H:i:s' }} · #{{ snap.pk }}</option>
+                  {% endfor %}
+                </optgroup>
               {% endfor %}
             </select>
           </div>
           <div class="col col-md-5">
             <label class="form-label" for="id_after_id">After snapshot</label>
             <select name="after_id" id="id_after_id" class="form-select">
-              {% for snap in snapshots %}
-                <option value="{{ snap.pk }}">{{ snap.get_kind_display }} · {{ snap.captured_at|date:'Y-m-d H:i:s' }} · #{{ snap.pk }}</option>
+              {% for kind_value, kind_label, group_snaps in diff_snapshots_by_kind %}
+                <optgroup label="{{ kind_label }}">
+                  {% for snap in group_snaps %}
+                    <option value="{{ snap.pk }}">{{ snap.captured_at|date:'Y-m-d H:i:s' }} · #{{ snap.pk }}</option>
+                  {% endfor %}
+                </optgroup>
               {% endfor %}
             </select>
           </div>
@@ -97,7 +105,7 @@
           </div>
         </div>
         <p class="text-muted small mb-0">
-          Queues a structured diff on the dedicated <code>pyats</code> RQ worker. The result appears in the diff list when the worker finishes.
+          Queues a structured diff on the dedicated <code>pyats</code> RQ worker. Snapshots are grouped by kind: diff two of the same kind. The result appears in the diff list when the worker finishes.
         </p>
       </form>
     {% elif snapshots and snapshots|length == 1 %}
