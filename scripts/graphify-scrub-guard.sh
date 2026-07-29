@@ -22,9 +22,19 @@
 # Matched patterns (the absolute home path classes that must not be public):
 #   /home/<user>   /Users/<user>   /root   ~ (literal, when expanded by a shell)
 #
-# Only committed graphify-out/ text artifacts are scanned: GRAPH_REPORT.md,
-# graph.html, manifest.json, graph.json, and any *.md/*.html/*.json under
-# graphify-out/. Binary/ignored files are skipped.
+# Files we scan (committed + defense-in-depth untracked surface):
+#   - graphify-out/GRAPH_REPORT.md, graph.html, manifest.json, graph.json
+#     (the 4 committed artifacts — the original ATW-125 surface)
+#   - graphify-out/cache/*.json (stat-index.json + AST cache — gitignored but
+#     locally present; ATW-307 found a real leak here committed since ATW-142)
+#   - graphify-out/2026-*/*.md|html|json (dated snapshot backups — gitignored
+#     but locally present; ATW-307 found a real leak in 2026-07-24/GRAPH_REPORT.md)
+#   - graphify-out/.graphify_*.json|.sig (graphify internal-state files)
+#
+# Binary/ignored files are skipped. The cache/ and 2026-*/ and .graphify_*
+# surfaces are gitignored in both repos, but a local scrub still rewrites them
+# so a stray `git add -f`, tarball export, or worktree copy cannot ship the
+# absolute home path — defense in depth (ATW-312).
 #
 # Usage:
 #   scripts/graphify-scrub-guard.sh                # check; exit 1 on leak
@@ -38,7 +48,8 @@
 #   2  mis-use / bad path
 #
 # References: ATW-125, ATW-112 (Security gate), ATW-121 (nightly routine),
-# ATW-55 (PR review model). Regression source: PR #41 / commit 90435be.
+# ATW-55 (PR review model), ATW-307 (cache/backup leak source),
+# ATW-312 (extend scan to cache/ + dated backups). Regression source: PR #41 / commit 90435be.
 
 set -euo pipefail
 
@@ -78,8 +89,14 @@ fi
 PATTERN='(/home/[A-Za-z0-9._-]+|/Users/[A-Za-z0-9._-]+|/root\b)'
 
 # Files we scan: the known tracked artifacts plus any md/html/json that
-# graphify may emit. Skips the dated snapshot dirs (graphify-out/2026-07-24/
-# etc.) — those are not committed and not part of the public surface.
+# graphify may emit. ATW-312 extends this to the previously-unscanned
+# defense-in-depth surface — cache/, dated snapshot dirs (graphify-out/2026-*/),
+# and graphify internal-state files (.graphify_*) — because the ATW-307 nightly
+# refresh found a pre-existing leak in cache/stat-index.json and
+# 2026-07-24/GRAPH_REPORT.md that the 4-artifact scan never touched. Those paths
+# are gitignored in both repos, but defense-in-depth means a local scrub must
+# still rewrite them so a stray `git add -f` or tarball export cannot ship the
+# absolute home path.
 SCAN_GLOB=(
   graphify-out/GRAPH_REPORT.md
   graphify-out/graph.html
@@ -87,14 +104,45 @@ SCAN_GLOB=(
   graphify-out/graph.json
 )
 
-# Collect only files that exist.
+# Collect only files that exist, starting with the named artifacts.
 FILES=()
 for f in "${SCAN_GLOB[@]}"; do
   [ -f "$REPO_ROOT/$f" ] && FILES+=("$REPO_ROOT/$f")
 done
 
+# ATW-312: also scan the extended surface. `find` is used so missing trees
+# (fresh checkout with no cache/, no dated backups) are a no-op rather than a
+# glob-expansion error. Only *.json is scanned under cache/ — the AST cache and
+# stat-index.json are the leak carriers; no other file types live there. Dated
+# snapshot dirs and the .graphify_* internal-state files are scanned for
+# *.md/*.html/*.json plus the dot-state files themselves (which carry the
+# analysis payload that can embed absolute paths).
+GO="$REPO_ROOT/graphify-out"
+
+# cache/*.json (stat-index.json + AST cache under cache/ast/<ver>/*.json).
+while IFS= read -r f; do
+  FILES+=("$f")
+done < <(find "$GO/cache" -type f -name '*.json' 2>/dev/null)
+
+# Dated snapshot dirs: graphify-out/2026-*/ — scan all *.md, *.html, *.json
+# (the same text-artifact classes the named-artifact scan covers), plus the
+# .graphify_* internal-state files copied into each snapshot.
+while IFS= read -r d; do
+  while IFS= read -r f; do
+    FILES+=("$f")
+  done < <(find "$d" -type f \( -name '*.md' -o -name '*.html' -o -name '*.json' \) 2>/dev/null)
+done < <(find "$GO" -maxdepth 1 -type d -name '2026-*' 2>/dev/null)
+
+# graphify internal-state files at the graphify-out/ root: .graphify_analysis.json,
+# .graphify_labels.json, .graphify_labels.json.sig, .graphify_root. Scan only the
+# JSON-bearing ones (.json / .sig is text) — .graphify_root is a 1-byte marker
+# and never carries a path.
+while IFS= read -r f; do
+  FILES+=("$f")
+done < <(find "$GO" -maxdepth 1 -type f -name '.graphify_*' \( -name '*.json' -o -name '*.sig' \) 2>/dev/null)
+
 if [ "${#FILES[@]}" -eq 0 ]; then
-  echo "graphify-scrub-guard: no tracked graphify-out artifacts present in $REPO_ROOT." >&2
+  echo "graphify-scrub-guard: no graphify-out artifacts present in $REPO_ROOT." >&2
   exit 0
 fi
 
@@ -126,7 +174,7 @@ graphify-scrub-guard: refusing to commit leaked artifacts.
   Fix: re-run with --scrub to auto-rewrite to workspace-relative paths,
   or fix the generator's working directory (cd to repo root before
   running graphify update / cluster-only).
-  Refs: ATW-125, ATW-112, PR #41, commit 90435be.
+  Refs: ATW-125, ATW-112, ATW-307, ATW-312, PR #41, commit 90435be.
 EOF
   exit 1
 fi
