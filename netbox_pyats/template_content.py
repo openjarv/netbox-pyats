@@ -104,6 +104,7 @@ class DevicePyATSPanel(PluginTemplateExtension):
                 "diff_url": _diff_url_for_device(device),
                 "compliance_url": _compliance_url_for_device(device),
                 "snapshot_list_url": _snapshot_list_url_for_device(device),
+                "parse_url": _parse_url_for_device(device),
             },
         )
 
@@ -134,6 +135,13 @@ def _snapshot_list_url_for_device(device):
     from django.urls import reverse
 
     return f"{reverse('plugins:netbox_pyats:pyatssnapshot_list')}?device_id={device.pk}"
+
+
+def _parse_url_for_device(device):
+    """Return the GET URL for the device-page Parse sub-tab (ATW-250)."""
+    from django.urls import reverse
+
+    return reverse("plugins:netbox_pyats:device_parse", kwargs={"device_id": device.pk})
 
 
 def _group_snapshots_by_kind(snapshots):
