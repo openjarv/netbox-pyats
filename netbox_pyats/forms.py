@@ -156,10 +156,36 @@ class DeviceDiffForm(forms.Form):
     the same device; the view enqueues :func:`jobs.enqueue_diff`. The device is
     in the URL; ``before_id`` and ``after_id`` are validated by the view to
     belong to that device.
+
+    ATW-241 child 4: the two snapshots must share the same ``kind``. A
+    ``kind='parse'`` row is only diffable against another ``parse`` row (two
+    manual parses of the same commands); a ``kind='state'``/``'full'`` row is
+    only diffable against its own kind (different command sets). The template
+    groups the picker options by ``kind`` via ``<optgroup>`` as a visual hint;
+    this ``clean()`` is the actual filter enforcement (no JS, ADR-0001 §4).
     """
 
     before_id = forms.IntegerField(required=True, label="Before snapshot")
     after_id = forms.IntegerField(required=True, label="After snapshot")
+
+    def clean(self):
+        super().clean()
+        before_id = self.cleaned_data.get("before_id")
+        after_id = self.cleaned_data.get("after_id")
+        if before_id is None or after_id is None:
+            return self.cleaned_data
+
+        before = PyatsSnapshot.objects.filter(pk=before_id).only("kind").first()
+        after = PyatsSnapshot.objects.filter(pk=after_id).only("kind").first()
+        if before is None or after is None:
+            raise forms.ValidationError("Both snapshots must exist. " f"(before_id={before_id}, after_id={after_id})")
+        if before.kind != after.kind:
+            raise forms.ValidationError(
+                f"Snapshots must be the same kind to diff "
+                f"(before is '{before.get_kind_display()}', "
+                f"after is '{after.get_kind_display()}')."
+            )
+        return self.cleaned_data
 
 
 class PyatsSnapshotDiffFilterForm(NetBoxModelFilterSetForm):
