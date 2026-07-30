@@ -194,6 +194,16 @@ branch reference:
 scripts/dev-worktree.sh remove <issue-id>
 ```
 
+`remove` reclaims root-owned bind-mount artifacts before `git worktree remove`
+so teardown never strands on `Permission denied` (ATW-298). The netbox dev
+containers run as root and write `__pycache__/`, `*.egg-info`, and
+`.pytest_cache/` into the bind-mounted plugin source as root-owned; `remove`
+chowns those gitignored paths back to the host UID/GID (recorded in the
+worktree `.env` as `HOST_UID`/`HOST_GID`) via a one-shot root container, so
+no host `sudo` is needed. The dev entrypoints also chown those artifacts back
+to the host user after the editable install, so a manual `docker compose down`
+leaves the worktree clean too.
+
 ## Resource limits
 
 Each service has a default CPU + memory cap. Override any of them via shell
