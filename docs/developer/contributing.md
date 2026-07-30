@@ -34,10 +34,32 @@ These run anywhere with Python 3.10+, Django, pyATS, and `cryptography` availabl
 ### Full NetBox test suite (integration)
 
 ```bash
-docker compose -f docker-compose.dev.yml exec netbox pytest netbox_pyats/tests
+# from a worktree (see setup.md):
+scripts/dev-worktree.sh test
 ```
 
-Runs the full suite (model, view, API) inside the NetBox container where the NetBox models are importable. The model/view/API tests use `pytest.importorskip("netbox")` and skip cleanly outside a NetBox environment.
+Runs the full suite (model, view, API) inside a dedicated `netbox-test`
+container that runs pytest without granian and with `--reuse-db`, so the
+migrated `test_netbox` schema persists across runs (the ~480s migration cold
+start is paid once). See [Dev environment bring-up — Test lane
+(`--reuse-db`)](setup.md#test-lane---reuse-db) for the full workflow and
+[ATW-357](/ATW/issues/ATW-357) / [ATW-351](/ATW/issues/ATW-351) for the
+rationale. The model/view/API tests use `pytest.importorskip("netbox")` and
+skip cleanly outside a NetBox environment.
+
+### Test-conventions invariant (`--reuse-db` safety)
+
+`--reuse-db` keeps the `test_netbox` **schema** across runs; per-test data
+isolation comes from Django's `TestCase` transaction rollback (every
+NetBox-gated test subclasses `utilities.testing.TestCase` / `APITestCase`).
+For that to stay safe, **integration tests must scope assertions to rows
+they create, not table-wide `count() == N` on a clean table.** A kept schema
+does not reset auto-increment sequences or clear pre-existing rows, so a
+table-wide count that assumes an empty table is a latent bug under
+`--reuse-db`. Scope counts to rows the test itself created in `setUpTestData`
+/ `setUp` (e.g. `PyatsSnapshot.objects.filter(pk=snap.pk).count()`). This is
+an enforced going-forward invariant; the existing tree was audited and
+conforms ([ATW-353](/ATW/issues/ATW-353)).
 
 ## Lint and format
 
@@ -99,6 +121,11 @@ Follow the pattern of `PyatsCredential`:
 9. Detail template in `templates/netbox_pyats/`.
 10. Navigation entries in `navigation.py`.
 11. Tests: pure-Python where possible (skip with `pytest.importorskip("netbox")` for NetBox-dependent cases).
+
+## Test conventions
+
+- **Scope assertions to rows the test creates, never table-wide `count() == N`.** See [Test-conventions invariant (`--reuse-db` safety)](#test-conventions-invariant---reuse-db--safety) above for the rationale and a concrete example. The existing tree was audited and conforms ([ATW-353](/ATW/issues/ATW-353)); keep new tests conformant.
+- **Prefer `pytest.importorskip` over `try/except ImportError`.** It produces a clean skip in the lane that lacks the dependency rather than a silent pass or a collection error.
 
 ## Architectural decisions (ADRs)
 

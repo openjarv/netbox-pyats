@@ -1,0 +1,92 @@
+# Test override for netbox-pyats (ATW-357 / ATW-351 ADR-1).
+#
+# Adds a dedicated `netbox-test` compose service that runs pytest WITHOUT
+# granian, plus pytest-django's `--reuse-db` flag to persist `test_netbox`
+# across runs. This removes both the ~480s migration cold-start tax (kept
+# schema) and the granian-connection race that forced one-run-per-fresh-stack
+# (no web server holding `test_netbox` between runs).
+#
+# Use this file as an overlay on docker-compose.dev.yml:
+#   docker compose -f docker-compose.dev.yml -f docker-compose.test.yml ...
+#
+# The `netbox-test` service:
+#   - Same NETBOX_IMAGE, same bind-mounts, same dev/configuration as `netbox`.
+#   - Shares the existing `postgres` + `redis` services (no extra DB/redis).
+#   - depends_on: postgres + redis only (NOT netbox) — it does not need the
+#     web server, and decoupling lets the UI stay up during a test run.
+#   - No published port, no healthcheck, no restart policy (one-shot runner).
+#   - Resource caps: cpus 1.0, mem_limit 1g (env-overridable: NETBOX_TEST_*).
+#   - Entrypoint: dev/pyats-test-entrypoint.sh (editable install + artifact
+#     reclaim, then exec pytest). command: supplies pytest args.
+#
+# Why an override file and not `profiles`: `dev-worktree.sh up` does a plain
+# `up -d`; a profile-gated service silently would not start. An explicit
+# override file is clearer and only loaded when the test lane asks for it.
+#
+# The web `netbox` service is untouched — operators keep the live UI during
+# test iteration. See docs/developer/setup.md "Test lane (--reuse-db)" and
+# ATW-351 plan / ADR-1 for the full rationale.
+
+services:
+  netbox-test:
+    # Same image as the web `netbox` service so local + CI use the same
+    # NetBox version in a given matrix cell.
+    image: ${NETBOX_IMAGE:-docker.io/netboxcommunity/netbox:v4.6-5.0.2}
+    # One-shot runner: no restart policy. If pytest fails or exits, the
+    # container stops and stays stopped — it does not loop.
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_NAME: netbox
+      DB_USER: netbox
+      DB_PASSWORD: netbox
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      SECRET_KEY: "dev-only-not-for-production-CHANGE-ME"
+      ALLOWED_HOSTS: "*"
+      # Skip superuser creation: the test lane never serves the UI and the
+      # test suite creates its own fixtures (utilities.testing.TestCase /
+      # APITestCase). docker-entrypoint.sh gates on SKIP_SUPERUSER=true to
+      # skip the /opt/netbox/super_user.py step, shaving a couple seconds and
+      # avoiding a needless write to the dev `netbox` DB on every test run.
+      SKIP_SUPERUSER: "true"
+      # Host UID/GID for reclaiming bind-mount artifacts (ATW-298). The test
+      # entrypoint chowns __pycache__/.pytest_cache/egg-info back to the host
+      # user after the run so `git worktree remove` succeeds without sudo.
+      HOST_UID: "${HOST_UID:-1000}"
+      HOST_GID: "${HOST_GID:-1000}"
+    networks:
+      - devnet
+    volumes:
+      # Same bind-mounts as `netbox`: plugin source (editable install) +
+      # dev configuration that enables the plugin.
+      - .:/opt/netbox/netbox/netbox_pyats_src:rw
+      - ./dev/configuration:/etc/netbox/config:ro
+      # Test entrypoint wrapper: editable install + artifact reclaim, then
+      # exec pytest. Mirrors dev/pyats-entrypoint.sh but execs pytest instead
+      # of launch-netbox.sh.
+      - ./dev/pyats-test-entrypoint.sh:/opt/netbox/pyats-test-entrypoint.sh:ro
+    entrypoint: ["/usr/bin/tini", "--", "/opt/netbox/pyats-test-entrypoint.sh"]
+    # pytest args. --reuse-db keeps the migrated `test_netbox` schema across
+    # runs (the velocity win). Override via `docker compose run` args or the
+    # command: list. Pass --create-db to force a clean rebuild when
+    # migrations change.
+    #
+    # No `working_dir` override is needed: the entrypoint cd's to the
+    # bind-mounted plugin source before running pytest, and does NOT run
+    # NetBox's docker-entrypoint.sh (which requires cwd /opt/netbox/netbox to
+    # find ./manage.py). So `pytest netbox_pyats/tests` resolves via the
+    # entrypoint's cd.
+    command: ["--reuse-db", "netbox_pyats/tests"]
+    # Test-runner resource cap. No granian → ~258 MiB less than the web
+    # container; 1g fits pytest + the test-DB migration/restore peak. Override
+    # via NETBOX_TEST_CPUS / NETBOX_TEST_MEM (separate from NETBOX_* so the web
+    # service cap is not perturbed by test runs).
+    cpus: ${NETBOX_TEST_CPUS:-1.0}
+    mem_limit: ${NETBOX_TEST_MEM:-1g}

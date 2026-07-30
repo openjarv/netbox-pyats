@@ -136,41 +136,65 @@ Open the UI (on the dev host, or via SSH tunnel). The port is the one
 http://localhost:<NETBOX_PORT>   (admin / admin)
 ```
 
-Run the plugin's tests inside the `netbox` container (from the worktree):
+Run the plugin's tests. There are two lanes:
+
+- **Pure-Python / unit lane** (no Docker): `pytest netbox_pyats/tests/test_crypto.py netbox_pyats/tests/test_testbed.py ...` on the host. Seconds; no NetBox/PostgreSQL/Redis. The fast lane for logic changes (crypto, testbed, diff, compliance).
+- **Integration lane** (Docker): the `netbox-test` compose service, which runs the full NetBox-dependent suite (model, view, API) without granian and with `--reuse-db`. See [Test lane (--reuse-db)](#test-lane---reuse-db) below.
+
+## Test lane (`--reuse-db`)
+
+The integration suite runs in a dedicated `netbox-test` compose service
+([ATW-357](/ATW/issues/ATW-357), [ATW-351](/ATW/issues/ATW-351) ADR-1) that
+runs pytest **without granian** and with pytest-django's `--reuse-db` flag.
+This removes both sources of the historical test-iteration friction:
+
+- **No granian** → no web-server connection holding `test_netbox` between
+  runs, so the `database "test_netbox" already exists` / `is being accessed
+  by other users` race (ATW-85 / ATW-188) cannot occur.
+- **`--reuse-db`** → the migrated `test_netbox` schema persists across runs,
+  so the ~480s NetBox migration cold start is paid once, not every iteration.
+  A second run against the same stack completes in seconds, not 6–9 min.
+
+The `netbox-test` service shares the worktree's `postgres` + `redis` (no
+extra DB container), depends on them only (NOT `netbox`), and does not
+publish a port or run a healthcheck — it is a one-shot pytest runner. The
+web `netbox` UI stays up and reachable during a test run (no lifecycle
+coupling), so you can keep iterating in the UI while tests run.
+
+Run the test lane from inside a worktree:
 
 ```bash
-docker compose -f docker-compose.dev.yml exec netbox pytest netbox_pyats/tests
+scripts/dev-worktree.sh test
+# equivalent to:
+#   docker compose -f docker-compose.dev.yml -f docker-compose.test.yml \
+#     --env-file .env up -d --wait postgres redis
+#   docker compose -f docker-compose.dev.yml -f docker-compose.test.yml \
+#     --env-file .env run --rm -T netbox-test
+# (default command: --reuse-db netbox_pyats/tests)
 ```
 
-The full integration suite (model, view, API) runs inside the NetBox container
-where the NetBox models are importable. The model/view/API tests use
-`pytest.importorskip("netbox")` and skip cleanly outside a NetBox environment.
+The first run pays the migration cold start (~8-9 min) into `test_netbox`.
+Re-run `dev-worktree.sh test` immediately after and it skips the migrations
+and runs the suite in seconds.
 
-**Canonical local test workflow (one run per fresh stack).** The first
-`pytest` run after a fresh `down -v && up --wait` is reliable: Django creates
-`test_netbox`, runs ~200 NetBox migrations (~8-9 min cold), runs the suite,
-then drops `test_netbox`. A *second* `pytest` run against the same stack
-usually fails in ~10s with `database "test_netbox" already exists` / `is being
-accessed by other users` — a granian worker in the same container holds an
-idle connection to `test_netbox` between runs (see the ATW-85 / ATW-188
-troubleshooting section below for the root cause and recovery). So either:
-
-- run `pytest` once per fresh stack (mirrors CI, which does `up --wait` →
-  `exec pytest` → `down -v`), or
-- run the recovery sequence in the ATW-85 section between `pytest` runs.
+Pass extra args through to pytest to override the default command:
 
 ```bash
-# Canonical one-run-per-fresh-stack path (matches CI):
-docker compose -f docker-compose.dev.yml down -v
-docker compose -f docker-compose.dev.yml up -d --wait
-docker compose -f docker-compose.dev.yml exec -w /opt/netbox/netbox/netbox_pyats_src \
-  netbox pytest netbox_pyats/tests -v
-docker compose -f docker-compose.dev.yml down -v
+# force a clean rebuild (drop + recreate test_netbox) when migrations change:
+scripts/dev-worktree.sh test --create-db -v
+# run a single test file:
+scripts/dev-worktree.sh test netbox_pyats/tests/test_models.py
 ```
 
-The `-w /opt/netbox/netbox/netbox_pyats_src` is needed because the container's
-default working dir is `/opt/netbox/netbox` (granian's cwd), not the
-bind-mounted plugin source.
+Use `--create-db` whenever you change a migration or suspect test-DB
+drift — it drops and recreates `test_netbox` from scratch. CI uses
+`--create-db` for every run (one-shot, authoritative pre-merge regression
+pass); local uses `--reuse-db` for velocity.
+
+The `netbox-test` service counts toward `MAX_CONCURRENT_STACKS` while it
+runs ([ATW-356](/ATW/issues/ATW-356)), so two test runs (or a test run + a
+web stack) cannot oversubscribe the host. See [Working in
+parallel](#working-in-parallel).
 
 ## Teardown
 
@@ -337,6 +361,13 @@ the plugin at the same time without colliding. The rules:
   exceed 1 GB under load. Raise it: `NETBOX_MEM=2g docker compose ... up -d`.
 
 ### `test_netbox` already exists / `EOFError` / "terminating connection due to administrator command" (ATW-85)
+
+> **Update (ATW-357):** the `netbox-test` compose service + `--reuse-db`
+> workflow above is the structural fix for this race. Running pytest without
+> granian removes the idle connection that held `test_netbox` between runs.
+> The recovery steps below remain as a fallback for the legacy
+> `docker compose exec netbox pytest` path or a stuck `test_netbox` left by
+> an interrupted run.
 
 Symptom: `docker compose exec netbox pytest ...` (or
 `python manage.py test ...`) fails during test-DB creation with one of:

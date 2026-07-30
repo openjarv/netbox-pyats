@@ -169,6 +169,10 @@ usage: dev-worktree.sh <command> [args]
 
   add <issue-id> <type> <slug>     create a worktree for an issue
   up                               bring up the compose stack in the current worktree
+  test [pytest-args...]            run the integration suite via the netbox-test
+                                   service (--reuse-db keeps test_netbox across
+                                   runs). Requires postgres + redis; starts them
+                                   if needed. ATW-357.
   remove <issue-id>                tear down the worktree + its compose stack
   cleanup                          tear down orphaned/stopped compose stacks (ATW-201)
   audit                            print exposure + cleanup report (ATW-201)
@@ -176,6 +180,8 @@ usage: dev-worktree.sh <command> [args]
 examples:
   dev-worktree.sh add atw-44 chore dev-worktree-helper
   dev-worktree.sh up
+  dev-worktree.sh test                       # --reuse-db netbox_pyats/tests
+  dev-worktree.sh test --create-db -v      # force clean rebuild, verbose
   dev-worktree.sh remove atw-44
   dev-worktree.sh cleanup
   dev-worktree.sh audit
@@ -433,6 +439,62 @@ EOF
         exit 1
       fi
     fi
+  fi
+}
+
+# Run the integration suite via the transient `netbox-test` compose service
+# (ATW-357). The service runs pytest without granian and with --reuse-db so
+# the migrated `test_netbox` schema persists across runs (the ~480s migration
+# cold start is paid once, not every iteration) and the granian-connection
+# race (ATW-85 / ATW-188) cannot occur.
+#
+# Requires postgres + redis (the test service depends_on them). If they are
+# not already running, this starts them with --wait. The web `netbox` service
+# is NOT started — the test lane does not need it, and leaving it down keeps
+# the footprint minimal. If the web stack is already up, the test runs
+# alongside it (the concurrency cap below guards against oversubscription).
+#
+# Extra args after `test` are passed through to pytest, overriding the
+# service's default `--reuse-db netbox_pyats/tests` command. Examples:
+#   dev-worktree.sh test                       # --reuse-db netbox_pyats/tests
+#   dev-worktree.sh test --create-db -v      # force clean rebuild, verbose
+#   dev-worktree.sh test netbox_pyats/tests/test_models.py
+#
+# Runs the container with --rm so it is removed after the run (one-shot). The
+# exit code is pytest's exit code, so CI / scripts can gate on it.
+cmd_test() {
+  [ -f "./.env" ]           || die "no ./.env found — run this from a worktree created by 'dev-worktree.sh add'"
+  [ -f "./docker-compose.dev.yml" ] || die "no ./docker-compose.dev.yml — run this from a worktree root"
+  [ -f "./docker-compose.test.yml" ] || die "no ./docker-compose.test.yml — the test override is required for the test lane (ATW-357)"
+
+  local current_proj
+  current_proj="$(grep -E '^COMPOSE_PROJECT_NAME=' .env | cut -d= -f2-)"
+
+  # OOM guardrail (ATW-201 / ATW-356): the test service counts toward
+  # MAX_CONCURRENT_STACKS while it runs. Check before starting it.
+  enforce_concurrency_cap "$current_proj"
+
+  # Ensure the shared postgres + redis are up and healthy. The test service
+  # depends_on them with service_healthy, but `docker compose run` only starts
+  # dependencies that are not already running — and it does NOT wait for
+  # healthchecks on freshly-started dependencies unless we bring them up with
+  # --wait first. Start them explicitly so the test container does not race a
+  # still-starting postgres.
+  echo "ensuring postgres + redis are up ..."
+  docker compose -f docker-compose.dev.yml -f docker-compose.test.yml \
+    --env-file .env up -d --wait postgres redis
+
+  # Run the one-shot test container. --rm removes it after the run. Pass any
+  # extra args through to pytest (they replace the service's default command).
+  # Use -T to disable TTY allocation (no interactive stdin in CI/agents).
+  if [ $# -gt 0 ]; then
+    echo "running netbox-test with args: $*"
+    docker compose -f docker-compose.dev.yml -f docker-compose.test.yml \
+      --env-file .env run --rm -T netbox-test "$@"
+  else
+    echo "running netbox-test (default: --reuse-db netbox_pyats/tests)"
+    docker compose -f docker-compose.dev.yml -f docker-compose.test.yml \
+      --env-file .env run --rm -T netbox-test
   fi
 }
 
@@ -817,6 +879,7 @@ sub="$1"; shift
 case "$sub" in
   add)     cmd_add "$@" ;;
   up)      cmd_up "$@" ;;
+  test)    cmd_test "$@" ;;
   remove)  cmd_remove "$@" ;;
   cleanup) cmd_cleanup "$@" ;;
   audit)   cmd_audit "$@" ;;
