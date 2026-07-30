@@ -5,7 +5,7 @@
 
 An [Atw](https://github.com/openjarv) [NetBox](https://netbox.dev) plugin that brings [Cisco PyATS / Genie](https://developer.cisco.com/pyats/) into the NetBox UI — dynamic testbed building from the NetBox ORM, plugin-local encrypted credentials, device snapshots stored as JSONB, structured snapshot diffs, and config compliance (golden config vs. snapshot) from the device page.
 
-> **Phase 5 (this release):** everything in Phases 1–4, plus a unified jobs view — `PyatsJob` model tracking every capture / diff / compliance / batch-capture job with typed FKs to the result rows it produced, a batch capture action on the device list (one job → N snapshots with a `supported`/`unsupported`/`errored`/`total` summary and a `partial` status when not every device captured cleanly), and a web-process-safe supported-platforms report (static `PLATFORM_SLUG_TO_PYATS_OS` map, no Genie import). See the [changelog](CHANGELOG.md) for the full feature history.
+> **v0.1** ships capture, diff, and compliance against real devices, with a unified jobs view and batch capture. See the [changelog](CHANGELOG.md) for the full per-phase feature history.
 
 ## At a glance
 
@@ -29,50 +29,32 @@ The diff and compliance views render the same collapsible before/after tree:
 
 **netbox-pyats** turns your NetBox device inventory into a live PyATS testbed — no static YAML testbed to maintain. From each device's page you can capture running-config and state snapshots, diff any two snapshots, and check a captured config against a golden config for compliance. Every snapshot, diff, and compliance run is stored inside NetBox as a first-class record, so you get a permanent, queryable history for pre/post-change checks and config-compliance audits.
 
-Real-world NetBox deployments already have device inventories. PyATS needs a testbed to talk to those devices, but maintaining a static YAML testbed alongside NetBox duplicates the source of truth. `netbox-pyats` builds the testbed directly from the NetBox ORM at runtime — the NetBox device record *is* the testbed.
-
-v0.1 ships:
+v0.1 ships three feature groups — see the [usage guide](docs/user/usage.md) for the full workflow and exact UI paths:
 
 ### Capture
 
-- **`PyatsCredential` model** — plugin-local, Fernet-encrypted device credentials (password + enable secret). Never exposed via REST, GraphQL, or the detail view; only ciphertext is persisted.
-- **`build_testbed(device_qs)`** — constructs a `pyats.topology.Testbed` from a NetBox Device queryset: maps Platform → pyATS `os`, resolves the management IP from `primary_ip4`/`primary_ip6`, attaches the device's `PyatsCredential`, and **flags unsupported platforms gracefully** (`os = "unsupported - no parser"`) rather than crashing batch runs.
-- **`PyatsSnapshot` model + `capture_snapshot` RQ job** — click "Capture snapshot" on a device's PyATS tab and the worker connects via Unicon, runs `device.parse('show running-config')` (config) and/or a small OS-agnostic state command set via `device.parse(...)` (state), and stores the parsed result as JSONB. Devices without Genie parser support are surfaced as `unsupported` in the history (a row is still created) rather than failing the run. Capture errors are recorded as `error` rows with the exception text in `parser_warnings`. Each snapshot also carries `parsed_os` (the pyATS os string used by the capture, e.g. `iosxe`/`iosxr`/`nxos`) so future v2 structured compliance can pick the right Genie parser even after the device row is deleted.
-- **Batch capture** — select a set of devices on the NetBox device list and pick "PyATS capture" from the bulk-action menu; the worker iterates the device set, reuses `build_testbed(on_unsupported="skip")` + `capture_snapshot_for_netbox_device`, and writes one `PyatsSnapshot` per supported device. Unsupported platforms and per-device capture failures are counted (`{supported, unsupported, errored, total}`) and the `PyatsJob` is `partial` when any device did not capture cleanly, `success` when all did. Deleted-between-enqueue-and-run devices are silently skipped.
-- **Supported-platforms report** (`/plugins/pyats/supported-platforms/`) — web-process-safe (no Genie import, per ADR-0001 §6): renders the static `PLATFORM_SLUG_TO_PYATS_OS` map the testbed builder uses, with a per-slug NetBox device count and an "unsupported" + "no platform" summary count so operators can see what a batch capture will reach. Live Genie introspection is v2; v1 ships the static map the capture job actually uses.
-- **Dedicated `pyats` RQ queue + worker** — pyATS/Genie work runs on its own queue (declared via `NetBoxPyATSConfig.queues`), isolated from NetBox's default workers. The default NetBox worker does not need pyATS installed; run a second worker pointed at `pyats` (see `dev/Dockerfile.pyats-worker` and [docs/user/workers.md](docs/user/workers.md)). Captures, diffs, and compliance checks all enqueue on the `pyats` queue, so a single worker pointed at `pyats` services all of them. See [Why a worker?](#why-a-worker) below for the new-user explanation, and [Worker deployment](docs/user/workers.md) for the full setup.
+- **Encrypted device credentials** — plugin-local, Fernet-encrypted `PyatsCredential` model (password + enable secret); never exposed via REST, GraphQL, or the detail view.
+- **Dynamic testbed from NetBox** — `build_testbed(device_qs)` maps Platform → pyATS `os`, resolves the management IP, attaches the credential, and flags unsupported platforms gracefully.
+- **Snapshot capture** — `PyatsSnapshot` + `capture_snapshot` RQ job; click "Capture snapshot" on a device's PyATS tab to capture config and/or state via Genie parsers, stored as JSONB.
+- **Batch capture** — bulk-action on the device list; one job → N snapshots with a `supported`/`unsupported`/`errored`/`total` summary and a `partial` status when not every device captured cleanly.
+- **Supported-platforms report** — `/plugins/pyats/supported-platforms/` shows the static platform → pyATS os map with per-slug device counts.
+- **Dedicated `pyats` RQ queue + worker** — pyATS/Genie work runs on its own queue, isolated from NetBox's default workers. The default NetBox worker does not need pyATS installed; run a second worker pointed at `pyats` (see [Worker deployment](docs/user/workers.md)).
 
 ### Compare
 
-- **`PyatsSnapshotDiff` model + `run_diff` RQ job** — pick any two snapshots of the same device from the PyATS tab and the worker runs a structured recursive diff over their JSONB `data`, storing the diff tree + a flat summary (added/removed/changed/unchanged counts) as a `PyatsSnapshotDiff` row. The diff engine is pure-Python (no Genie needed — the snapshots are already-serialized JSONB, so `Genie.diff` isn't applicable); it degrades gracefully (empty inputs → `status="empty"`, malformed inputs → `status="error"` with a warning, row always created).
-- **Diff viewer** (`/plugins/pyats/diffs/<pk>/`) — server-rendered collapsible `<details>` tree (no JS): changed subtrees open by default, unchanged ones collapsed; before/after values shown side-by-side for changed leaves; raw-JSON fallback; summary badges; parser warnings.
+- **Snapshot diffs** — `PyatsSnapshotDiff` + `run_diff` RQ job; structured recursive diff over JSONB with a server-rendered collapsible tree viewer (no JS).
+- **Diff viewer** — `/plugins/pyats/diffs/<pk>/`; before/after side-by-side for changed leaves, summary badges, raw-JSON fallback.
 
 ### Compliance & Jobs
 
-- **`PyatsGoldenConfig` model** — an operator-authored "expected" running-config for a NetBox device (typed/pasted as free text, or promoted from a known-good snapshot). Multiple goldens per device are allowed (e.g. `baseline`, `post-maintenance-window`). The `source` field records provenance (`manual` vs. `snapshot`) so the compliance history can trace back to the originating snapshot. Fully editable via REST in v1 (operators can seed goldens from an external config-management tool).
-- **`PyatsComplianceRun` model + `run_compliance` RQ job** — from the device-page PyATS tab, pick a golden config and a captured config/full snapshot; the worker extracts the golden `config_text` and the snapshot's raw `data["config_raw"]` running-config text, diffs them line-by-line (line-set diff), and classifies the outcome as `compliant` (no added/removed lines), `drift` (any divergence), or `error` (missing/empty golden, no raw config on the snapshot, unsupported snapshot, etc.). The run row stores the diff tree + summary counts + warnings and is **always created** so the operator sees the outcome in-line. v1 is order-independent (a re-ordered config is still compliant); ordered/structured compliance rules (e.g. "interface X must have MTU 1500") are deferred to v2.
-- **Compliance-run viewer** (`/plugins/pyats/compliance-runs/<pk>/`) — reuses the diff-tree partial so the same collapsible before/after tree renders the golden-vs-snapshot divergence, with a result badge (compliant / drift / error), drift indicator, and any warnings.
-- **`PyatsJob` model + unified jobs view** (`/plugins/pyats/jobs/`) — one plugin-scoped row per capture / diff / compliance / batch-capture job, with typed FKs to the result row it produced (`related_snapshot` / `related_diff` / `related_compliance`), a `pending` → `running` → `success` / `error` / `partial` status lifecycle, an `error` TextField for the swallowed-exception path (no result row written), and a `summary` JSONField for batch counts. Bridges NetBox's `core.Job` (which is purged on retention) and the plugin's result rows (which survive). Filterable by type / status / device; read-only via REST and GraphQL; append-only history (no edit view, standard delete only). See [ADR-0005](docs/adr/0005-pyatsjob-model.md).
-- **CRUD + REST** for credentials, snapshots, diffs, golden configs, and compliance runs, all under `/plugins/pyats/`, plus **GraphQL** types for credentials, snapshots, diffs, and jobs (GraphQL for golden configs and compliance runs is deferred — see the [changelog](CHANGELOG.md)). (Snapshots, diffs, compliance runs, and jobs are read-only in v1; credentials and golden configs are fully editable.)
+- **Golden configs** — `PyatsGoldenConfig` model; operator-authored expected running-config (typed or promoted from a known-good snapshot), multiple goldens per device, fully editable via REST in v1.
+- **Compliance runs** — `PyatsComplianceRun` + `run_compliance` RQ job; line-by-line diff of golden vs. snapshot raw config, classified as `compliant` / `drift` / `error`.
+- **Unified jobs view** — `PyatsJob` model at `/plugins/pyats/jobs/`; one row per capture / diff / compliance / batch-capture job with typed links to its result row and a `pending` → `running` → `success` / `error` / `partial` lifecycle.
+- **CRUD + REST + GraphQL** for credentials, snapshots, diffs, golden configs, compliance runs, and jobs — all under `/plugins/pyats/`. See the [usage guide](docs/user/usage.md#rest-and-graphql) for the REST/GraphQL matrix.
 
 ### Device-page UI
 
-- **Device-page "PyATS" tab** — capture button (config / state / full), recent-snapshot history with status badges and a warnings indicator, "Diff two snapshots" picker (offered when the device has ≥2 snapshots), a "Run compliance" picker (offered when the device has ≥1 golden config and ≥1 config/full snapshot), and recent-diffs / recent-compliance-runs lists with status/result badges.
-
-## Why a worker?
-
-Most NetBox plugins install and go — the web process is all you need. **netbox-pyats is different:** it puts Cisco PyATS / Genie to work against your real devices, and that work needs a **second worker** alongside NetBox's default one.
-
-A quick orientation: NetBox runs background jobs on an RQ queue, serviced by a worker process. Most plugins just hand jobs to NetBox's default worker and you never think about it. `netbox-pyats` needs its own worker for two reasons:
-
-- **PyATS / Genie is heavy.** `pyats[full]` pulls Cython binaries, Genie parser packages, and Unicon connection plugins that the default NetBox worker container deliberately does not carry. The NetBox web process imports the plugin *without* pyats installed; the part of the plugin that builds device connections imports pyATS lazily, only on the worker.
-- **Captures talk to real devices.** Each snapshot opens an outbound SSH/Telnet session and runs Genie parsers (`show running-config` plus a small state command set), which can take tens of seconds per device. Running that on NetBox's default queue would block NetBox's own housekeeping (datasource syncs, changelog pruning) behind slow device captures.
-
-So the plugin declares its own **`pyats` queue** (via `NetBoxPyATSConfig.queues`) and runs captures, diffs, and compliance checks on it, isolated from NetBox's default workers. You run a second worker pointed at `pyats` only; the default worker keeps serving NetBox's own queue.
-
-> ⚠️ **A capture will not run without a `pyats` worker.** Clicking **Capture snapshot** enqueues a job on the `pyats` queue; with no worker on that queue the job shows as **Pending** in the PyATS Jobs list and the snapshot never appears — there is no error, it just never progresses. Start a worker with `python manage.py rqworker pyats` (with `pyats[full]` installed) in your NetBox worker container/service, then click Capture again. See [Worker deployment](docs/user/workers.md) for the docker form.
-
-The full setup — bare-metal and docker-compose — is in [Worker deployment](docs/user/workers.md).
+- **Device-page "PyATS" tab** — capture button (config / state / full), recent-snapshot history with status badges, "Diff two snapshots" picker (≥2 snapshots), "Run compliance" picker (≥1 golden + ≥1 config/full snapshot), and recent-diffs / recent-compliance-runs lists.
 
 ## Compatibility matrix
 
@@ -80,35 +62,16 @@ The full setup — bare-metal and docker-compose — is in [Worker deployment](d
 |-------------|--------|--------|------------|----------------|-------|
 | 0.1.x (Phases 1–5) | 4.6.x  | 3.10, 3.11, 3.12 | 15, 16, 17, 18 | Redis 6, Redis 7, Valkey 9.1 | 26.x (worker only) |
 
-The plugin targets NetBox 4.6+ (current: 4.6.5). `pyats[full]` is **not** an install-time dependency — it is heavy and pulls Cython binaries that may not match every NetBox deployment. Install it on the worker that runs snapshots (see `pip install netbox-pyats[pyats]` or the [worker docs](docs/user/workers.md)). The NetBox web process imports the plugin without pyats installed; the testbed builder imports pyATS lazily. The diff and compliance engines are pure-Python and need no pyATS.
-
-> **Note on the community Docker image:** `netboxcommunity/netbox:4.6.x` ships Python 3.14 (Ubuntu 26.04). The plugin and its migrations apply cleanly against that image (verified on `v4.6-5.0.2`). The pyats worker image needs `python3.14-dev` + `gcc` to compile `ruamel-yaml-clib` against Python 3.14 — `dev/Dockerfile.pyats-worker` installs them as a dev-only build step. See [ADR-0003](docs/adr/0003-netbox46-migration-and-worker-toolchain.md) for the rationale.
-
-CI runs the integration suite against the default backend versions (PostgreSQL 18 + Valkey 9.1) on every PR (see [CI docs](docs/developer/ci.md)). The backend-version sweep was collapsed to a single cell: the plugin has no direct PostgreSQL or Redis surface, so sweeping backend versions tests NetBox's infrastructure rather than the plugin.
+The plugin targets NetBox 4.6+ (current: 4.6.5). `pyats[full]` is **not** an install-time dependency — install it on the worker that runs snapshots only (see `pip install netbox-pyats[pyats]` or the [worker docs](docs/user/workers.md)). The NetBox web process imports the plugin without pyats installed; the diff and compliance engines are pure-Python and need no pyATS.
 
 ## Documentation
 
-Full documentation lives under [docs/](docs/README.md). The quick paths:
-
-**For operators (running the plugin in NetBox):**
+Full documentation lives under [docs/](docs/README.md) — operator guides, contributor setup, CI, ADRs, and the changelog. The quick paths:
 
 - [Installation](docs/user/installation.md) — install, configure NetBox, first capture.
 - [Usage guide](docs/user/usage.md) — the capture → diff → compliance workflow with exact UI paths.
-- [PyATS worker deployment](docs/user/workers.md) — the dedicated `pyats` RQ queue.
-- [Upgrade guide](docs/user/upgrade.md) — upgrade the plugin, upgrade NetBox with the plugin installed, keep the pyats worker aligned.
-- [Credential encryption](docs/user/credentials.md) — how secrets are protected and rotated.
-- [Compliance engine](docs/user/compliance.md) — what the golden-config check classifies and why.
+- [PyATS worker deployment](docs/user/workers.md) — the dedicated `pyats` RQ queue (required).
 - [Troubleshooting](docs/user/troubleshooting.md) — operator-facing fixes for common failure modes.
-
-**For contributors (developing the plugin):**
-
-- [Contributing guide](docs/developer/contributing.md) — local dev setup, tests, lint, conventions.
-- [Dev environment bring-up](docs/developer/setup.md) — the single safe path to start the dev stack.
-- [CI](docs/developer/ci.md) — the three CI lanes and what each one enforces.
-- [Graphify](docs/developer/graphify.md) — the committed code graph and how to query it.
-- [Graphify MCP](docs/developer/graphify-mcp.md) — stdio vs HTTP MCP transports for the graph server.
-- [Graphify MCP HTTP runbook](docs/developer/graphify-mcp-http.md) — multi-host / shared-service bring-up.
-- [Architecture Decision Records](docs/adr/README.md) — the locked structural decisions.
 
 ## Quick install
 
@@ -144,7 +107,7 @@ python manage.py migrate
 sudo systemctl restart netbox netbox-rq
 ```
 
-> ⚠️ **First capture needs the `pyats` worker running.** Without it the capture job sits on the `pyats` queue and the snapshot never appears — see [Why a worker?](#why-a-worker) above and [Worker deployment](docs/user/workers.md) for how to start one.
+> ⚠️ **First capture needs the `pyats` worker running.** Without it the capture job sits on the `pyats` queue and the snapshot never appears — there is no error, it just never progresses. Start a worker with `python manage.py rqworker pyats` (with `pyats[full]` installed) in your NetBox worker container/service, then click Capture again. See [Worker deployment](docs/user/workers.md) for the docker form and full setup.
 
 The full install + first-capture walkthrough (including the pyats worker setup) is in [docs/user/installation.md](docs/user/installation.md).
 
