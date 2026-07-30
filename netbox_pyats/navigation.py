@@ -38,16 +38,6 @@ menu_items = [
         permissions=["netbox_pyats.view_pyatsjob"],
     ),
     PluginMenuItem(
-        link="plugins:netbox_pyats:pyatscompliancerun_list",
-        link_text=_("PyATS Compliance Runs"),
-        permissions=["netbox_pyats.view_pyatscompliancerun"],
-    ),
-    PluginMenuItem(
-        link="plugins:netbox_pyats:pyatsjob_list",
-        link_text=_("PyATS Jobs"),
-        permissions=["netbox_pyats.view_pyatsjob"],
-    ),
-    PluginMenuItem(
         link="plugins:netbox_pyats:supported_platforms",
         link_text=_("Supported Platforms"),
         permissions=["netbox_pyats.view_pyatsjob"],
