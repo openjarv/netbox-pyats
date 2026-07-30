@@ -21,8 +21,21 @@ Pure-Python tests on the compatibility-matrix Python versions (3.10 / 3.11 / 3.1
 ```bash
 pip install -e ".[dev]" "pyats[full]>=26.0"
 pytest netbox_pyats/tests/test_crypto.py netbox_pyats/tests/test_testbed.py \
-       netbox_pyats/tests/test_diff.py netbox_pyats/tests/test_compliance.py
+       netbox_pyats/tests/test_diff.py netbox_pyats/tests/test_capture.py \
+       netbox_pyats/tests/test_compliance.py netbox_pyats/tests/test_supported_platforms.py \
+       netbox_pyats/tests/test_graphify_scrub_guard.py \
+       netbox_pyats/tests/test_pr_body_scrub_guard.py \
+       netbox_pyats/tests/test_secret_detection.py
 ```
+
+The CI `unit` lane runs the five logic-core modules (`test_diff`,
+`test_testbed`, `test_capture`, `test_compliance`, `test_crypto`) plus the
+repo-hygiene pure-Python guards (`test_supported_platforms`,
+`test_graphify_scrub_guard`, `test_pr_body_scrub_guard`,
+`test_secret_detection`). Locally, `scripts/test-unit.sh` (or
+`make test-unit`) runs just the five logic-core modules — see
+[setup.md — Test lane split](setup.md#test-lane-split) for the decision
+rule and how to keep the split clean.
 
 This is the lane that enforces the Python-version matrix on every PR.
 
