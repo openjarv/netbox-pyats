@@ -296,11 +296,17 @@ the plugin at the same time without colliding. The rules:
 - **One worktree per issue.** Create it with `dev-worktree.sh add` before any
   repo work; remove it with `dev-worktree.sh remove` when the issue is
   `done`/`cancelled`. Don't leave orphan worktrees around.
-- **Cap of 3 concurrent active worktrees.** Each worktree runs its own full
-  NetBox stack (postgres, redis, netbox, two workers) with per-service resource
-  caps from [ATW-35](/ATW/issues/ATW-35). 3 stacks × ~4.75 GB of caps only peaks
-  that high if every service is loaded at once; in practice postgres/redis are
-  idle. If the host is tight, drop to 2. Bump the cap with CEO sign-off.
+- **Cap of 1 concurrent active worktree stack.** Each worktree runs its own
+  full NetBox stack (postgres, redis, netbox, two workers) with per-service
+  resource caps from [ATW-35](/ATW/issues/ATW-35). One stack is ~5.7 GiB of
+  `mem_limit`; the host has 7.8 GiB RAM + 2 GiB swap, so 2 concurrent stacks
+  (11.4 GiB) exceed total memory and guarantee OOM. The source of truth is
+  `MAX_CONCURRENT_STACKS` in `scripts/dev-worktree.sh` (currently 1); this doc
+  previously said 3, which was stale. Bump the cap only with CEO sign-off and
+  only on a host with more RAM. The transient `netbox-test` service
+  ([ATW-357](/ATW/issues/ATW-357)) also counts toward this cap while it runs,
+  so two test runs (or a test run + a web stack) cannot oversubscribe the host
+  ([ATW-356](/ATW/issues/ATW-356)).
 - **Port pool 8001..8010.** `dev-worktree.sh add` scans
   `/home/hermes/netbox-pyats-wt/*/.dev-port` for claimed ports and picks the
   next free one. If the pool is exhausted, the script fails loud — clean up

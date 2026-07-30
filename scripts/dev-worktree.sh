@@ -87,6 +87,11 @@ PORT_MAX=8010
 # mem_limit, so 2 concurrent stacks guarantee OOM. Override to 2+ only on a
 # host with more RAM. The guardrail counts running containers labelled as
 # netbox dev compose projects — it does not count stopped stacks.
+#
+# The cap also covers the transient `netbox-test` service (ATW-356): while a
+# test run is in flight it occupies a stack slot so two test runs (or a test
+# run + a web stack) cannot oversubscribe the host. The test service runs to
+# completion and exits, so it only counts while actually running.
 MAX_CONCURRENT_STACKS="${MAX_CONCURRENT_STACKS:-1}"
 
 die() { echo "error: $*" >&2; exit 1; }
@@ -122,6 +127,22 @@ NETBOX_PROJECT_ALT='netbox-pyats|[Aa][Tt][Ww]-?[0-9]+|[0-9]+'
 # List running compose project names that look like netbox dev stacks.
 running_netbox_projects() {
   docker ps --format '{{.Label "com.docker.compose.project"}}' 2>/dev/null \
+    | grep -E "$NETBOX_PROJECT_RE" \
+    | sort -u || true
+}
+
+# List running compose project names that have a `netbox-test` service container
+# (ATW-356). The netbox-test service is a transient one-shot pytest runner
+# defined in docker-compose.test.yml; while it runs it must count toward
+# MAX_CONCURRENT_STACKS so two test runs cannot oversubscribe the host. We
+# detect it by the `com.docker.compose.service` label being `netbox-test`,
+# filtered to the same netbox project-name regex so an unrelated project that
+# happens to name a service `netbox-test` is not swept in. Returns the project
+# names (deduped) so the caller can subtract the current project and count the
+# rest toward the cap.
+running_netbox_test_projects() {
+  docker ps --filter "label=com.docker.compose.service=netbox-test" \
+    --format '{{.Label "com.docker.compose.project"}}' 2>/dev/null \
     | grep -E "$NETBOX_PROJECT_RE" \
     | sort -u || true
 }
@@ -352,21 +373,55 @@ cmd_up() {
   local port
   port="$(grep -E '^NETBOX_PORT=' .env | cut -d= -f2-)"
 
-  # OOM guardrail (ATW-201): refuse to start a new stack if another netbox dev
-  # stack is already running and we're at the concurrency cap. Each stack is
-  # ~5.7 GiB of mem_limit; the host has 7.8 GiB RAM + 2 GiB swap, so 2
-  # concurrent stacks guarantee OOM.
+  # OOM guardrail (ATW-201 / ATW-356): refuse to start a new stack if another
+  # netbox dev stack — including a transient netbox-test run — is already
+  # running and we're at the concurrency cap. Each stack is ~5.7 GiB of
+  # mem_limit; the host has 7.8 GiB RAM + 2 GiB swap, so 2 concurrent stacks
+  # guarantee OOM. The netbox-test service (ATW-357) is a one-shot pytest
+  # runner that shares the worktree's compose project; while it runs it
+  # occupies a stack slot so two test runs cannot oversubscribe the host.
   local current_proj
   current_proj="$(grep -E '^COMPOSE_PROJECT_NAME=' .env | cut -d= -f2-)"
+  enforce_concurrency_cap "$current_proj"
+
+  echo "bringing up compose stack on 127.0.0.1:$port ..."
+  docker compose -f docker-compose.dev.yml --env-file .env up -d
+  echo
+  echo "netbox: http://localhost:$port  (admin / admin)"
+}
+
+# Concurrency-cap guardrail (ATW-201 / ATW-356). Counts every running netbox
+# dev compose project — including any project that has a running netbox-test
+# container — toward MAX_CONCURRENT_STACKS, then refuses to proceed if the
+# number of *other* projects (excluding the current one) is already at the cap.
+# Shared by cmd_up and (via cmd_test in ATW-357) the test lane so a test run
+# cannot bypass the cap and two test runs cannot oversubscribe the host.
+#
+# Args: $1 = the current worktree's COMPOSE_PROJECT_NAME (excluded from the
+# count so bringing up / re-upping the same project does not trip the guard).
+enforce_concurrency_cap() {
+  local current_proj="${1:-}"
+  # Union of running netbox dev projects and projects with a running
+  # netbox-test container. running_netbox_projects already catches a
+  # netbox-test container that shares a project with a web stack (same
+  # com.docker.compose.project label), but running_netbox_test_projects
+  # is the belt-and-braces path for a standalone test-only project that
+  # may not surface through the project-name regex alone. Dedupe via sort -u.
   local running
-  running="$(running_netbox_projects | grep -vxF "$current_proj" || true)"
+  running="$(printf '%s\n%s\n' \
+    "$(running_netbox_projects)" \
+    "$(running_netbox_test_projects)" \
+    | awk 'NF' | sort -u)"
   if [ -n "$running" ]; then
-    local count
-    count="$(printf '%s\n' "$running" | wc -l)"
-    if [ "$count" -ge "$MAX_CONCURRENT_STACKS" ]; then
-      echo "error: $count other netbox dev stack(s) already running:" >&2
-      printf '  - %s\n' $running >&2
-      cat >&2 <<EOF
+    local running_excluded
+    running_excluded="$(printf '%s\n' "$running" | grep -vxF "$current_proj" || true)"
+    if [ -n "$running_excluded" ]; then
+      local count
+      count="$(printf '%s\n' "$running_excluded" | wc -l)"
+      if [ "$count" -ge "$MAX_CONCURRENT_STACKS" ]; then
+        echo "error: $count other netbox dev stack(s) already running (including netbox-test runs):" >&2
+        printf '  - %s\n' $running_excluded >&2
+        cat >&2 <<EOF
   Host has 7.8 GiB RAM + 2 GiB swap; one stack ≈ 5.7 GiB mem_limit.
   $((count + 1)) concurrent stacks would exceed total memory and OOM.
 
@@ -375,14 +430,10 @@ cmd_up() {
   Or override (dangerous on this host):
     MAX_CONCURRENT_STACKS=$((count + 1)) scripts/dev-worktree.sh up
 EOF
-      exit 1
+        exit 1
+      fi
     fi
   fi
-
-  echo "bringing up compose stack on 127.0.0.1:$port ..."
-  docker compose -f docker-compose.dev.yml --env-file .env up -d
-  echo
-  echo "netbox: http://localhost:$port  (admin / admin)"
 }
 
 # Reclaim root-owned bind-mount artifacts in a worktree directory by chowning
