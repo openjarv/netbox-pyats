@@ -116,9 +116,7 @@ def test_get_extra_context_injects_base_template():
     tree = ast.parse(_VIEWS.read_text())
     cls = next(node for node in ast.walk(tree) if isinstance(node, ast.ClassDef) and node.name == "DevicePyATSTabView")
     method = next(node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name == "get_extra_context")
-    return_node = next(
-        node for node in ast.walk(method) if isinstance(node, ast.Return) and node.value is not None
-    )
+    return_node = next(node for node in ast.walk(method) if isinstance(node, ast.Return) and node.value is not None)
     value = return_node.value
     assert isinstance(value, ast.Dict), "get_extra_context must return a dict literal"
     key_strs = [k.value for k in value.keys if isinstance(k, ast.Constant)]
