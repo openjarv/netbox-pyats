@@ -93,15 +93,17 @@ class TestGroupSnapshotsByKind:
 
 pytest.importorskip("netbox")
 
-from unittest import mock  # noqa: E402
-
-from django.shortcuts import render  # noqa: E402
-from django.test import RequestFactory  # noqa: E402
+from django.template.loader import render_to_string  # noqa: E402
 
 
 class TestDeviceTabTemplateOptgroup:
     """Render the device-tab diff-picker partial and assert the ATW-252
     contract: one <optgroup> per present kind, helper text mentions same-kind.
+
+    Uses a minimal stub base template (``netbox_pyats/test/minimal_base.html``)
+    instead of ``dcim/device/base.html`` so the render doesn't need a full
+    NetBox request context (auth middleware, context processors, model meta).
+    The diff-picker HTML is identical regardless of the base template.
     """
 
     def test_template_renders_optgroup_per_kind_and_helper_text(self):
@@ -121,31 +123,27 @@ class TestDeviceTabTemplateOptgroup:
 
         snaps = [Snap(1, kind_a), Snap(2, kind_a), Snap(3, kind_b)]
         diff_snapshots_by_kind = group_snapshots_by_kind(snaps)
-        # device_tab.html extends dcim/device/base.html, which triggers NetBox
-        # context processors that read request.user, request.settings, etc.
-        # Use render() with a RequestFactory request that has a mocked user
-        # so the context processors don't AttributeError.
-        request = RequestFactory().get("/dummy/")
-        request.user = mock.Mock(is_authenticated=False, config={})
-        ctx = {
-            "snapshots": snaps,
-            "diff_snapshots_by_kind": diff_snapshots_by_kind,
-            "diffs": [],
-            "golden_configs": [],
-            "compliance_runs": [],
-            "config_snapshots": [],
-            "snapshot_kinds": SnapshotKindChoices.choices,
-            "platform_supported": True,
-            "pyats_os": "iosxe",
-            "capture_url": "/capture/",
-            "diff_url": "/diff/",
-            "compliance_url": "/compliance/",
-            "snapshot_list_url": "/snapshots/",
-            "parse_url": "/parse/",
-            "base_template": "dcim/device/base.html",
-            "object": None,
-        }
-        html = render(request, "netbox_pyats/inc/device_tab.html", ctx)
+        html = render_to_string(
+            "netbox_pyats/inc/device_tab.html",
+            {
+                "snapshots": snaps,
+                "diff_snapshots_by_kind": diff_snapshots_by_kind,
+                "diffs": [],
+                "golden_configs": [],
+                "compliance_runs": [],
+                "config_snapshots": [],
+                "snapshot_kinds": SnapshotKindChoices.choices,
+                "platform_supported": True,
+                "pyats_os": "iosxe",
+                "capture_url": "/capture/",
+                "diff_url": "/diff/",
+                "compliance_url": "/compliance/",
+                "snapshot_list_url": "/snapshots/",
+                "parse_url": "/parse/",
+                "base_template": "netbox_pyats/test/minimal_base.html",
+                "object": None,
+            },
+        )
         # One <optgroup> per present kind, per <select> (before + after = 2
         # selects x 2 kinds = 4 optgroups total).
         assert html.count("<optgroup") == 4
