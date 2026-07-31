@@ -12,7 +12,7 @@ From a device's **PyATS** tab → **Run compliance** picker (shown when the devi
 4. classifies the outcome,
 5. persists a `PyatsComplianceRun` row with the diff tree + summary counts + warnings.
 
-The row is **always created**, even on `error`, so the outcome is visible in-line in the device-page PyATS tab and under **Plugins → PyATS → PyATS Compliance Runs**.
+The row is **always created**, even on `error`, so the outcome is visible in-line in the device-page PyATS tab and under **PyATS → PyATS Compliance Runs**.
 
 ## Classification
 

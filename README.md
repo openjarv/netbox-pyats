@@ -9,13 +9,13 @@ An [Atw](https://github.com/openjarv) [NetBox](https://netbox.dev) plugin that b
 
 ## At a glance
 
-Once installed, the plugin lives under **Plugins → PyATS** in the NetBox navigation menu, and every device page gains a **PyATS** tab.
+Once installed, the plugin has its own top-level **PyATS** entry in the NetBox navigation menu, and every device page gains a **PyATS** tab.
 
 <p align="center">
-  <img src="docs/screenshots/nav-pyats-menu.png" alt="NetBox navigation menu with the Plugins → PyATS submenu expanded" width="45%">&nbsp;&nbsp;
+  <img src="docs/screenshots/nav-pyats-menu.png" alt="NetBox navigation menu with the top-level PyATS menu expanded, showing grouped entries" width="45%">&nbsp;&nbsp;
   <img src="docs/screenshots/device-pyats-tab.png" alt="A device's PyATS tab showing the capture form and recent-snapshot history with status badges" width="45%">
 </p>
-<p align="center"><em>Left: the PyATS entry under Plugins in the NetBox nav. Right: the device-page PyATS tab — capture form and recent snapshots with status badges.</em></p>
+<p align="center"><em>Left: the top-level PyATS menu in the NetBox nav. Right: the device-page PyATS tab — capture form and recent snapshots with status badges.</em></p>
 
 The diff and compliance views render the same collapsible before/after tree:
 

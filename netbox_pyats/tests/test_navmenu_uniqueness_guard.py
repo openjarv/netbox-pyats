@@ -9,10 +9,14 @@ by ATW-237:
    plugin test suite never asserted link uniqueness over the menu list. This
    guard parses ``navigation.py`` via AST (so it runs in the fast pure-Python
    pytest lane without importing ``netbox.plugins``) and asserts that each
-   ``PluginMenuItem(link=...)`` link target is unique within ``menu_items``,
-   that ``menu_items`` is a non-empty list literal, and that the canonical
+   ``PluginMenuItem(link=...)`` link target is unique across the whole menu,
+   that the top-level ``menu`` is a ``PluginMenu`` with a non-empty
+   ``groups`` tuple of ``(label, items)`` pairs, and that the canonical
    ordering ends with the static ``supported_platforms`` report (the only
-   non-model menu entry, per ADR-0001 §3 / ATW-83).
+   non-model menu entry, per ADR-0001 §3 / ATW-83). ATW-382 moved the nav from
+   a flat ``menu_items`` list (nested under Plugins) to a top-level
+   ``PluginMenu``; the guard was updated to walk the new structure without
+   weakening the invariants.
 
 2. **GraphQL schema completeness vs docs.** ``docs/user/usage.md`` §"REST and
    GraphQL" claims a GraphQL type for ``PyatsCredential``, ``PyatsSnapshot``,
@@ -37,11 +41,24 @@ MODELS = PLUGIN / "models.py"
 USAGE_DOC = PLUGIN.parent / "docs" / "user" / "usage.md"
 
 
-def _extract_menu_links() -> list[tuple[str, str]]:
-    """Return ``[(link, link_text), ...]`` parsed from ``menu_items``.
+def _extract_menu_item_kwargs(call_node) -> tuple[str, str]:
+    """Return ``(link, link_text)`` from a ``PluginMenuItem(...)`` call."""
+    if not isinstance(call_node, ast.Call):
+        raise AssertionError(f"menu entry is not a Call: {ast.dump(call_node)}")
+    kw = {k.arg: k.value for k in call_node.keywords}
+    return _str_kw(kw.get("link")), _str_kw(kw.get("link_text"))
 
-    Walks the AST rather than importing the module so the test runs without
-    ``netbox.plugins`` available (the fast pytest lane).
+
+def _extract_menu_links() -> list[tuple[str, str]]:
+    """Return ``[(link, link_text), ...]`` parsed from the top-level ``menu``.
+
+    Walks the AST of ``navigation.py`` and flattens the ``PluginMenu.groups``
+    structure — a tuple of ``(group_label, (PluginMenuItem(...), ...))``
+    pairs — into an ordered list of ``(link, link_text)`` tuples. The order
+    is the in-source declaration order, so the "ends with supported_platforms"
+    invariant is checked against the real last item. Walks the AST rather
+    than importing the module so the test runs without ``netbox.plugins``
+    available (the fast pytest lane).
     """
     tree = ast.parse(NAV.read_text(), filename=str(NAV))
     links: list[tuple[str, str]] = []
@@ -49,21 +66,29 @@ def _extract_menu_links() -> list[tuple[str, str]]:
         if not isinstance(node, ast.Assign):
             continue
         for target in node.targets:
-            if not (isinstance(target, ast.Name) and target.id == "menu_items"):
+            if not (isinstance(target, ast.Name) and target.id == "menu"):
                 continue
-            if not isinstance(node.value, ast.List):
-                raise AssertionError(
-                    "navigation.menu_items must be a list literal, got " f"{type(node.value).__name__}"
-                )
-            for elt in node.value.elts:
-                if not isinstance(elt, ast.Call):
-                    raise AssertionError(f"menu_items entry is not a Call: {ast.dump(elt)}")
-                kw = {k.arg: k.value for k in elt.keywords}
-                link = _str_kw(kw.get("link"))
-                text = _str_kw(kw.get("link_text"))
-                links.append((link, text))
+            call = node.value
+            if not isinstance(call, ast.Call):
+                raise AssertionError("navigation.menu must be a PluginMenu(...) call")
+            # PluginMenu(label=..., groups=..., icon_class=...) — find groups.
+            kw = {k.arg: k.value for k in call.keywords}
+            groups_node = kw.get("groups")
+            if groups_node is None and call.args and len(call.args) >= 2:
+                groups_node = call.args[1]
+            if not isinstance(groups_node, ast.Tuple):
+                raise AssertionError("PluginMenu groups must be a tuple literal")
+            for group in groups_node.elts:
+                if not isinstance(group, ast.Tuple) or len(group.elts) != 2:
+                    raise AssertionError("each PluginMenu group must be a (label, items) pair")
+                items_node = group.elts[1]
+                if not isinstance(items_node, ast.Tuple):
+                    raise AssertionError("group items must be a tuple of PluginMenuItem calls")
+                for elt in items_node.elts:
+                    link, text = _extract_menu_item_kwargs(elt)
+                    links.append((link, text))
     if not links:
-        raise AssertionError("no menu_items list assignment found in navigation.py")
+        raise AssertionError("no menu PluginMenu assignment found in navigation.py")
     return links
 
 
@@ -120,11 +145,11 @@ DEFERRED_GRAPHQL_MODELS = {"PyatsGoldenConfig", "PyatsComplianceRun"}
 
 
 class NavMenuUniquenessGuard(unittest.TestCase):
-    """C1 regression guard: navigation.menu_items must have unique links."""
+    """C1 regression guard: navigation menu items must have unique links."""
 
     def test_menu_items_is_non_empty(self):
         links = _extract_menu_links()
-        self.assertGreater(len(links), 0, "menu_items must not be empty")
+        self.assertGreater(len(links), 0, "menu must not be empty")
 
     def test_menu_links_are_unique(self):
         links = _extract_menu_links()
@@ -135,8 +160,7 @@ class NavMenuUniquenessGuard(unittest.TestCase):
         self.assertEqual(
             dupes,
             {},
-            f"duplicate PluginMenuItem link targets in menu_items: {dupes} "
-            "(regression class fixed in 98a9b70 / PR #79)",
+            f"duplicate PluginMenuItem link targets in menu: {dupes} " "(regression class fixed in 98a9b70 / PR #79)",
         )
 
     def test_menu_texts_are_unique(self):
@@ -149,19 +173,19 @@ class NavMenuUniquenessGuard(unittest.TestCase):
         self.assertEqual(
             dupes,
             {},
-            f"duplicate PluginMenuItem link_text in menu_items: {dupes}",
+            f"duplicate PluginMenuItem link_text in menu: {dupes}",
         )
 
     def test_canonical_ordering_ends_with_supported_platforms(self):
         """The static supported-platforms report is the final menu entry.
 
         Per ADR-0001 §3 / ATW-83 it is the only non-model menu entry and
-        conventionally closes the menu list.
+        conventionally closes the menu.
         """
         links = _extract_menu_links()
         self.assertTrue(
             links[-1][0].endswith(":supported_platforms"),
-            f"menu_items must end with the supported_platforms link, got {links[-1]}",
+            f"menu must end with the supported_platforms link, got {links[-1]}",
         )
 
 

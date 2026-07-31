@@ -43,7 +43,7 @@ The plugin upgrade mirrors the standard NetBox package-upgrade flow: update the 
    ```
    Restart the worker process (`python manage.py rqworker pyats`, or restart the container if you run the shipped image). If the new plugin version raised the `pyats` extra's minimum, this command pulls the new pyATS automatically; otherwise pyATS is unchanged.
 4. **Verify:**
-   - **Plugins → PyATS** loads in the web UI.
+   - **PyATS** loads in the web UI.
    - A test capture runs (open a device → **PyATS** tab → **Capture**).
    - The pyats worker shows on the `pyats` queue in **Operations → Background Tasks → Workers**.
 
