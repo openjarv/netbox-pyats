@@ -98,3 +98,31 @@ def test_device_tab_template_has_no_card_chrome():
     tmpl = (_TEMPLATES / "inc" / "device_tab.html").read_text()
     assert 'class="card"' not in tmpl, 'card chrome (<div class="card">) removed in ADR-0007'
     assert "card-header" not in tmpl, "card-header chrome removed in ADR-0007"
+
+
+def test_get_extra_context_injects_base_template():
+    """ATW-409 regression guard: DevicePyATSTabView.get_extra_context must
+    include ``base_template`` in the dict it returns.
+
+    NetBox's ``ObjectView.get`` only merges the ``get_extra_context`` return
+    value into the template context — class attributes are NOT auto-injected.
+    The tab template does ``{% extends base_template %}``, so a missing key
+    raises ``TemplateSyntaxError`` -> HTTP 500 (the PR #86 regression). The
+    pre-existing render test in ``test_diff_form_qa.py`` masked the bug by
+    passing ``base_template`` directly into the render context; this structural
+    guard inspects the source so it fails if the one-line fix is reverted.
+    Pure-Python (AST-only), no NetBox/DB dependency.
+    """
+    tree = ast.parse(_VIEWS.read_text())
+    cls = next(node for node in ast.walk(tree) if isinstance(node, ast.ClassDef) and node.name == "DevicePyATSTabView")
+    method = next(node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name == "get_extra_context")
+    return_node = next(
+        node for node in ast.walk(method) if isinstance(node, ast.Return) and node.value is not None
+    )
+    value = return_node.value
+    assert isinstance(value, ast.Dict), "get_extra_context must return a dict literal"
+    key_strs = [k.value for k in value.keys if isinstance(k, ast.Constant)]
+    assert "base_template" in key_strs, (
+        "get_extra_context must inject 'base_template' into its returned dict "
+        "(ATW-409: ObjectView.get does not merge class attributes into the context)"
+    )
