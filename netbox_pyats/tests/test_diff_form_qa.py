@@ -94,6 +94,7 @@ class TestGroupSnapshotsByKind:
 pytest.importorskip("netbox")
 
 from django.template.loader import render_to_string  # noqa: E402
+from django.test import RequestFactory  # noqa: E402
 
 
 class TestDeviceTabTemplateOptgroup:
@@ -118,6 +119,10 @@ class TestDeviceTabTemplateOptgroup:
 
         snaps = [Snap(1, kind_a), Snap(2, kind_a), Snap(3, kind_b)]
         diff_snapshots_by_kind = group_snapshots_by_kind(snaps)
+        # device_tab.html extends dcim/device/base.html, which uses
+        # {% plugin_head %} — that tag reads context['request']. Pass a
+        # RequestFactory request so the render doesn't KeyError.
+        request = RequestFactory().get("/dummy/")
         html = render_to_string(
             "netbox_pyats/inc/device_tab.html",
             {
@@ -137,6 +142,7 @@ class TestDeviceTabTemplateOptgroup:
                 "parse_url": "/parse/",
                 "base_template": "dcim/device/base.html",
                 "object": None,
+                "request": request,
             },
         )
         # One <optgroup> per present kind, per <select> (before + after = 2
