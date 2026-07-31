@@ -89,3 +89,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Dev
 
 - `dev/Dockerfile.pyats-worker`: install `python3.14-dev` + `gcc` before `uv pip install pyats[full]` so `ruamel-yaml-clib`'s C extension can build on NetBox 4.6's Python 3.14 slim image. Dev-only build-dep install; the supported runtime matrix (Python 3.10–3.12) is unchanged (cp312 wheel exists for production). See ATW-25 and [ADR-0003](docs/adr/0003-netbox46-migration-and-worker-toolchain.md).
+
+### Docs
+
+- Refresh `docs/screenshots/device-pyats-tab.png` post-ATW-393 tab move (ATW-406). The old screenshot (2026-07-27) showed the pre-PR-#86 `PluginTemplateExtension` right-column card chrome; the new image shows the real device-page PyATS tab (`/dcim/devices/<id>/pyats/`, registered via `register_model_view` per ADR-0007) — the tab container, capture form (config / state / full / parse), recent-snapshot history with status badges, and the diff + compliance pickers. README and `docs/user/usage.md` captions already said "PyATS tab"; no prose change needed.
