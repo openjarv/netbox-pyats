@@ -143,6 +143,7 @@ class DevicePyATSTabView(generic.ObjectView):
         diff_snapshots_by_kind = group_snapshots_by_kind(snapshots)
 
         return {
+            "base_template": self.base_template,
             "snapshots": snapshots,
             "diff_snapshots_by_kind": diff_snapshots_by_kind,
             "diffs": diffs,
