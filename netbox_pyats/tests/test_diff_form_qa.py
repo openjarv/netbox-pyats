@@ -93,6 +93,8 @@ class TestGroupSnapshotsByKind:
 
 pytest.importorskip("netbox")
 
+from unittest import mock  # noqa: E402
+
 from django.shortcuts import render  # noqa: E402
 from django.test import RequestFactory  # noqa: E402
 
@@ -119,11 +121,12 @@ class TestDeviceTabTemplateOptgroup:
 
         snaps = [Snap(1, kind_a), Snap(2, kind_a), Snap(3, kind_b)]
         diff_snapshots_by_kind = group_snapshots_by_kind(snaps)
-        # device_tab.html extends dcim/device/base.html, which uses NetBox
-        # template tags ({% plugin_head %}, {% csrf_token %}, etc.) that need
-        # a full request context. Use render() with a RequestFactory request
-        # so Django's context processors (csrf, settings, request) are applied.
+        # device_tab.html extends dcim/device/base.html, which triggers NetBox
+        # context processors that read request.user, request.settings, etc.
+        # Use render() with a RequestFactory request that has a mocked user
+        # so the context processors don't AttributeError.
         request = RequestFactory().get("/dummy/")
+        request.user = mock.Mock(is_authenticated=False, config={})
         ctx = {
             "snapshots": snaps,
             "diff_snapshots_by_kind": diff_snapshots_by_kind,
