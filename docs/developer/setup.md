@@ -196,6 +196,63 @@ runs ([ATW-356](/ATW/issues/ATW-356)), so two test runs (or a test run + a
 web stack) cannot oversubscribe the host. See [Working in
 parallel](#working-in-parallel).
 
+## Test lane split
+
+The plugin has two test lanes. Pick by what your change touches, not by
+habit — reaching for the integration lane when only logic changed wastes
+minutes and a Docker stack.
+
+| Your change touches…           | Lane         | How to run                          | Cost            |
+| ------------------------------ | ------------ | ----------------------------------- | --------------- |
+| Logic: diff engine, testbed    | **unit**      | `make test-unit` or `scripts/test-unit.sh` | seconds, no Docker |
+| builder, capture parser,        |              |                                     |                 |
+| compliance comparison, crypto   |              |                                     |                 |
+| Views, models, migrations,     | **integration** | `make test-integration` (see above) | Docker + `--reuse-db` |
+
+**Decision rule:** logic change → unit lane (seconds, no Docker);
+view/model/migration change → integration lane (Docker).
+
+### Unit lane (no Docker, no NetBox, no PostgreSQL/Redis)
+
+The five pure-Python test modules — `test_diff`, `test_testbed`,
+`test_capture`, `test_compliance`, `test_crypto` — configure a minimal
+in-memory Django settings via `conftest.py` and skip cleanly when pyats is
+absent (`pytest.importorskip("pyats")`). They run in ~3 s on any machine with
+Python 3.10+, Django, pyATS, and `cryptography` installed.
+
+```bash
+make test-unit                 # 103 tests, ~3s
+make test-unit ARGS="-k crypto"  # pass-through pytest flags
+scripts/test-unit.sh -v          # direct
+```
+
+The set in `scripts/test-unit.sh` is the same five modules the CI `unit`
+lane runs for the logic core (see [CI](ci.md)). CI's `unit` lane also runs a
+handful of repo-hygiene pure-Python guards (`test_supported_platforms`,
+`test_graphify_scrub_guard`, `test_pr_body_scrub_guard`,
+`test_secret_detection`) — those are not part of the logic lane and are not
+in `scripts/test-unit.sh`. If you add a pure-Python logic test module, add
+it to both `scripts/test-unit.sh` and the CI `unit` lane so the split
+stays in sync.
+
+### Integration lane (Docker + NetBox)
+
+The full suite (model, view, API) runs inside the NetBox container where
+the NetBox models are importable. Use `make test-integration` or the
+canonical one-run-per-fresh-stack path above. For faster re-runs without
+re-migrating ~200 NetBox tables each time, use the `--reuse-db` workflow
+added by [ATW-357](/ATW/issues/ATW-357).
+
+### Keeping the split clean
+
+Pure-Python unit tests must not carry `@pytest.mark.django_db` — that mark
+is the integration-lane contract (it tells pytest-django to spin up a test
+database). A `django_db`-marked test in the unit set would either fail
+outside NetBox or silently drag the unit lane into needing a database.
+Keep the lanes separable: if a test needs the DB, it belongs in the
+integration lane, not the unit set. (Test conventions: see
+[Contributing — Running tests](contributing.md#running-tests).)
+
 ## Teardown
 
 Stop one worktree's stack (keeps volumes) — run from inside the worktree:

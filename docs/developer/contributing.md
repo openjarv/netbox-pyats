@@ -24,12 +24,17 @@ Login: `admin / admin` (default NetBox dev credentials).
 ### Pure-Python tests (no NetBox DB needed)
 
 ```bash
+make test-unit            # 103 tests, ~3s, no Docker
+# or directly:
+scripts/test-unit.sh
+# or the long form:
 pip install -e ".[dev]"
 pytest netbox_pyats/tests/test_crypto.py netbox_pyats/tests/test_testbed.py \
-       netbox_pyats/tests/test_diff.py netbox_pyats/tests/test_compliance.py
+       netbox_pyats/tests/test_diff.py netbox_pyats/tests/test_capture.py \
+       netbox_pyats/tests/test_compliance.py
 ```
 
-These run anywhere with Python 3.10+, Django, pyATS, and `cryptography` available (no PostgreSQL/Redis required). They are the fast lane for iterating on the credential encryption and the testbed builder. The `test_testbed.py` suite uses `pytest.importorskip("pyats")` so it skips cleanly if pyATS isn't installed.
+These run anywhere with Python 3.10+, Django, pyATS, and `cryptography` available (no PostgreSQL/Redis required). They are the fast lane for iterating on the diff engine, testbed builder, capture parser, compliance comparison, and credential crypto. The `test_testbed.py` suite uses `pytest.importorskip("pyats")` so it skips cleanly if pyATS isn't installed. See [setup.md — Test lane split](setup.md#test-lane-split) for when to use the unit vs integration lane.
 
 ### Full NetBox test suite (integration)
 
@@ -126,6 +131,18 @@ Follow the pattern of `PyatsCredential`:
 
 - **Scope assertions to rows the test creates, never table-wide `count() == N`.** See [Test-conventions invariant (`--reuse-db` safety)](#test-conventions-invariant---reuse-db--safety) above for the rationale and a concrete example. The existing tree was audited and conforms ([ATW-353](/ATW/issues/ATW-353)); keep new tests conformant.
 - **Prefer `pytest.importorskip` over `try/except ImportError`.** It produces a clean skip in the lane that lacks the dependency rather than a silent pass or a collection error.
+- **Lane discipline.** Pure-Python unit tests belong in the five
+  logic-core modules (`test_diff`, `test_testbed`, `test_capture`,
+  `test_compliance`, `test_crypto`) and must not carry
+  `@pytest.mark.django_db` — that mark is the integration-lane contract (it
+  tells pytest-django to stand up a test database). A `django_db`-marked test
+  in the unit set would fail outside NetBox or silently drag the unit lane
+  into needing a database. If a test needs the DB, it belongs in the
+  integration lane, not the unit set. See [setup.md — Test lane
+  split](setup.md#test-lane-split).
+- **Sync the split.** If you add a pure-Python logic test module, add it to
+  both `scripts/test-unit.sh` and the CI `unit` lane in
+  `.github/workflows/ci.yml` so the two stay in sync.
 
 ## Architectural decisions (ADRs)
 
