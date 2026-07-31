@@ -35,6 +35,7 @@ unit_tests=(
   "${repo_root}/netbox_pyats/tests/test_capture.py"
   "${repo_root}/netbox_pyats/tests/test_compliance.py"
   "${repo_root}/netbox_pyats/tests/test_crypto.py"
+  "${repo_root}/netbox_pyats/tests/test_template_extension.py"
 )
 
 exec python3 -m pytest "${unit_tests[@]}" "$@"

@@ -28,10 +28,9 @@ netbox-pyats/
 │   ├── capture.py               # pure-Python capture core (no NetBox/RQ) + NetBox convenience wrapper
 │   ├── diff.py                  # pure-Python recursive JSONB diff engine (no Genie needed)
 │   ├── jobs.py                  # RQ job entry points + enqueue helpers; runs on the `pyats` queue
-│   ├── views.py                 # generic CRUD + DeviceCaptureView / DeviceDiffView POST endpoints
+│   ├── views.py                 # generic CRUD + DeviceCaptureView / DeviceDiffView POST endpoints + DevicePyATSTabView (device-page tab, ADR-0007)
 │   ├── urls.py                  # /plugins/pyats/... routes
 │   ├── forms.py / filtersets.py / tables.py / search.py / navigation.py
-│   ├── template_content.py      # PluginTemplateExtension → Device page "PyATS" tab
 │   ├── templates/netbox_pyats/  # server-rendered detail templates (no JS)
 │   ├── api/                     # serializers, urls, views (DRF viewsets on NetBox router)
 │   ├── graphql/                 # graphene types
