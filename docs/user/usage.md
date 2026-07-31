@@ -11,7 +11,7 @@ The plugin adds a **PyATS** tab to every NetBox device page. From that tab you c
 
 ## 1 — Add a credential
 
-**Plugins → PyATS → Add Credential**.
+**PyATS → Add Credential**.
 
 Pick a device, enter username + password (+ optional enable secret). The secrets are encrypted with Fernet before they hit the database — see [Credential encryption](credentials.md). The credential is never returned by the REST API, GraphQL, or the detail view template; only ciphertext is persisted.
 
@@ -55,7 +55,7 @@ The diff engine is pure-Python and operates on already-serialized JSONB — no p
 
 ## 4 — Add a golden config
 
-**Plugins → PyATS → Golden Configs → Add** (or open the device's PyATS tab → use the "Run compliance" picker's golden link).
+**PyATS → Golden Configs → Add** (or open the device's PyATS tab → use the "Run compliance" picker's golden link).
 
 Pick the device, give the golden a name (e.g. `baseline-rtr01`), and paste the expected running-config text. The `source` defaults to `manual`; a "promote from snapshot" flow sets it to `snapshot` and links the originating `PyatsSnapshot` for provenance. Multiple goldens per device are allowed (e.g. `baseline`, `post-maintenance-window`).
 
@@ -77,7 +77,7 @@ The compliance-run viewer (`/plugins/pyats/compliance-runs/<pk>/`) reuses the Ph
 
 ## 6 — Browse everything
 
-**Plugins → PyATS →** the relevant list:
+**PyATS →** the relevant list:
 
 - **PyATS Credentials** — filterable by device.
 - **PyATS Snapshots** — filterable by device, kind, status.
@@ -112,7 +112,7 @@ Genie parsers cover Cisco IOS/XE/XR/NX-OS/ASA, Juniper JunOS, Arista EOS, and No
 
 Adding a slug to the map is a commitment that Genie has real parser coverage for that os; unknown slugs degrade gracefully rather than silently producing empty snapshots.
 
-The supported-platforms report at **Plugins → PyATS → Supported Platforms** renders the static map the capture job uses, with a per-slug NetBox device count, so you can see what a batch capture will reach before you run it.
+The supported-platforms report at **PyATS → Supported Platforms** renders the static map the capture job uses, with a per-slug NetBox device count, so you can see what a batch capture will reach before you run it.
 
 <img src="../screenshots/supported-platforms.png" alt="The supported-platforms report showing the platform slug to pyATS os map with per-slug device counts" width="720">
 

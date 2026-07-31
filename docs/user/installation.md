@@ -48,9 +48,9 @@ python manage.py migrate
 sudo systemctl restart netbox netbox-rq
 ```
 
-After restart, **Plugins → PyATS** appears in the NetBox navigation menu.
+After restart, **PyATS** appears in the NetBox navigation menu.
 
-<img src="../screenshots/nav-pyats-menu.png" alt="NetBox navigation menu with the Plugins → PyATS submenu expanded" width="720">
+<img src="../screenshots/nav-pyats-menu.png" alt="NetBox navigation menu with the top-level PyATS menu expanded" width="720">
 
 ## Step 3 — Set up the pyats worker
 
@@ -69,12 +69,12 @@ The worker needs the same NetBox configuration (`configuration.py`, `PLUGINS`, `
 
 ## Step 4 — Verify the install
 
-1. Add a `PyatsCredential` at **Plugins → PyATS → Add Credential**. Pick a device, enter username + password (+ optional enable secret). The secrets are encrypted with Fernet before they hit the database.
+1. Add a `PyatsCredential` at **PyATS → Add Credential**. Pick a device, enter username + password (+ optional enable secret). The secrets are encrypted with Fernet before they hit the database.
 
    <img src="../screenshots/credential-add-form.png" alt="The Add Credential form with the device picker open" width="720">
 2. Open the device's detail page → **PyATS** tab. You should see the capture button (config / state / full) and an empty recent-snapshots list.
 3. Click **Capture** (config kind is enough for a smoke test). The job is enqueued on the `pyats` queue.
-4. When the worker finishes, the snapshot appears in the tab's recent-snapshots list and under **Plugins → PyATS → PyATS Snapshots**.
+4. When the worker finishes, the snapshot appears in the tab's recent-snapshots list and under **PyATS → PyATS Snapshots**.
 
 If the snapshot shows `unsupported` status, the device's NetBox Platform slug is not in the parser map — see [Troubleshooting](troubleshooting.md). If it shows `error` with `connection failed`, the worker cannot reach the device's management IP.
 
