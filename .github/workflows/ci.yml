@@ -8,12 +8,15 @@ name: CI
 #   unit        - pure-Python tests on plain Python (matrix 3.10/3.11/3.12)
 #                 with pyats[full] installed so test_testbed.py runs instead
 #                 of skipping. No NetBox / PostgreSQL / Redis required.
-#   integration - full suite inside the dev NetBox container via
-#                 docker-compose.dev.yml with the default backend versions
-#                 (NetBox 4.6.5 × PostgreSQL 18 × Valkey 9.1). Gating since
-#                 ATW-38 resolved the NetBox 4.6.5 compatibility bugs (PR #15)
-#                 and the dev image now builds pyats[full] and applies the
-#                 plugin migrations.
+#   integration - full suite inside a dedicated `netbox-test` container
+#                 (docker-compose.test.yml, ATW-357) that runs pytest without
+#                 granian, with the default backend versions (NetBox 4.6.5 ×
+#                 PostgreSQL 18 × Valkey 9.1). CI uses --create-db for a
+#                 clean, authoritative pre-merge regression pass; local dev
+#                 uses --reuse-db for velocity. Gating since ATW-38 resolved
+#                 the NetBox 4.6.5 compatibility bugs (PR #15) and the dev
+#                 image now builds pyats[full] and applies the plugin
+#                 migrations.
 #
 # The integration lane runs a single cell rather than a PostgreSQL × Redis
 # matrix: the plugin has no direct PostgreSQL or Redis surface (Django ORM +
@@ -165,19 +168,29 @@ jobs:
   integration:
     name: Integration (NetBox 4.6.5 / PG 18 / Valkey 9.1)
     runs-on: ubuntu-latest
-    # Full NetBox-dependent suite inside the dev container with the default
-    # backend versions (NetBox 4.6.5 × PostgreSQL 18 × Valkey 9.1). Gating
-    # (`continue-on-error: false`); ATW-38/PR #15 fixed the NetBox 4.6.5
-    # compatibility bugs, and the dev image builds pyats[full] + applies the
-    # plugin migrations.
+    # Full NetBox-dependent suite inside a dedicated `netbox-test` container
+    # (ATW-357) with the default backend versions (NetBox 4.6.5 × PostgreSQL 18
+    # × Valkey 9.1). Gating (`continue-on-error: false`); ATW-38/PR #15 fixed
+    # the NetBox 4.6.5 compatibility bugs, and the dev image builds pyats[full]
+    # + applies the plugin migrations.
+    #
+    # The integration lane uses the same `netbox-test` compose service that
+    # local dev uses (docker-compose.test.yml), so local + CI run the exact
+    # same container shape. The `netbox-test` service runs pytest WITHOUT
+    # granian, which removes the granian-connection race (ATW-85 / ATW-188)
+    # that previously made re-runs unreliable. CI is one-shot
+    # (`up --wait → run netbox-test → down -v`), so --reuse-db has no payoff
+    # here — CI uses --create-db for a clean, authoritative pre-merge
+    # regression pass (migration-order + data-leakage coverage). Local dev uses
+    # --reuse-db for velocity; CI clean for correctness. (ATW-351 ADR-1.)
     #
     # The plugin has no direct PostgreSQL or Redis surface, so a backend
     # version sweep tests NetBox infra rather than the plugin — collapsed to
     # a single cell per the ATW-96 audit + board decision (2026-07-22).
     continue-on-error: false
-    # Cold start (migrations + reindex + granian spawn) takes ~6-9 min on a
-    # GitHub Actions runner, and the test suite itself runs ~9 min. 45 min
-    # gives headroom for the buildx build, cold start, and full suite.
+    # Cold start (migrations + reindex) inside the test container takes ~6-9
+    # min on a GitHub Actions runner, and the test suite itself runs ~9 min.
+    # 45 min gives headroom for the buildx build, cold start, and full suite.
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -185,48 +198,36 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Bring up NetBox dev stack
-        # Scoped bring-up: only `netbox` (+ its `depends_on: [postgres, redis]`)
-        # is started. The `netbox-worker` and `netbox-pyats-worker` services are
-        # intentionally excluded — the plugin's test suite is designed to run
-        # without them:
-        #   - conftest.py dual-mode skips cleanly when the RQ backend is absent.
-        #   - test files gate themselves with pytest.importorskip("pyats") /
-        #     pytest.importorskip("netbox") so the suite does not require a live
-        #     worker to import or collect.
-        #   - job-callable tests invoke run_*_job directly rather than going
-        #     through the queue, so no worker process is needed to exercise the
-        #     capture/compliance job logic.
-        # The workers are only required for live device capture from the UI, not
-        # for the test suite. Bringing just netbox+postgres+redis shaves the
-        # cold-start cost and avoids spinning up containers the suite never uses.
-        # Refs: ATW-244 (review), ATW-245 (scope decision).
-        # NETBOX_MEM=2g gives the migration + granian + pytest test runner enough
-        # headroom; the default 1g cap OOM-kills the test suite. The netbox
-        # healthcheck's start_period (600s in docker-compose.dev.yml) covers the
-        # ~6-9 min cold-start migration window on a constrained CPU.
+      - name: Bring up postgres + redis
+        # The netbox-test service depends_on postgres + redis (service_healthy).
+        # Bring them up with --wait so the test container does not race a
+        # still-starting postgres. The web `netbox` service is NOT started —
+        # the test lane does not need it, mirroring the local `dev-worktree.sh
+        # test` path. NETBOX_TEST_MEM=2g gives the migration + pytest test
+        # runner enough headroom; the default 1g cap is tight for the full
+        # suite on a constrained runner. (ATW-357.)
         env:
-          NETBOX_MEM: 2g
+          NETBOX_TEST_MEM: 2g
         run: |
-          docker compose -f docker-compose.dev.yml up -d --wait netbox postgres redis
-          docker compose -f docker-compose.dev.yml ps
+          docker compose -f docker-compose.dev.yml -f docker-compose.test.yml up -d --wait postgres redis
+          docker compose -f docker-compose.dev.yml -f docker-compose.test.yml ps
 
-      - name: Run NetBox-dependent suite
-        # The netbox container's working dir is /opt/netbox/netbox (granian's
-        # cwd), not the bind-mounted plugin source, so `pytest netbox_pyats/tests`
-        # would find no tests. Run from the mounted source dir instead.
+      - name: Run NetBox-dependent suite (netbox-test, --create-db)
+        # Run the one-shot netbox-test container with --create-db for a clean
+        # pre-merge regression pass. The entrypoint cd's to the bind-mounted
+        # plugin source before running pytest (it does NOT run NetBox's
+        # docker-entrypoint.sh, which requires a different cwd). Extra args
+        # after the service's default command override it.
         run: |
-          docker compose -f docker-compose.dev.yml exec -T \
-            -w /opt/netbox/netbox/netbox_pyats_src netbox \
-            pytest netbox_pyats/tests -v
+          docker compose -f docker-compose.dev.yml -f docker-compose.test.yml run --rm -T netbox-test --create-db netbox_pyats/tests -v
 
       - name: Dump NetBox logs on failure
         if: failure()
         run: |
-          docker compose -f docker-compose.dev.yml logs netbox || true
-          docker compose -f docker-compose.dev.yml logs netbox-worker || true
+          docker compose -f docker-compose.dev.yml -f docker-compose.test.yml logs netbox-test || true
+          docker compose -f docker-compose.dev.yml -f docker-compose.test.yml logs postgres || true
 
       - name: Tear down dev stack
         if: always()
         run: |
-          docker compose -f docker-compose.dev.yml down -v || true
+          docker compose -f docker-compose.dev.yml -f docker-compose.test.yml down -v || true

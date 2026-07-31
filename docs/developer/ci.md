@@ -28,17 +28,19 @@ This is the lane that enforces the Python-version matrix on every PR.
 
 ### `integration`
 
-Full NetBox-dependent suite inside the dev container (`docker-compose.dev.yml`) with the default backend versions (NetBox 4.6.5 × PostgreSQL 18 × Valkey 9.1). Gating (`continue-on-error: false`); the NetBox 4.6 dev-image compatibility work ([ATW-25](/ATW/issues/ATW-25)) and the gating flip ([ATW-49](/ATW/issues/ATW-49)) have landed.
+Full NetBox-dependent suite inside a dedicated `netbox-test` container (`docker-compose.dev.yml` + `docker-compose.test.yml`, [ATW-357](/ATW/issues/ATW-357)) with the default backend versions (NetBox 4.6.5 × PostgreSQL 18 × Valkey 9.1). Gating (`continue-on-error: false`); the NetBox 4.6 dev-image compatibility work ([ATW-25](/ATW/issues/ATW-25)) and the gating flip ([ATW-49](/ATW/issues/ATW-49)) have landed.
+
+The `netbox-test` service runs pytest **without granian**, removing the granian-connection race (ATW-85 / ATW-188) that previously made re-runs unreliable. CI and local dev use the same container shape; CI uses `--create-db` for a clean, authoritative pre-merge regression pass (migration-order + data-leakage coverage), while local dev uses `--reuse-db` for velocity (the migrated `test_netbox` schema persists across runs). See [ATW-351](/ATW/issues/ATW-351) ADR-1 for the rationale.
 
 The integration lane runs a **single cell**, not a PostgreSQL × Redis matrix. An audit for [ATW-96](/ATW/issues/ATW-96) found the plugin has no direct PostgreSQL or Redis surface (Django ORM + `JSONField` only; RQ queue declared by name and enqueued via `netbox.core.Job.enqueue`), so sweeping backend versions tests NetBox's infrastructure rather than the plugin. The board accepted collapsing the matrix on 2026-07-22.
 
 The integration lane is a **required** check: no merge is green without it passing. Python is not swept here because the NetBox community image pins Python internally; the `unit` lane above exercises Python 3.10/3.11/3.12.
 
-The bring-up is **scoped** to `netbox postgres redis` — the `netbox-worker` and `netbox-pyats-worker` services are not started. The plugin's test suite is designed to run without workers: `conftest.py` dual-mode skips cleanly when the RQ backend is absent, test files gate themselves with `pytest.importorskip`, and job-callable tests invoke `run_*_job` directly rather than going through the queue. The workers are only needed for live device capture from the UI, so starting just `netbox` (with its `depends_on: [postgres, redis]`) shaves cold-start cost and avoids containers the suite never uses. Refs: [ATW-244](/ATW/issues/ATW-244), [ATW-245](/ATW/issues/ATW-245).
+Bring-up is **scoped** to `postgres redis` — the `netbox-test` service depends on them only (NOT `netbox`), so the web server, workers, and `netbox-pyats-worker` are not started. The plugin's test suite is designed to run without workers: `conftest.py` dual-mode skips cleanly when the RQ backend is absent, test files gate themselves with `pytest.importorskip`, and job-callable tests invoke `run_*_job` directly rather than through the queue. The workers are only needed for live device capture from the UI. Refs: [ATW-244](/ATW/issues/ATW-244), [ATW-245](/ATW/issues/ATW-245).
 
 ```bash
-docker compose -f docker-compose.dev.yml up -d --wait netbox postgres redis
-docker compose -f docker-compose.dev.yml exec netbox pytest netbox_pyats/tests
+docker compose -f docker-compose.dev.yml -f docker-compose.test.yml up -d --wait postgres redis
+docker compose -f docker-compose.dev.yml -f docker-compose.test.yml run --rm -T netbox-test --create-db netbox_pyats/tests -v
 ```
 
 To run against different backend versions locally, pass the image overrides the compose file reads (see [Image overrides](setup.md#image-overrides-compatibility-sweeps) in the setup guide):
