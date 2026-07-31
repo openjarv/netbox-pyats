@@ -3,10 +3,10 @@
 Written by QA (ATW-294) to cover behavior NOT already exercised by the
 author-supplied ``test_diff_form.py``:
 
-- ``template_content._group_snapshots_by_kind``: ordering follows
+- ``tab_context.group_snapshots_by_kind``: ordering follows
   ``SnapshotKindChoices.choices``; kinds with no snapshots are omitted;
   snapshots are partitioned by their ``kind`` attribute only.
-- The device-panel template renders one ``<optgroup>`` per present kind and
+- The device-tab template renders one ``<optgroup>`` per present kind and
   includes the "diff two of the same kind" helper text.
 
 Pure-Python where possible (the grouping helper has no NetBox dependency);
@@ -17,7 +17,7 @@ template engine + plugin URL config.
 import pytest
 
 from netbox_pyats.choices import SnapshotKindChoices
-from netbox_pyats.template_content import _group_snapshots_by_kind
+from netbox_pyats.tab_context import group_snapshots_by_kind
 
 
 class FakeSnapshot:
@@ -30,11 +30,11 @@ class FakeSnapshot:
 
 class TestGroupSnapshotsByKind:
     def test_empty_input_returns_empty_list(self):
-        assert _group_snapshots_by_kind([]) == []
+        assert group_snapshots_by_kind([]) == []
 
     def test_single_kind_returns_single_group(self):
         snaps = [FakeSnapshot(SnapshotKindChoices.KIND_PARSE, 1), FakeSnapshot(SnapshotKindChoices.KIND_PARSE, 2)]
-        grouped = _group_snapshots_by_kind(snaps)
+        grouped = group_snapshots_by_kind(snaps)
         assert len(grouped) == 1
         kind_value, kind_label, group_snaps = grouped[0]
         assert kind_value == SnapshotKindChoices.KIND_PARSE
@@ -45,7 +45,7 @@ class TestGroupSnapshotsByKind:
         # Only parse + state present; config and full must NOT appear as empty
         # optgroups (the template would render an empty <optgroup> otherwise).
         snaps = [FakeSnapshot(SnapshotKindChoices.KIND_PARSE, 1), FakeSnapshot(SnapshotKindChoices.KIND_STATE, 2)]
-        grouped = _group_snapshots_by_kind(snaps)
+        grouped = group_snapshots_by_kind(snaps)
         present_values = [g[0] for g in grouped]
         assert present_values == [
             SnapshotKindChoices.KIND_CONFIG,
@@ -67,7 +67,7 @@ class TestGroupSnapshotsByKind:
             FakeSnapshot(SnapshotKindChoices.KIND_STATE, 2),
             FakeSnapshot(SnapshotKindChoices.KIND_CONFIG, 1),
         ]
-        grouped = _group_snapshots_by_kind(snaps)
+        grouped = group_snapshots_by_kind(snaps)
         assert [g[0] for g in grouped] == [c[0] for c in SnapshotKindChoices.choices]
 
     def test_snapshots_partitioned_exclusively_by_kind(self):
@@ -80,7 +80,7 @@ class TestGroupSnapshotsByKind:
             FakeSnapshot(SnapshotKindChoices.KIND_PARSE, 3),
             FakeSnapshot(SnapshotKindChoices.KIND_FULL, 4),
         ]
-        grouped = _group_snapshots_by_kind(snaps)
+        grouped = group_snapshots_by_kind(snaps)
         all_pks = []
         for _value, _label, group_snaps in grouped:
             all_pks.extend(s.pk for s in group_snaps)
@@ -96,8 +96,8 @@ pytest.importorskip("netbox")
 from django.template.loader import render_to_string  # noqa: E402
 
 
-class TestDevicePanelTemplateOptgroup:
-    """Render the device-panel diff-picker partial and assert the ATW-252
+class TestDeviceTabTemplateOptgroup:
+    """Render the device-tab diff-picker partial and assert the ATW-252
     contract: one <optgroup> per present kind, helper text mentions same-kind.
     """
 
@@ -117,9 +117,9 @@ class TestDevicePanelTemplateOptgroup:
                 return dict(SnapshotKindChoices.choices).get(self.kind, self.kind)
 
         snaps = [Snap(1, kind_a), Snap(2, kind_a), Snap(3, kind_b)]
-        diff_snapshots_by_kind = _group_snapshots_by_kind(snaps)
+        diff_snapshots_by_kind = group_snapshots_by_kind(snaps)
         html = render_to_string(
-            "netbox_pyats/inc/device_panel.html",
+            "netbox_pyats/inc/device_tab.html",
             {
                 "snapshots": snaps,
                 "diff_snapshots_by_kind": diff_snapshots_by_kind,
@@ -134,7 +134,9 @@ class TestDevicePanelTemplateOptgroup:
                 "diff_url": "/diff/",
                 "compliance_url": "/compliance/",
                 "snapshot_list_url": "/snapshots/",
-                "device": None,
+                "parse_url": "/parse/",
+                "base_template": "dcim/device/base.html",
+                "object": None,
             },
         )
         # One <optgroup> per present kind, per <select> (before + after = 2

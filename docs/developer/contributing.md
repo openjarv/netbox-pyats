@@ -152,6 +152,12 @@ Structural changes (package layout, background-work patterns, new model storage 
 - [ADR-0002 — Multi-vendor graceful degradation pattern](../adr/0002-graceful-degradation.md)
 - [ADR-0003 — NetBox 4.6 migration dependencies and worker build toolchain](../adr/0003-netbox46-migration-and-worker-toolchain.md)
 - [ADR-0004 — Compliance golden-config comparison shape](../adr/0004-compliance-golden-parse-shape.md)
+- [ADR-0005 — PyatsJob unified job-tracking model + status vocabulary extension](../adr/0005-pyatsjob-model.md)
+- [ADR-0006 — PR-body hygiene](../adr/0006-pr-body-hygiene.md)
+- [ADR-0007 — Device-page tab via `register_model_view` + `ObjectView` + `ViewTab`](../adr/0007-device-page-tab.md)
+- [ADR-0005 — PyatsJob unified job-tracking model](../adr/0005-pyatsjob-model.md)
+- [ADR-0006 — PR-body hygiene](../adr/0006-pr-body-hygiene.md)
+- [ADR-0007 — Device-page tab via `register_model_view` + `ObjectView`](../adr/0007-device-page-tab.md)
 
 The architectural baseline is the [architecture overview](https://github.com/openjarv/netbox-pyats) tracked on [ATW-23](/ATW/issues/ATW-23). Non-trivial PRs must fit the locked structure; if a PR would change it, open an ADR first and get CTO sign-off.
 

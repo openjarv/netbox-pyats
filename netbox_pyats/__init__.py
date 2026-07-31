@@ -27,10 +27,10 @@ class NetBoxPyATSConfig(PluginConfig):
     # device capture run can never block NetBox's own housekeeping jobs.
     queues = ["pyats"]
 
-    # Inject the PyATS capture panel + recent-snapshots list into the Device
-    # detail page (Phase 2, ATW-13). The dotted path is resolved by NetBox at
-    # startup; the module exposes a `template_extensions` list.
-    template_extensions = "template_content.template_extensions"
+    # The PyATS device-page surface is a real NetBox object tab registered via
+    # `register_model_view(Device, 'pyats', path='pyats')` in `views.py`
+    # (ADR-0007). No PluginTemplateExtension is used; the tab view owns the
+    # full capture/diff/compliance UI.
 
     # Plugin-local configuration schema (validated by NetBox at startup).
     # `credential_key` is the recommended Fernet key for encrypting credential

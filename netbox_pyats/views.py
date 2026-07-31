@@ -6,7 +6,7 @@ Phase 2 (ATW-13) adds:
 - Standard NetBox list/detail views for :class:`PyatsSnapshot` (the JSONB
   payload is rendered server-side as a collapsible tree via the snapshot
   detail template).
-- A ``device_capture`` view that the device-page PyATS panel POSTs to; it
+- A ``device_capture`` view that the device-page PyATS tab POSTs to; it
   enqueues a :func:`capture_snapshot_job` on the dedicated ``pyats`` RQ
   queue and redirects back to the device page. The view requires
   ``netbox_pyats.add_pyatssnapshot`` so only authorized operators can
@@ -17,7 +17,7 @@ Phase 3 (ATW-14) adds:
 - Standard NetBox list/detail views for :class:`PyatsSnapshotDiff` (the
   JSONB ``diff`` tree is rendered server-side as a collapsible tree via the
   diff detail template — no JS dependency).
-- A ``device_diff`` view that the device-page PyATS panel POSTs to; it
+- A ``device_diff`` view that the device-page PyATS tab POSTs to; it
   enqueues a :func:`run_diff_job` on the dedicated ``pyats`` RQ queue and
   redirects back to the device page. The view requires
   ``netbox_pyats.add_pyatssnapshotdiff`` so only authorized operators can
@@ -37,14 +37,23 @@ Phase 4 (ATW-15) adds:
   RQ queue and redirects back to the device page. The view requires
   ``netbox_pyats.add_pyatscompliancerun`` so only authorized operators can
   trigger compliance runs.
+
+ATW-393 / ADR-0007: the PyATS device-page surface is a real NetBox object tab
+registered via ``register_model_view(Device, 'pyats', path='pyats')`` +
+:class:`DevicePyATSTabView` (a GET-only ``ObjectView`` with a ``ViewTab``).
+The old ``PluginTemplateExtension`` (``right_page`` card) is removed; the tab
+view owns the full capture/diff/compliance UI. No JS, no new models, no new
+migrations. The capture/diff/compliance/parse POST endpoints stay unchanged
+and redirect back to ``device.get_absolute_url()``.
 """
 
+from dcim.models import Device
 from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.shortcuts import get_object_or_404, redirect
 from django.views import View
 from netbox.views import generic
-from utilities.views import register_model_view
+from utilities.views import ViewTab, register_model_view
 
 from . import filtersets, forms, jobs, tables
 from .choices import SnapshotKindChoices, SnapshotTriggerChoices
@@ -57,7 +66,133 @@ from .models import (
     PyatsSnapshot,
     PyatsSnapshotDiff,
 )
+from .panel_support import resolve_panel_platform_support
+from .tab_context import group_snapshots_by_kind
 from .testbed import PLATFORM_SLUG_TO_PYATS_OS, UNSUPPORTED_OS, is_supported_os, platform_to_pyats_os
+
+# How many recent snapshots / diffs / compliance runs to show in the
+# device-page tab. Kept small so the device page stays fast; the full
+# history is on the list views.
+DEVICE_PAGE_SNAPSHOT_LIMIT = 5
+DEVICE_PAGE_DIFF_LIMIT = 5
+DEVICE_PAGE_COMPLIANCE_LIMIT = 5
+
+
+# --------------------------------------------------------------------------- #
+# Device-page PyATS tab (ATW-393, ADR-0007)
+# --------------------------------------------------------------------------- #
+
+
+@register_model_view(Device, "pyats", path="pyats")
+class DevicePyATSTabView(generic.ObjectView):
+    """PyATS tab on the NetBox Device detail page (ATW-393, ADR-0007).
+
+    A GET-only ``ObjectView`` registered via ``register_model_view`` so it
+    appears as a true device-page tab (alongside Inventory, Status, Config
+    Context) with its own URL (``/dcim/devices/<id>/pyats/``). Renders the
+    capture/diff/compliance forms + recent history tables via
+    ``inc/device_tab.html``. The forms POST to the existing
+    ``device_capture``/``device_diff``/``device_compliance`` plugin endpoints
+    and redirect back to ``device.get_absolute_url()``; the tab re-renders on
+    the next GET.
+
+    The ``ViewTab(permission=...)`` gate hides the tab for users without
+    ``netbox_pyats.view_pyatssnapshot`` (matches NetBox convention — see
+    ``DeviceInventoryView`` ``permission='dcim.view_inventoryitem'``).
+
+    No JS, no new models, no new migrations, no new POST endpoints (ADR-0001
+    §4; ADR-0007).
+    """
+
+    queryset = Device.objects.all()
+    base_template = "dcim/device/base.html"
+    template_name = "netbox_pyats/inc/device_tab.html"
+    tab = ViewTab(
+        label="PyATS",
+        weight=550,
+        permission="netbox_pyats.view_pyatssnapshot",
+    )
+
+    def get_extra_context(self, request, instance):
+        snapshots = list(
+            PyatsSnapshot.objects.filter(device=instance).order_by("-captured_at")[:DEVICE_PAGE_SNAPSHOT_LIMIT]
+        )
+        diffs = list(PyatsSnapshotDiff.objects.filter(device=instance).order_by("-created")[:DEVICE_PAGE_DIFF_LIMIT])
+        golden_configs = list(PyatsGoldenConfig.objects.filter(device=instance).order_by("name"))
+        compliance_runs = list(
+            PyatsComplianceRun.objects.filter(device=instance).order_by("-created")[:DEVICE_PAGE_COMPLIANCE_LIMIT]
+        )
+
+        # Surface the platform support status so the operator knows before
+        # clicking whether captures will succeed. The decision combines the
+        # static platform map with the most recent snapshot's observed status
+        # so the tab never shows a green supported badge next to a snapshot
+        # row marked 'Unsupported platform' (ATW-184).
+        platform_supported, os_value = resolve_panel_platform_support(instance, snapshots[0] if snapshots else None)
+
+        # Compliance picker needs at least one golden config and at least one
+        # snapshot whose data carries a config payload (config or full kind).
+        config_snapshots = [
+            s for s in snapshots if s.kind in (SnapshotKindChoices.KIND_CONFIG, SnapshotKindChoices.KIND_FULL)
+        ]
+
+        # Diff picker groups snapshots by kind (ATW-241 child 4): a parse row
+        # is only diffable against another parse row, and state/full rows only
+        # against their own kind. The template renders one <optgroup> per kind
+        # so the operator sees the grouping; DeviceDiffForm.clean enforces it.
+        diff_snapshots_by_kind = group_snapshots_by_kind(snapshots)
+
+        return {
+            "snapshots": snapshots,
+            "diff_snapshots_by_kind": diff_snapshots_by_kind,
+            "diffs": diffs,
+            "golden_configs": golden_configs,
+            "compliance_runs": compliance_runs,
+            "config_snapshots": config_snapshots,
+            "snapshot_kinds": SnapshotKindChoices.choices,
+            "platform_supported": platform_supported,
+            "pyats_os": os_value if platform_supported else None,
+            "capture_url": _capture_url_for_device(instance),
+            "diff_url": _diff_url_for_device(instance),
+            "compliance_url": _compliance_url_for_device(instance),
+            "snapshot_list_url": _snapshot_list_url_for_device(instance),
+            "parse_url": _parse_url_for_device(instance),
+        }
+
+
+def _capture_url_for_device(device):
+    """Return the POST URL for the device-page capture form."""
+    from django.urls import reverse
+
+    return reverse("plugins:netbox_pyats:device_capture", kwargs={"device_id": device.pk})
+
+
+def _diff_url_for_device(device):
+    """Return the POST URL for the device-page diff form (Phase 3, ATW-14)."""
+    from django.urls import reverse
+
+    return reverse("plugins:netbox_pyats:device_diff", kwargs={"device_id": device.pk})
+
+
+def _compliance_url_for_device(device):
+    """Return the POST URL for the device-page compliance form (Phase 4, ATW-15)."""
+    from django.urls import reverse
+
+    return reverse("plugins:netbox_pyats:device_compliance", kwargs={"device_id": device.pk})
+
+
+def _snapshot_list_url_for_device(device):
+    """Return the filtered snapshot-list URL for this device."""
+    from django.urls import reverse
+
+    return f"{reverse('plugins:netbox_pyats:pyatssnapshot_list')}?device_id={device.pk}"
+
+
+def _parse_url_for_device(device):
+    """Return the GET URL for the device-page Parse sub-tab (ATW-250)."""
+    from django.urls import reverse
+
+    return reverse("plugins:netbox_pyats:device_parse", kwargs={"device_id": device.pk})
 
 
 class PyatsCredentialListView(generic.ObjectListView):
