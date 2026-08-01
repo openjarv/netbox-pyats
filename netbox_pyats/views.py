@@ -504,6 +504,7 @@ class DeviceComplianceView(PermissionRequiredMixin, View):
 
         golden_id = form.cleaned_data["golden_id"]
         snapshot_id = form.cleaned_data["snapshot_id"]
+        mode = form.cleaned_data.get("mode")
 
         # Validate the golden config and snapshot both exist and belong to
         # this device. Done in the view (not the job) so the operator gets
@@ -518,7 +519,7 @@ class DeviceComplianceView(PermissionRequiredMixin, View):
             )
             return redirect(device.get_absolute_url())
 
-        jobs.enqueue_compliance(device, golden_id=golden_id, snapshot_id=snapshot_id, user=request.user)
+        jobs.enqueue_compliance(device, golden_id=golden_id, snapshot_id=snapshot_id, user=request.user, mode=mode)
         messages.success(
             request,
             f"PyATS compliance run queued for {device} (golden #{golden_id} vs "

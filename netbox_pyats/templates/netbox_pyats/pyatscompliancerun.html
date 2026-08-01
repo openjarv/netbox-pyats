@@ -25,6 +25,10 @@
             <td><span class="badge bg-{{ object.get_result_color }}">{{ object.get_result_display }}</span></td>
           </tr>
           <tr>
+            <th scope="row">Mode</th>
+            <td><span class="badge bg-light text-dark">{{ object.get_mode_display }}</span></td>
+          </tr>
+          <tr>
             <th scope="row">Has drift</th>
             <td>{{ object.has_drift|yesno:"Yes,No" }}</td>
           </tr>

@@ -3,6 +3,7 @@ from netbox.forms import NetBoxModelFilterSetForm, NetBoxModelForm
 from utilities.forms.rendering import FieldSet
 
 from .choices import (
+    ComplianceModeChoices,
     ComplianceResultChoices,
     CredentialProtocolChoices,
     CredentialScopeChoices,
@@ -290,13 +291,31 @@ class DeviceComplianceForm(forms.Form):
     """Form backing the device-page "Run compliance" picker (Phase 4).
 
     Posted to the ``device_compliance`` view. The operator selects a golden
-    config and a snapshot of the same device; the view enqueues
-    :func:`jobs.enqueue_compliance`. The device is in the URL; ``golden_id``
-    and ``snapshot_id`` are validated by the view to belong to that device.
+    config and a snapshot of the same device, and a comparison mode; the view
+    enqueues :func:`jobs.enqueue_compliance`. The device is in the URL;
+    ``golden_id`` and ``snapshot_id`` are validated by the view to belong to
+    that device.
+
+    ``mode`` selects the comparison semantics (ATW-434): ``ordered`` (v2,
+    default) is a sequence-aware line diff that flags re-ordered ACL/route-map
+    /interface lines as drift; ``set`` (v1) is an order-independent set diff
+    that classifies a re-ordered config as compliant. The default is
+    ``ordered`` so the operator gets the more informative comparison unless
+    they explicitly opt into the v1 semantics.
     """
 
     golden_id = forms.IntegerField(required=True, label="Golden config")
     snapshot_id = forms.IntegerField(required=True, label="Snapshot")
+    mode = forms.ChoiceField(
+        required=False,
+        choices=ComplianceModeChoices.choices,
+        initial=ComplianceModeChoices.MODE_ORDERED,
+        label="Mode",
+        help_text=(
+            "Ordered (v2, default) flags re-ordered lines as drift; Set (v1) "
+            "treats a re-ordered config as compliant."
+        ),
+    )
 
 
 class PyatsComplianceRunFilterForm(NetBoxModelFilterSetForm):
@@ -309,6 +328,10 @@ class PyatsComplianceRunFilterForm(NetBoxModelFilterSetForm):
     result = forms.ChoiceField(
         required=False,
         choices=[("", "---------")] + ComplianceResultChoices.choices,
+    )
+    mode = forms.ChoiceField(
+        required=False,
+        choices=[("", "---------")] + ComplianceModeChoices.choices,
     )
     has_drift = forms.BooleanField(required=False, label="Only runs with drift")
     has_warnings = forms.BooleanField(required=False, label="Only runs with warnings")

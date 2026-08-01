@@ -88,9 +88,9 @@ class PyatsGoldenConfigFilterSet(NetBoxModelFilterSet):
 class PyatsComplianceRunFilterSet(NetBoxModelFilterSet):
     """FilterSet for the PyatsComplianceRun model (Phase 4, ATW-15).
 
-    Lets the compliance run list view be filtered by device, result, and the
-    golden/snapshot ids — the axes the device-page compliance history and the
-    compliance picker query on.
+    Lets the compliance run list view be filtered by device, result, mode, and
+    the golden/snapshot ids — the axes the device-page compliance history and
+    the compliance picker query on.
     """
 
     class Meta:
@@ -99,6 +99,7 @@ class PyatsComplianceRunFilterSet(NetBoxModelFilterSet):
             "id",
             "device_id",
             "result",
+            "mode",
             "golden_id",
             "snapshot_id",
             "created",
