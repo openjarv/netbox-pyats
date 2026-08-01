@@ -15,7 +15,15 @@ from .choices import (
     SnapshotStatusChoices,
     SnapshotTriggerChoices,
 )
-from .models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsJob, PyatsSnapshot, PyatsSnapshotDiff
+from .models import (
+    PyatsCaptureSchedule,
+    PyatsComplianceRun,
+    PyatsCredential,
+    PyatsGoldenConfig,
+    PyatsJob,
+    PyatsSnapshot,
+    PyatsSnapshotDiff,
+)
 
 
 class PyatsCredentialForm(NetBoxModelForm):
@@ -457,3 +465,87 @@ class DeviceParseForm(forms.Form):
         if not commands and not manual_command:
             raise forms.ValidationError("Select at least one parser command or type a manual command.")
         return self.cleaned_data
+
+
+# --------------------------------------------------------------------------- #
+# Capture schedule forms (ATW-433, ADR-0008)
+# --------------------------------------------------------------------------- #
+
+
+class PyatsCaptureScheduleForm(NetBoxModelForm):
+    """Create/edit form for a PyATS Capture Schedule (ATW-433).
+
+    The operator enters a ``device_filter`` as a JSON ORM lookup spec (e.g.
+    ``{"region_id__in": [1, 2]}`` or ``{"id__in": [10, 20]}``). The field is a
+    ``JSONField`` rendered as a textarea; the dispatcher re-resolves it to a
+    Device queryset at run time. The ``kind`` reuses
+    :class:`SnapshotKindChoices` (no new choice values).
+    """
+
+    device_filter = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 6, "class": "font-monospace"}),
+        help_text=(
+            'JSON ORM filter spec (e.g. {"region_id__in": [1, 2]} or '
+            '{"id__in": [10, 20]}). Re-resolved to a Device queryset at run '
+            "time. Leave empty to match no devices."
+        ),
+    )
+
+    fieldsets = (
+        FieldSet("name", "kind", "enabled", "device_filter", name="Schedule"),
+        FieldSet("tags", name="Tags"),
+    )
+
+    class Meta:
+        model = PyatsCaptureSchedule
+        fields = (
+            "name",
+            "kind",
+            "enabled",
+            "device_filter",
+            "tags",
+        )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Pre-populate the JSON textarea with the stored spec as a pretty
+        # JSON string so the operator sees the current filter on edit.
+        if self.instance and self.instance.pk and self.instance.device_filter:
+            import json
+
+            self.fields["device_filter"].initial = json.dumps(self.instance.device_filter, indent=2)
+
+    def clean_device_filter(self):
+        """Parse the ``device_filter`` textarea to a dict (empty on blank).
+
+        The field is a ``CharField`` on the form so the operator types JSON;
+        the model stores a ``JSONField``. A blank submission yields an empty
+        dict (matches the model default). An invalid JSON string raises a
+        validation error so the form re-renders rather than crashing at save.
+        """
+        import json
+
+        raw = (self.cleaned_data.get("device_filter") or "").strip()
+        if not raw:
+            return {}
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise forms.ValidationError(f"device_filter must be valid JSON: {exc}")
+        if not isinstance(parsed, dict):
+            raise forms.ValidationError('device_filter must be a JSON object (e.g. {"id__in": [1, 2]}).')
+        return parsed
+
+
+class PyatsCaptureScheduleFilterForm(NetBoxModelFilterSetForm):
+    """Filter form for the PyatsCaptureSchedule list view (ATW-433)."""
+
+    model = PyatsCaptureSchedule
+
+    q = forms.CharField(required=False, label="Search")
+    kind = forms.ChoiceField(
+        required=False,
+        choices=[("", "---------")] + SnapshotKindChoices.choices,
+    )
+    enabled = forms.NullBooleanField(required=False, label="Enabled")
