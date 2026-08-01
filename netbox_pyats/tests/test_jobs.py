@@ -10,26 +10,20 @@ v1 rework (ATW-62 blocker 1): v1 compliance is now a line-oriented text diff
 between the golden config text and the snapshot's raw running-config text
 (see :mod:`netbox_pyats.compliance`). The compliance job's job is to extract
 those two strings; this test covers the extraction.
+
+ATW-437: the extraction logic was extracted into the module-level
+:func:`netbox_pyats.jobs._extract_snapshot_raw` so the fallback path is
+testable directly. These tests import and exercise that real function — if
+the job's extraction diverges from the tests, the tests fail (previously the
+test file replicated the logic, so a silent break in the job would not be
+caught).
 """
 
 import pytest
 
 pytest.importorskip("pyats")  # keep parity with the other pure-Python test files
 
-
-def _extract_snapshot_raw(snapshot_data: dict) -> str:
-    """Replicate the extraction logic in :func:`run_compliance_job` for unit testing.
-
-    Kept in sync with ``jobs.run_compliance_job`` — if the job's extraction
-    changes, update this helper (or refactor the job to expose a tested helper).
-    """
-    snapshot_data = snapshot_data or {}
-    snapshot_raw = snapshot_data.get("config_raw") or ""
-    if not snapshot_raw:
-        legacy_config = snapshot_data.get("config") or {}
-        if isinstance(legacy_config, dict):
-            snapshot_raw = legacy_config.get("raw") or ""
-    return snapshot_raw
+from netbox_pyats.jobs import _extract_snapshot_raw
 
 
 class TestSnapshotRawExtraction:

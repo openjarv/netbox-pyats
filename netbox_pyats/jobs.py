@@ -617,6 +617,29 @@ def enqueue_compliance(device, *, golden_id, snapshot_id, user=None):
     return core_job
 
 
+def _extract_snapshot_raw(snapshot_data: dict | None) -> str:
+    """Extract the raw running-config text from a snapshot's ``data`` JSONB.
+
+    v1 compliance is line-oriented (see :mod:`netbox_pyats.compliance`): we
+    compare the golden config text against the snapshot's raw config text. For
+    a config or full snapshot this is ``data["config_raw"]``; for a state-only
+    snapshot there is no ``config_raw`` key and the compliance engine will
+    classify as error with a warning. Legacy snapshots captured before
+    ``config_raw`` was added (migration 0006 onward populates it) fall back to
+    ``data["config"]["raw"]`` if the parser had failed at capture time.
+
+    Extracted as a module-level function (ATW-437) so the fallback path is
+    unit-testable without replicating the logic in the test file.
+    """
+    snapshot_data = snapshot_data or {}
+    snapshot_raw = snapshot_data.get("config_raw") or ""
+    if not snapshot_raw:
+        legacy_config = snapshot_data.get("config") or {}
+        if isinstance(legacy_config, dict):
+            snapshot_raw = legacy_config.get("raw") or ""
+    return snapshot_raw
+
+
 def run_compliance_job(job, golden_id: int, snapshot_id: int, pyats_job_id: int | None = None, **kwargs):
     """RQ worker entry point — run compliance and persist the result.
 
@@ -724,12 +747,7 @@ def run_compliance_job(job, golden_id: int, snapshot_id: int, pyats_job_id: int 
         # classify as error with a warning. Legacy snapshots captured before
         # config_raw was added (migration 0006 onward populates it) fall back to
         # data["config"]["raw"] if the parser had failed at capture time.
-        snapshot_data = snapshot.data or {}
-        snapshot_raw = snapshot_data.get("config_raw") or ""
-        if not snapshot_raw:
-            legacy_config = snapshot_data.get("config") or {}
-            if isinstance(legacy_config, dict):
-                snapshot_raw = legacy_config.get("raw") or ""
+        snapshot_raw = _extract_snapshot_raw(snapshot.data)
         golden_text = golden.config_text or ""
 
         try:
