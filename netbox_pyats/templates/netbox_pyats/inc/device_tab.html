@@ -205,7 +205,7 @@
         <tr>
           <td><span class="badge bg-{{ r.get_result_color }}">{{ r.get_result_display }}</span></td>
           <td>{% if r.has_drift %}<i class="mdi mdi-alert text-warning"></i>{% else %}<span class="text-muted">—</span>{% endif %}</td>
-          <td><a href="{{ r.golden.get_absolute_url }}">{{ r.golden.name }}</a> vs <a href="{{ r.snapshot.get_absolute_url }}">#{{ r.snapshot_id }}</a></td>
+          <td>{% if r.golden %}<a href="{{ r.golden.get_absolute_url }}">{{ r.golden.name }}</a>{% else %}<span class="text-muted">— deleted (see warnings)</span>{% endif %} vs {% if r.snapshot %}<a href="{{ r.snapshot.get_absolute_url }}">#{{ r.snapshot_id }}</a>{% else %}<span class="text-muted">#{{ r.snapshot_id|default:"—" }}</span>{% endif %}</td>
           <td>{{ r.created|date:'Y-m-d H:i' }}</td>
           <td><a href="{{ r.get_absolute_url }}" class="btn btn-sm btn-outline-primary">View</a></td>
         </tr>

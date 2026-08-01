@@ -159,14 +159,32 @@ class DeviceDiffForm(forms.Form):
 
     ATW-241 child 4: the two snapshots must share the same ``kind``. A
     ``kind='parse'`` row is only diffable against another ``parse`` row (two
-    manual parses of the same commands); a ``kind='state'``/``'full'`` row is
+    manual parses of the same commands); a ``kind='state'``/`'full'`` row is
     only diffable against its own kind (different command sets). The template
     groups the picker options by ``kind`` via ``<optgroup>`` as a visual hint;
     this ``clean()`` is the actual filter enforcement (no JS, ADR-0001 §4).
+
+    ATW-429: ``clean()`` scopes snapshot lookups by ``device`` when one is
+    passed to ``__init__`` — defence-in-depth so a crafted POST cannot probe
+    cross-instance snapshot ids. The view re-validates with
+    ``device=device``; this form-level scope is the inner guard.
     """
 
     before_id = forms.IntegerField(required=True, label="Before snapshot")
     after_id = forms.IntegerField(required=True, label="After snapshot")
+
+    def __init__(self, *args, device=None, **kwargs):
+        """Initialize the form with an optional device scope.
+
+        Args:
+            device: an optional NetBox ``dcim.Device`` to scope snapshot
+                lookups by in ``clean()`` (defence-in-depth: the view also
+                re-validates ``device=device``). When ``None``, the form
+                falls back to an unscoped pk lookup (back-compat with
+                callers/tests that do not pass a device).
+        """
+        super().__init__(*args, **kwargs)
+        self.device = device
 
     def clean(self):
         super().clean()
@@ -175,8 +193,11 @@ class DeviceDiffForm(forms.Form):
         if before_id is None or after_id is None:
             return self.cleaned_data
 
-        before = PyatsSnapshot.objects.filter(pk=before_id).only("kind").first()
-        after = PyatsSnapshot.objects.filter(pk=after_id).only("kind").first()
+        qs = PyatsSnapshot.objects.all()
+        if self.device is not None:
+            qs = qs.filter(device=self.device)
+        before = qs.filter(pk=before_id).only("kind").first()
+        after = qs.filter(pk=after_id).only("kind").first()
         if before is None or after is None:
             raise forms.ValidationError("Both snapshots must exist. " f"(before_id={before_id}, after_id={after_id})")
         if before.kind != after.kind:
