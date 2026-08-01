@@ -88,4 +88,28 @@ urlpatterns = [
         views.DeviceRefreshCatalogView.as_view(),
         name="device_refresh_parser_catalog",
     ),
+    # Capture schedules (ATW-433, ADR-0008) — operator-authored intent model
+    # for recurring snapshot capture. Full CRUD (add/edit/delete/bulk-delete)
+    # like the other operator-authored models. The cadence is owned by
+    # NetBox's native Job interval (RunCaptureSchedulesJob, a JobRunner
+    # subclass), auto-rescheduled by JobRunner.handle.
+    path(
+        "capture-schedules/",
+        views.PyatsCaptureScheduleListView.as_view(),
+        name="pyatscaptureschedule_list",
+    ),
+    path(
+        "capture-schedules/add/",
+        views.PyatsCaptureScheduleEditView.as_view(),
+        name="pyatscaptureschedule_add",
+    ),
+    path(
+        "capture-schedules/delete/",
+        views.PyatsCaptureScheduleBulkDeleteView.as_view(),
+        name="pyatscaptureschedule_bulk_delete",
+    ),
+    path(
+        "capture-schedules/<int:pk>/",
+        include(get_model_urls("netbox_pyats", "pyatscaptureschedule")),
+    ),
 ]

@@ -38,6 +38,14 @@ class NetBoxPyATSConfig(PluginConfig):
     # NetBox `SECRET_KEY` (documented as a fallback for dev only).
     default_settings = {
         "credential_key": "",
+        # Per-OS state-capture command override. When set, the automated
+        # kind='state'/'full' capture runs these commands instead of the
+        # OS-agnostic STATE_COMMANDS default for the matching os. Format:
+        # {"nxos": ["show version", "show vlan"], "iosxe": ["show platform"]}.
+        # An os with no entry falls back to STATE_COMMANDS. Additive per os,
+        # not per command — listing an os replaces (not extends) the default
+        # set for that os. See netbox_pyats.capture.resolve_state_commands.
+        "state_commands_per_os": {},
     }
 
 

@@ -1,6 +1,7 @@
 from netbox.api.viewsets import NetBoxModelViewSet
 
 from netbox_pyats.filtersets import (
+    PyatsCaptureScheduleFilterSet,
     PyatsComplianceRunFilterSet,
     PyatsCredentialFilterSet,
     PyatsGoldenConfigFilterSet,
@@ -10,6 +11,7 @@ from netbox_pyats.filtersets import (
     PyatsSnapshotFilterSet,
 )
 from netbox_pyats.models import (
+    PyatsCaptureSchedule,
     PyatsComplianceRun,
     PyatsCredential,
     PyatsGoldenConfig,
@@ -20,6 +22,7 @@ from netbox_pyats.models import (
 )
 
 from .serializers import (
+    PyatsCaptureScheduleSerializer,
     PyatsComplianceRunSerializer,
     PyatsCredentialSerializer,
     PyatsGoldenConfigSerializer,
@@ -126,3 +129,17 @@ class PyatsParserCatalogViewSet(NetBoxModelViewSet):
     serializer_class = PyatsParserCatalogSerializer
     filterset_class = PyatsParserCatalogFilterSet
     http_method_names = ["get", "head", "options"]
+
+
+class PyatsCaptureScheduleViewSet(NetBoxModelViewSet):
+    """API viewset for the PyatsCaptureSchedule model (ATW-433).
+
+    Fully editable in v1 (operators can create/update/delete schedules via
+    the API, e.g. to seed them from an external config-management tool).
+    ``last_run_at`` / ``next_run_at`` are read-only (written by the
+    dispatcher job).
+    """
+
+    queryset = PyatsCaptureSchedule.objects.all()
+    serializer_class = PyatsCaptureScheduleSerializer
+    filterset_class = PyatsCaptureScheduleFilterSet

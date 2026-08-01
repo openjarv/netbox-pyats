@@ -95,6 +95,14 @@ PLUGINS_CONFIG = {
         #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
         # If unset, the plugin derives a key from a slice of SECRET_KEY (dev only; warns).
         "credential_key": "",
+        # Per-OS state-capture command override. When set, the automated
+        # kind='state'/'full' capture runs these commands instead of the
+        # OS-agnostic default (STATE_COMMANDS) for the matching os. Format:
+        #   {"nxos": ["show version", "show vlan", "show interface"],
+        #    "iosxe": ["show version", "show platform"]}
+        # An os with no entry falls back to the default set. Listing an os
+        # replaces (not extends) the default set for that os.
+        "state_commands_per_os": {},
     },
 }
 ```

@@ -12,13 +12,14 @@ ADRs are short, dated records of structural decisions that are expensive to reve
 
 | # | Title | Status | Date |
 |---|---|---|---|
-| [0001](0001-plugin-layout.md) | Plugin package layout | Accepted | 2026-07-19 |
+| [0001](0001-plugin-layout.md) | Plugin package layout | Amended | 2026-07-19 |
 | [0002](0002-graceful-degradation.md) | Multi-vendor graceful degradation pattern | Accepted | 2026-07-19 |
 | [0003](0003-netbox46-migration-and-worker-toolchain.md) | NetBox 4.6 migration dependencies and worker build toolchain | Accepted | 2026-07-19 |
 | [0004](0004-compliance-golden-parse-shape.md) | Compliance golden-config comparison shape | Accepted | 2026-07-21 |
 | [0005](0005-pyatsjob-model.md) | PyatsJob unified job-tracking model + status vocabulary extension | Accepted | 2026-07-21 |
 | [0006](0006-pr-body-hygiene.md) | PR-body hygiene — no Paperclip control-plane metadata in public GitHub artifacts | Accepted | 2026-07-25 |
 | [0007](0007-device-page-tab.md) | Device-page tab via `register_model_view` + `ObjectView` + `ViewTab` | Accepted | 2026-07-31 |
+| [0008](0008-scheduling-surface.md) | Scheduling surface for recurring snapshot capture | Accepted | 2026-08-01 |
 
 ## When to write an ADR
 

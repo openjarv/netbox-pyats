@@ -29,6 +29,9 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # The pure-Python unit set (keep in sync with CI .github/workflows/ci.yml).
+# test_navmenu_uniqueness_guard (ATW-183) and test_panel (ATW-184) are AST /
+# fake-object suites with no NetBox/Genie import; they belong in the fast
+# lane alongside test_supported_platforms / test_template_extension. (ATW-435.)
 unit_tests=(
   "${repo_root}/netbox_pyats/tests/test_diff.py"
   "${repo_root}/netbox_pyats/tests/test_testbed.py"
@@ -36,6 +39,8 @@ unit_tests=(
   "${repo_root}/netbox_pyats/tests/test_compliance.py"
   "${repo_root}/netbox_pyats/tests/test_crypto.py"
   "${repo_root}/netbox_pyats/tests/test_template_extension.py"
+  "${repo_root}/netbox_pyats/tests/test_navmenu_uniqueness_guard.py"
+  "${repo_root}/netbox_pyats/tests/test_panel.py"
 )
 
 exec python3 -m pytest "${unit_tests[@]}" "$@"

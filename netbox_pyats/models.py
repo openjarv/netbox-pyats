@@ -31,6 +31,7 @@ from netbox.models import NetBoxModel
 
 from . import crypto
 from .choices import (
+    ComplianceModeChoices,
     ComplianceResultChoices,
     CredentialProtocolChoices,
     CredentialScopeChoices,
@@ -42,6 +43,32 @@ from .choices import (
     SnapshotStatusChoices,
     SnapshotTriggerChoices,
 )
+
+
+def _resolve_device_filter(device_filter):
+    """Re-resolve a ``device_filter`` JSON spec to a Device queryset at run time.
+
+    A ``PyatsCaptureSchedule.device_filter`` is a serialized Q-filter spec
+    (e.g. ``{"region_id__in": [1, 2]}`` or ``{"id__in": [10, 20]}``). Devices
+    drift between schedule creation and dispatch, so the filter is
+    re-resolved against the live DB inside the dispatcher (mirrors
+    ``enqueue_batch_capture``'s re-resolve-by-id pattern at jobs.py:804-828).
+
+    Kept as a module-level helper so the job callable and tests can call it
+    without importing the model (avoids a circular import in jobs.py).
+
+    Args:
+        device_filter: a dict of ORM lookup kwargs (may be empty/None).
+
+    Returns:
+        An unexecuted ``dcim.Device`` queryset filtered by the spec (empty
+        queryset when the spec is falsy or not a dict).
+    """
+    from dcim.models import Device
+
+    if not device_filter or not isinstance(device_filter, dict):
+        return Device.objects.none()
+    return Device.objects.filter(**device_filter)
 
 
 class PyatsCredential(NetBoxModel):
@@ -190,9 +217,10 @@ class PyatsSnapshot(NetBoxModel):
     - ``config``: ``{"config": {<parsed show-running-config output>},
                      "config_raw": "<raw show-running-config text>"}``
     - ``state``:  ``{"state": {<command: <parsed output>, ...>}}`` — one entry
-      per command in :data:`netbox_pyats.capture.STATE_COMMANDS`; commands
-      whose parser is missing for the device's os are recorded as ``None``
-      with a warning.
+      per command resolved by :func:`netbox_pyats.capture.resolve_state_commands`
+      (defaults to :data:`netbox_pyats.capture.STATE_COMMANDS`, overridable per-OS
+      via ``PLUGINS_CONFIG``); commands whose parser is missing for the device's
+      os are recorded as ``None`` with a warning.
     - ``full``:   ``{"config": {...}, "config_raw": "...", "state": {...}}``
 
     ``data["config"]`` is the Genie abstract-config structured dict (used by
@@ -708,6 +736,18 @@ class PyatsComplianceRun(NetBoxModel):
         default=0,
         help_text="Size of the JSON-serialized `diff` payload in bytes (set by the job).",
     )
+    mode = models.CharField(
+        max_length=10,
+        choices=ComplianceModeChoices,
+        default=ComplianceModeChoices.MODE_ORDERED,
+        help_text=(
+            "Comparison mode used for this run: `ordered` (v2, default) is a "
+            "sequence-aware line diff that catches ACL/route-map/interface "
+            "order drift; `set` (v1) is an order-independent set diff. Set by "
+            "the enqueue path from the operator's choice; recorded on the row "
+            "so the operator can see which semantics produced the result."
+        ),
+    )
 
     clone_fields = ("device",)
 
@@ -1030,3 +1070,98 @@ class PyatsParserCatalog(NetBoxModel):
 
     def __str__(self):
         return f"{self.pyats_os} ({len(self.commands) if self.commands else 0} commands)"
+
+
+class PyatsCaptureSchedule(NetBoxModel):
+    """An operator-authored intent to capture snapshots on a recurring schedule (ATW-433).
+
+    The scheduling surface for the plugin's nightly-baseline value prop: the
+    operator defines *what* to capture (a device filter + capture kind), and
+    a registered NetBox :class:`~netbox.jobs.JobRunner` subclass
+    (:class:`netbox_pyats.jobs.RunCaptureSchedulesJob`) dispatches the captures
+    via :func:`netbox_pyats.jobs.enqueue_batch_capture` on the ``pyats`` RQ
+    queue. NetBox's native :class:`core.models.Job` with ``schedule_at``/
+    ``interval`` owns the *cadence*, auto-rescheduled by
+    ``JobRunner.handle``. The plugin owns no cron worker and adds no
+    ``rq-scheduler`` dependency (ADR-0008).
+
+    :attr:`device_filter` is a serialized Q-filter spec (e.g.
+    ``{"region_id__in": [1, 2]}`` or ``{"id__in": [10, 20]}``), **not** a M2M
+    to ``dcim.Device``: devices drift between schedule creation and dispatch,
+    so the filter is re-resolved to a Device queryset inside the custom job
+    (mirrors ``enqueue_batch_capture``'s re-resolve-by-id pattern at
+    jobs.py:804-828). A device deleted between dispatch and run is silently
+    dropped by the batch job's existing iteration.
+
+    :attr:`last_run_at` / :attr:`next_run_at` are display-only fields written
+    by the dispatcher after each run, for the list-view badge. They are not
+    the cadence source — the NetBox ``Job`` row's ``interval`` owns that.
+
+    Full CRUD (add/edit/delete) — this is operator-authored config, not
+    append-only history. REST + GraphQL are generated from the model via the
+    standard router/type registration (ADR-0001 §5).
+    """
+
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+        help_text="Operator label, e.g. 'Edge-routers nightly baseline'.",
+    )
+    device_filter = models.JSONField(
+        blank=True,
+        default=dict,
+        help_text=(
+            'Serialized ORM filter spec (e.g. {"region_id__in": [1, 2]} or '
+            '{"id__in": [10, 20]}). Re-resolved to a Device queryset at run '
+            "time so devices that drift between schedule creation and dispatch "
+            "are picked up or dropped automatically."
+        ),
+    )
+    kind = models.CharField(
+        max_length=20,
+        choices=SnapshotKindChoices,
+        default=SnapshotKindChoices.KIND_FULL,
+        help_text="Capture kind dispatched per run: config / state / full.",
+    )
+    enabled = models.BooleanField(
+        default=True,
+        help_text="Operator toggle to pause a schedule without deleting it.",
+    )
+    last_run_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text="When the dispatcher last ran this schedule (display-only, written by the job).",
+    )
+    next_run_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text="When the next recurring dispatch is expected (display-only, written by the job).",
+    )
+
+    clone_fields = ("kind", "device_filter", "enabled")
+
+    class Meta:
+        ordering = ("name",)
+        verbose_name = "PyATS Capture Schedule"
+        verbose_name_plural = "PyATS Capture Schedules"
+        indexes = [
+            # Most common queries: "enabled schedules" (dispatcher) and
+            # "schedules by name" (list view). Explicit names follow the
+            # convention established in 0002/0003/0005 and pin the indexes
+            # against Django 5.x auto-rename suggestions.
+            models.Index(fields=("enabled", "name"), name="pyats_sched_enabled_name_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_kind_display()})"
+
+    def get_absolute_url(self):
+        return reverse("plugins:netbox_pyats:pyatscaptureschedule", kwargs={"pk": self.pk})
+
+    def resolve_devices(self):
+        """Re-resolve :attr:`device_filter` to a Device queryset (run-time).
+
+        Thin wrapper around :func:`_resolve_device_filter` for callers that
+        have the model instance (tests, the dispatcher).
+        """
+        return _resolve_device_filter(self.device_filter)

@@ -2,7 +2,15 @@ import django_tables2 as tables
 from netbox.tables import NetBoxTable
 from netbox.tables.columns import ActionsColumn
 
-from .models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsJob, PyatsSnapshot, PyatsSnapshotDiff
+from .models import (
+    PyatsCaptureSchedule,
+    PyatsComplianceRun,
+    PyatsCredential,
+    PyatsGoldenConfig,
+    PyatsJob,
+    PyatsSnapshot,
+    PyatsSnapshotDiff,
+)
 
 _APPEND_ONLY_ACTIONS = ("delete", "changelog")
 
@@ -203,6 +211,12 @@ class PyatsComplianceRunTable(NetBoxTable):
         verbose_name="Result",
     )
     has_drift = tables.BooleanColumn(verbose_name="Drift")
+    mode = tables.TemplateColumn(
+        template_code=(
+            "{% load helpers %}" '<span class="badge bg-light text-dark">{{ record.get_mode_display }}</span>'
+        ),
+        verbose_name="Mode",
+    )
     size_bytes = tables.Column(verbose_name="Size (bytes)")
     has_warnings = tables.BooleanColumn(verbose_name="Warnings")
     created = tables.DateTimeColumn(verbose_name="Created at")
@@ -218,6 +232,7 @@ class PyatsComplianceRunTable(NetBoxTable):
             "snapshot",
             "result",
             "has_drift",
+            "mode",
             "size_bytes",
             "has_warnings",
             "created",
@@ -229,6 +244,7 @@ class PyatsComplianceRunTable(NetBoxTable):
             "snapshot",
             "result",
             "has_drift",
+            "mode",
             "size_bytes",
             "created",
         )
@@ -285,4 +301,41 @@ class PyatsJobTable(NetBoxTable):
             "started_at",
             "finished_at",
             "created",
+        )
+
+
+class PyatsCaptureScheduleTable(NetBoxTable):
+    """Table configuration for the PyatsCaptureSchedule list view (ATW-433).
+
+    Renders the schedule's name, kind, enabled badge, the device-filter spec
+    (compact), and the last/next run timestamps (display-only, written by
+    the dispatcher). The ``id`` column links to the schedule detail view.
+    """
+
+    id = tables.LinkColumn(verbose_name="ID")
+    name = tables.LinkColumn(verbose_name="Name")
+    kind = tables.Column(verbose_name="Kind")
+    enabled = tables.BooleanColumn(verbose_name="Enabled")
+    last_run_at = tables.DateTimeColumn(verbose_name="Last run")
+    next_run_at = tables.DateTimeColumn(verbose_name="Next run")
+    created = tables.DateTimeColumn(verbose_name="Created at")
+
+    class Meta(NetBoxTable.Meta):
+        model = PyatsCaptureSchedule
+        fields = (
+            "id",
+            "name",
+            "kind",
+            "enabled",
+            "last_run_at",
+            "next_run_at",
+            "created",
+        )
+        default_columns = (
+            "id",
+            "name",
+            "kind",
+            "enabled",
+            "last_run_at",
+            "next_run_at",
         )

@@ -153,6 +153,15 @@ jobs:
           pip install -e ".[dev,pyats]"
 
       - name: Run pure-Python tests
+        # Pure-Python lane: AST-only / in-memory tests with no NetBox, no
+        # PostgreSQL, no Redis, no Docker. test_navmenu_uniqueness_guard
+        # (ATW-183 regression class: nav-menu link uniqueness + GraphQL schema
+        # completeness vs docs) and test_panel (ATW-184 regression class:
+        # device-page panel platform-support decision) are AST/fake-object
+        # suites that import only netbox_pyats.choices / testbed /
+        # panel_support — no Django/NetBox bootstrap — so they belong in the
+        # fast lane, not the integration container. Both pin regression
+        # classes that should be caught at the fastest gate. (ATW-435.)
         run: |
           pytest netbox_pyats/tests/test_crypto.py \
                  netbox_pyats/tests/test_testbed.py \
@@ -164,6 +173,8 @@ jobs:
                  netbox_pyats/tests/test_pr_body_scrub_guard.py \
                  netbox_pyats/tests/test_secret_detection.py \
                  netbox_pyats/tests/test_template_extension.py \
+                 netbox_pyats/tests/test_navmenu_uniqueness_guard.py \
+                 netbox_pyats/tests/test_panel.py \
                  -v
 
   integration:

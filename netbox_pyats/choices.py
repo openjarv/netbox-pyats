@@ -27,9 +27,10 @@ class SnapshotKindChoices(models.TextChoices):
     """What a :class:`PyatsSnapshot` captures from a device.
 
     ``config`` runs parser-based config capture (``show running-config`` via
-    ``device.parse(...)``). ``state`` runs a small OS-agnostic state command
-    set (see :data:`netbox_pyats.capture.STATE_COMMANDS`), each parsed via
-    ``device.parse(...)``; commands whose parser is missing for the device's
+    ``device.parse(...)``). ``state`` runs a small state command set (see
+    :data:`netbox_pyats.capture.STATE_COMMANDS`, overridable per-OS via
+    ``PLUGINS_CONFIG['netbox_pyats']['state_commands_per_os']``), each parsed
+    via ``device.parse(...)``; commands whose parser is missing for the device's
     os are skipped with a warning. ``full`` runs both and stores them under
     ``data["config"]`` and ``data["state"]`` respectively, so a single row
     captures a complete pre/post-change picture.
@@ -131,6 +132,41 @@ class ComplianceResultChoices(models.TextChoices):
     RESULT_COMPLIANT = "compliant", "Compliant"
     RESULT_DRIFT = "drift", "Drift"
     RESULT_ERROR = "error", "Error"
+
+
+class ComplianceModeChoices(models.TextChoices):
+    """How :func:`netbox_pyats.compliance.run_compliance` compares configs.
+
+    ``ordered`` (v2, default) compares the golden and snapshot config lines as
+    an **ordered sequence** — a longest-common-subsequence diff via
+    :mod:`difflib`. This catches order-sensitive drift (ACL entry order,
+    route-map sequence, interface definition order) that the v1 set diff
+    misses, while still detecting added/removed/changed lines. The diff tree
+    has the same leaf shape as the v1 set diff (``unchanged`` / ``added`` /
+    ``removed`` keyed by line) so the Phase 3 ``inc/diff_tree.html`` partial
+    renders it unchanged. ``summary["changed"]`` is always 0 for the ordered
+    diff too — a "changed" line is reported as a ``removed`` (the golden's
+    line) + an ``added`` (the snapshot's line), same as the set diff.
+
+    ``set`` (v1) compares lines as an order-independent set. A re-ordered
+    config classifies as ``compliant`` — correct for "does the device carry
+    the golden lines?" but it misses ACL/route-map/interface order drift.
+    Kept as an explicit opt-in for operators who want the v1 semantics (e.g.
+    configs whose section order legitimately varies between captures and is
+    not a compliance concern).
+
+    Both modes are pure-Python and Genie-free: they compare the golden
+    ``config_text`` against the snapshot's ``data["config_raw"]`` raw
+    running-config text, both stored as plain strings. No worker-only Genie
+    parse of the golden is needed (ADR-0004 v2 note: parsing the golden with
+    the same Genie parser as the snapshot would require a live device
+    connection, which breaks the "no extra SSH round-trip" Phase 4 contract;
+    the ordered text diff delivers the order-sensitive drift detection
+    without that cost). See ADR-0004 §"v2 ordered text diff".
+    """
+
+    MODE_ORDERED = "ordered", "Ordered (sequence-aware)"
+    MODE_SET = "set", "Set (order-independent, v1)"
 
 
 class PyatsJobTypeChoices(models.TextChoices):
