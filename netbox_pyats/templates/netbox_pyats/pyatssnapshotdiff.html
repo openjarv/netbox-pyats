@@ -93,18 +93,4 @@
   </div>
 </div>
 
-<div class="row mb-3">
-  <div class="col col-md-12">
-    <div class="card">
-      <h5 class="card-header">Raw diff JSON</h5>
-      <div class="card-body">
-        {% if object.diff %}
-          <pre class="snapshot-json">{{ object.diff|json }}</pre>
-        {% else %}
-          <span class="text-muted">No diff data.</span>
-        {% endif %}
-      </div>
-    </div>
-  </div>
-</div>
 {% endblock content %}
