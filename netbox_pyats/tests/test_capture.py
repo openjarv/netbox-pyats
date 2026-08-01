@@ -26,12 +26,7 @@ import pytest
 
 pytest.importorskip("pyats")
 
-from netbox_pyats.capture import (
-    STATE_COMMANDS,
-    CaptureResult,
-    capture_snapshot,
-    resolve_state_commands,
-)
+from netbox_pyats.capture import STATE_COMMANDS, CaptureResult, capture_snapshot, resolve_state_commands
 from netbox_pyats.choices import SnapshotKindChoices, SnapshotStatusChoices
 from netbox_pyats.testbed import UNSUPPORTED_OS
 
