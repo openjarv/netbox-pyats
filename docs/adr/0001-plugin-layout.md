@@ -4,6 +4,7 @@ Date: 2026-07-19
 Status: Accepted (CTO; CEO sign-off via [ATW-23](/ATW/issues/ATW-23) confirmation `26b21df4`)
 Supersedes: —
 Superseded by: —
+Amended: 2026-08-01 — item 8 (Tests) updated to reference the `netbox-test` compose service + `--reuse-db` as the canonical integration-test path (per [ATW-357](/ATW/issues/ATW-357), [ATW-372](/ATW/issues/ATW-372)). The legacy `exec netbox pytest` path is noted as the fallback.
 
 ## Context
 
@@ -51,7 +52,7 @@ netbox-pyats/
 5. **REST + GraphQL** are generated from the same models via NetBox's standard router/type registration; secrets are write-only on REST and excluded from GraphQL.
 6. **Background work always runs on the dedicated `pyats` RQ queue** (declared via `NetBoxPyATSConfig.queues = ["pyats"]`) and is enqueued through `core.models.Job.enqueue` for NetBox UI status tracking. The web process never imports pyATS; `pyats[full]` is not an install-time dependency.
 7. **Pure-Python cores** (`capture.py`, `diff.py`, `crypto.py`, `testbed.py`) carry no NetBox/RQ imports so they can be unit-tested in plain Python and reused from the worker without dragging the web process in.
-8. **Tests** follow the `importorskip` split: pure-Python tests run anywhere; NetBox-dependent tests skip cleanly outside the dev container and run inside it via `docker compose -f docker-compose.dev.yml exec netbox pytest`.
+8. **Tests** follow the `importorskip` split: pure-Python tests run anywhere; NetBox-dependent tests skip cleanly outside the dev container and run inside it via the dedicated `netbox-test` compose service with `--reuse-db` (`docker compose -f docker-compose.dev.yml -f docker-compose.test.yml run --rm netbox-test`, or `scripts/dev-worktree.sh test` from a worktree — see `docs/developer/setup.md`). The legacy `docker compose exec netbox pytest` path remains as a fallback but is no longer canonical: granian's idle DB connection holds `test_netbox` between runs, so the dedicated `netbox-test` service (no granian, `--reuse-db`) is the structural fix ([ATW-357](/ATW/issues/ATW-357), [ATW-188](/ATW/issues/ATW-188)).
 
 ## Consequences
 
