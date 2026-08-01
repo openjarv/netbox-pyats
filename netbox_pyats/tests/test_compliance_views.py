@@ -175,6 +175,27 @@ class PyatsComplianceRunViewTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "— deleted (see warnings)")
 
+    def test_device_tab_null_fks_render_without_500(self):
+        # ATW-428: the device-tab compliance table (device_tab.html:208)
+        # derefs r.golden/r.snapshot (SET_NULL, migration 0006). A compliance
+        # run whose golden/snapshot FKs were SET_NULL'd must render the tab
+        # without 500ing — the {% if r.golden %} / {% if r.snapshot %} guards
+        # emit the "— deleted (see warnings)" / "#—" fallback. Mirrors the
+        # detail-page guard (test_detail_view_null_fks_render_deleted_marker)
+        # but covers the device-tab row path that had no test.
+        PyatsComplianceRun.objects.create(
+            device=self.device,
+            golden=None,
+            snapshot=None,
+            result=ComplianceResultChoices.RESULT_ERROR,
+            diff={},
+            summary={},
+        )
+        url = reverse("dcim:device:pyats", kwargs={"pk": self.device.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "— deleted (see warnings)")
+
     def test_device_compliance_post_validates_device_membership(self):
         # POSTing a golden_id that belongs to a different device must be
         # rejected with an error message and a redirect (no job enqueued).
