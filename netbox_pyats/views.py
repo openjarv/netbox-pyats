@@ -359,7 +359,7 @@ class DeviceDiffView(PermissionRequiredMixin, View):
         from dcim.models import Device
 
         device = get_object_or_404(Device, pk=device_id)
-        form = forms.DeviceDiffForm(request.POST)
+        form = forms.DeviceDiffForm(request.POST, device=device)
         if not form.is_valid():
             messages.error(request, f"Invalid diff request: {form.errors}")
             return redirect(device.get_absolute_url())

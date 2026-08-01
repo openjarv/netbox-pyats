@@ -100,6 +100,42 @@ class DeviceDiffFormKindFilterTest(TestCase):
         form = self._form(before.pk, before.pk + 999999)
         self.assertFalse(form.is_valid())
 
+    def test_device_scope_rejects_cross_device_snapshot(self):
+        # ATW-429: when the form is constructed with device=, clean() scopes
+        # snapshot lookups by device so a crafted POST cannot probe
+        # cross-instance snapshot ids. A snapshot belonging to another device
+        # is treated as non-existent (defence-in-depth; the view re-validates).
+        other_device = Device.objects.create(name="rtr02", site=self.site, device_type=self.device_type, role=self.role)
+        before = _make_snapshot(self.device, SnapshotKindChoices.KIND_STATE)
+        # 'after' belongs to a different device but is a valid snapshot pk.
+        after_other = _make_snapshot(other_device, SnapshotKindChoices.KIND_STATE)
+        form = DeviceDiffForm(
+            data={"before_id": before.pk, "after_id": after_other.pk},
+            device=self.device,
+        )
+        self.assertFalse(form.is_valid())
+
+    def test_device_scope_accepts_same_device_snapshot(self):
+        # ATW-429: the device scope does not reject same-device snapshots.
+        before = _make_snapshot(self.device, SnapshotKindChoices.KIND_STATE)
+        after = _make_snapshot(self.device, SnapshotKindChoices.KIND_STATE)
+        form = DeviceDiffForm(
+            data={"before_id": before.pk, "after_id": after.pk},
+            device=self.device,
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_no_device_scope_falls_back_to_unscoped_lookup(self):
+        # ATW-429: when device is not passed (back-compat), the form falls
+        # back to an unscoped pk lookup — the historical behaviour callers
+        # and tests rely on.
+        other_device = Device.objects.create(name="rtr03", site=self.site, device_type=self.device_type, role=self.role)
+        before = _make_snapshot(self.device, SnapshotKindChoices.KIND_STATE)
+        after_other = _make_snapshot(other_device, SnapshotKindChoices.KIND_STATE)
+        form = DeviceDiffForm(data={"before_id": before.pk, "after_id": after_other.pk})
+        # Unscoped: both snapshots exist and are the same kind → valid.
+        self.assertTrue(form.is_valid(), form.errors)
+
 
 class DeviceDiffViewKindFilterTest(TestCase):
     """The ``device_diff`` view surfaces the kind filter as a redirect+flash."""
