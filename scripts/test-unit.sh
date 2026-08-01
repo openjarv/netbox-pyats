@@ -37,6 +37,8 @@ unit_tests=(
   "${repo_root}/netbox_pyats/tests/test_testbed.py"
   "${repo_root}/netbox_pyats/tests/test_capture.py"
   "${repo_root}/netbox_pyats/tests/test_compliance.py"
+  "${repo_root}/netbox_pyats/tests/test_compliance_job_legacy.py"
+  "${repo_root}/netbox_pyats/tests/test_state_commands_invariant.py"
   "${repo_root}/netbox_pyats/tests/test_crypto.py"
   "${repo_root}/netbox_pyats/tests/test_template_extension.py"
   "${repo_root}/netbox_pyats/tests/test_navmenu_uniqueness_guard.py"

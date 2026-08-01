@@ -168,6 +168,8 @@ jobs:
                  netbox_pyats/tests/test_diff.py \
                  netbox_pyats/tests/test_capture.py \
                  netbox_pyats/tests/test_compliance.py \
+                 netbox_pyats/tests/test_compliance_job_legacy.py \
+                 netbox_pyats/tests/test_state_commands_invariant.py \
                  netbox_pyats/tests/test_supported_platforms.py \
                  netbox_pyats/tests/test_graphify_scrub_guard.py \
                  netbox_pyats/tests/test_pr_body_scrub_guard.py \

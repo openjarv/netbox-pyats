@@ -219,6 +219,30 @@ def _persist_error_row(row, *, label: str):
         return None
 
 
+def extract_snapshot_raw_config(snapshot_data: dict | None) -> str:
+    """Extract the snapshot's raw running-config text (the compliance "actual").
+
+    v1 compliance is line-oriented (see :mod:`netbox_pyats.compliance`): we
+    compare the golden config text against the snapshot's raw config text. For
+    a config or full snapshot this is ``data["config_raw"]``; for a state-only
+    snapshot there is no ``config_raw`` key and the compliance engine
+    classifies as error with a warning. Legacy snapshots captured before
+    ``config_raw`` was added (migration 0006 onward populates it) fall back to
+    ``data["config"]["raw"]`` if the parser had failed at capture time.
+
+    Pure function over the snapshot ``data`` JSONB so the fallback path is
+    unit-testable without a NetBox/DB round-trip (see
+    :mod:`netbox_pyats.tests.test_compliance_job_legacy`).
+    """
+    snapshot_data = snapshot_data or {}
+    snapshot_raw = snapshot_data.get("config_raw") or ""
+    if not snapshot_raw:
+        legacy_config = snapshot_data.get("config") or {}
+        if isinstance(legacy_config, dict):
+            snapshot_raw = legacy_config.get("raw") or ""
+    return snapshot_raw
+
+
 def enqueue_capture(
     device,
     *,
@@ -735,20 +759,16 @@ def run_compliance_job(
                 _finish_success(job, pyats_job_id, related_compliance=run_row)
             raise ValueError("compliance inputs belong to different devices")
 
-        # Extract the snapshot's raw running-config text (the "actual" config).
-        # v1 compliance is line-oriented (see netbox_pyats.compliance): we compare
-        # the golden config text against the snapshot's raw config text. For a
-        # config or full snapshot this is data["config_raw"]; for a state-only
-        # snapshot there is no config_raw key and the compliance engine will
-        # classify as error with a warning. Legacy snapshots captured before
-        # config_raw was added (migration 0006 onward populates it) fall back to
+        # Extract the snapshot's raw running-config text (the "actual" config)
+        # via the tested pure helper (ATW-437). v1 compliance is line-oriented
+        # (see netbox_pyats.compliance): we compare the golden config text
+        # against the snapshot's raw config text. For a config or full snapshot
+        # this is data["config_raw"]; for a state-only snapshot there is no
+        # config_raw key and the compliance engine classifies as error with a
+        # warning. Legacy snapshots captured before config_raw was added
+        # (migration 0006 onward populates it) fall back to
         # data["config"]["raw"] if the parser had failed at capture time.
-        snapshot_data = snapshot.data or {}
-        snapshot_raw = snapshot_data.get("config_raw") or ""
-        if not snapshot_raw:
-            legacy_config = snapshot_data.get("config") or {}
-            if isinstance(legacy_config, dict):
-                snapshot_raw = legacy_config.get("raw") or ""
+        snapshot_raw = extract_snapshot_raw_config(snapshot.data)
         golden_text = golden.config_text or ""
 
         # Resolve the comparison mode. The enqueue path passes the operator's
