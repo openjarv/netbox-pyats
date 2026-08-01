@@ -1,6 +1,14 @@
 from netbox.search import SearchIndex, register_search
 
-from .models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsJob, PyatsSnapshot, PyatsSnapshotDiff
+from .models import (
+    PyatsCaptureSchedule,
+    PyatsComplianceRun,
+    PyatsCredential,
+    PyatsGoldenConfig,
+    PyatsJob,
+    PyatsSnapshot,
+    PyatsSnapshotDiff,
+)
 
 
 @register_search
@@ -94,4 +102,20 @@ class PyatsJobIndex(SearchIndex):
         ("device", 100),
         ("job_type", 200),
         ("status", 300),
+    )
+
+
+@register_search
+class PyatsCaptureScheduleIndex(SearchIndex):
+    """Search index for PyatsCaptureSchedule (ATW-433).
+
+    Indexes the schedule name so global search can surface capture schedules.
+    The ``device_filter`` JSONField is not indexed (a filter spec, not a
+    user-facing search term).
+    """
+
+    model = PyatsCaptureSchedule
+    fields = (
+        ("name", 100),
+        ("kind", 200),
     )

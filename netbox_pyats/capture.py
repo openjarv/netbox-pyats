@@ -163,21 +163,27 @@ def _capture_config(pyats_device) -> tuple[dict, str]:
     unavailable for this os (recorded as a warning by the caller). The
     returned structured dict is JSON-serializable.
 
-    Returns a ``(config_dict, raw_text)`` pair. ``config_dict`` is the Genie
-    abstract-config structured dict (or ``{"raw": ..., "_parser_error": ...}``
-    on parser failure) used by the Phase 3 snapshot-vs-snapshot diff.
-    ``raw_text`` is the raw ``show running-config`` text — captured so the
-    Phase 4 compliance engine can do a line-oriented golden-vs-snapshot text
-    diff without needing the Genie abstract-config parser to round-trip a
-    free-text golden (which has no worker-only harness). Both are stored on
-    the snapshot row's ``data`` payload under ``config`` and ``config_raw``
-    respectively (see :func:`capture_snapshot`).
+    Returns a ``(config_dict, raw_text, warnings)`` triple. ``config_dict``
+    is the Genie abstract-config structured dict (or
+    ``{"raw": ..., "_parser_error": ...}`` on parser failure) used by the
+    Phase 3 snapshot-vs-snapshot diff. ``raw_text`` is the raw
+    ``show running-config`` text — captured so the Phase 4 compliance engine
+    can do a line-oriented golden-vs-snapshot text diff without needing the
+    Genie abstract-config parser to round-trip a free-text golden (which has
+    no worker-only harness). Both are stored on the snapshot row's ``data``
+    payload under ``config`` and ``config_raw`` respectively (see
+    :func:`capture_snapshot`). ``warnings`` is a list of human-readable
+    strings for the caller to merge into the snapshot's
+    ``parser_warnings`` — currently used to surface a silent raw-text
+    ``execute()`` failure (ATW-430) so an empty ``config_raw`` is visible at
+    capture time rather than far away at compliance time.
     """
     # Local import: genie/pyats.parser is heavy and worker-only.
     from pyats.connections import BaseConnection  # noqa: F401 - ensures connection plugin registry loaded
 
     config: dict = {}
     raw_text = ""
+    warnings: list = []
     try:
         # Grab the raw text first — we always want it for the compliance path
         # (and as a fallback if the structured parse fails). Best-effort: if
@@ -186,6 +192,11 @@ def _capture_config(pyats_device) -> tuple[dict, str]:
             raw_text = str(pyats_device.execute("show running-config"))
         except Exception as raw_exc:  # noqa: BLE001 - raw capture is best-effort
             logger.debug("netbox_pyats: execute('show running-config') failed for %s: %s", pyats_device.name, raw_exc)
+            # Surface the silent raw-text failure as a capture warning so an
+            # empty config_raw is visible at capture time, not far away at
+            # compliance time (ATW-430). The parser may still succeed, in
+            # which case config_raw would silently be "" without this.
+            warnings.append(f"raw execute('show running-config') failed for {pyats_device.name}: {raw_exc}")
             raw_text = ""
         # The canonical "show running-config" parser exists for every os we
         # map in testbed.PLATFORM_SLUG_TO_PYATS_OS. We use the parser util so
@@ -202,7 +213,7 @@ def _capture_config(pyats_device) -> tuple[dict, str]:
             except Exception as exc2:  # noqa: BLE001 - both parser and execute failed
                 raise RuntimeError(f"config capture failed: parser={exc}; execute={exc2}") from exc
         config = {"raw": raw_text, "_parser_error": str(exc)}
-    return config, raw_text
+    return config, raw_text, warnings
 
 
 def _capture_state(pyats_device, commands: tuple[str, ...] = STATE_COMMANDS) -> dict:
@@ -379,7 +390,7 @@ def capture_snapshot(
     try:
         if kind in (SnapshotKindChoices.KIND_CONFIG, SnapshotKindChoices.KIND_FULL):
             try:
-                config_dict, config_raw = _capture_config(pyats_device)
+                config_dict, config_raw, config_warnings = _capture_config(pyats_device)
                 data["config"] = config_dict
                 # Store the raw running-config text for the Phase 4 compliance
                 # engine, which does a line-oriented golden-vs-snapshot text
@@ -388,6 +399,10 @@ def capture_snapshot(
                 # then classifies as error with a "snapshot raw config is
                 # empty" warning — graceful degradation).
                 data["config_raw"] = config_raw
+                # Surface silent raw-text execute() failures (ATW-430) so an
+                # empty config_raw is visible at capture time, not far away at
+                # compliance time.
+                warnings.extend(config_warnings)
             except Exception as exc:  # noqa: BLE001 - config capture failure is a warning, not fatal
                 warnings.append(f"config capture failed: {exc}")
                 data["config"] = {}

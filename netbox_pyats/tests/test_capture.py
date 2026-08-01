@@ -195,6 +195,40 @@ class TestConfigCapture:
         assert result.data == {"config": {}, "config_raw": ""}
         assert any("config capture failed" in w for w in result.warnings)
 
+    def test_silent_raw_execute_failure_surfaces_as_warning(self):
+        # ATW-430: when the first execute('show running-config') fails but the
+        # parser then succeeds, config_raw is silently "" without a warning.
+        # The capture must surface the execute failure as a parser_warning so
+        # an empty config_raw is visible at capture time, not far away at
+        # compliance time.
+        d = FakePyatsDevice(
+            os="iosxe",
+            config_output={"hostname": "rtr01"},
+            execute_exc=RuntimeError("execute refused"),
+        )
+        result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_CONFIG)
+        # Parser succeeded → success status with structured config populated.
+        assert result.status == SnapshotStatusChoices.STATUS_SUCCESS
+        assert result.data["config"] == {"hostname": "rtr01"}
+        # But config_raw is empty because execute() failed.
+        assert result.data["config_raw"] == ""
+        # The silent failure is surfaced as a warning (ATW-430).
+        assert any("raw execute" in w and "execute refused" in w for w in result.warnings)
+
+    def test_silent_raw_execute_failure_surfaces_in_full_capture(self):
+        # ATW-430 (full kind): the same silent-failure warning surfaces for a
+        # full capture (config half), not just kind=config.
+        d = FakePyatsDevice(
+            os="iosxe",
+            config_output={"hostname": "rtr01"},
+            execute_exc=RuntimeError("execute refused"),
+            state_outputs={"show version": {"version": "16.12"}},
+        )
+        result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_FULL)
+        assert result.status == SnapshotStatusChoices.STATUS_SUCCESS
+        assert result.data["config_raw"] == ""
+        assert any("raw execute" in w for w in result.warnings)
+
 
 class TestStateCapture:
     def test_state_kind_captures_each_state_command(self):

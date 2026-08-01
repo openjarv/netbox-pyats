@@ -1,6 +1,13 @@
 from netbox.graphql.types import NetBoxObjectType
 
-from netbox_pyats.models import PyatsCredential, PyatsJob, PyatsParserCatalog, PyatsSnapshot, PyatsSnapshotDiff
+from netbox_pyats.models import (
+    PyatsCaptureSchedule,
+    PyatsCredential,
+    PyatsJob,
+    PyatsParserCatalog,
+    PyatsSnapshot,
+    PyatsSnapshotDiff,
+)
 
 
 class PyatsCredentialType(NetBoxObjectType):
@@ -136,6 +143,31 @@ class PyatsParserCatalogType(NetBoxObjectType):
             "genie_version",
             "pyats_version",
             "refreshed_at",
+            "tags",
+            "created",
+            "last_updated",
+        )
+
+
+class PyatsCaptureScheduleType(NetBoxObjectType):
+    """GraphQL type for the PyatsCaptureSchedule model (ATW-433).
+
+    Exposes the schedule's name, device_filter spec, kind, enabled flag, and
+    the display-only last_run_at / next_run_at timestamps. Read-only by
+    nature via GraphQL (operators create/update schedules via REST/UI;
+    GraphQL v1 does not define mutations).
+    """
+
+    class Meta:
+        model = PyatsCaptureSchedule
+        fields = (
+            "id",
+            "name",
+            "device_filter",
+            "kind",
+            "enabled",
+            "last_run_at",
+            "next_run_at",
             "tags",
             "created",
             "last_updated",

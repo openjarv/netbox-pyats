@@ -3,6 +3,7 @@ from netbox.forms import NetBoxModelFilterSetForm, NetBoxModelForm
 from utilities.forms.rendering import FieldSet
 
 from .choices import (
+    ComplianceModeChoices,
     ComplianceResultChoices,
     CredentialProtocolChoices,
     CredentialScopeChoices,
@@ -14,7 +15,15 @@ from .choices import (
     SnapshotStatusChoices,
     SnapshotTriggerChoices,
 )
-from .models import PyatsComplianceRun, PyatsCredential, PyatsGoldenConfig, PyatsJob, PyatsSnapshot, PyatsSnapshotDiff
+from .models import (
+    PyatsCaptureSchedule,
+    PyatsComplianceRun,
+    PyatsCredential,
+    PyatsGoldenConfig,
+    PyatsJob,
+    PyatsSnapshot,
+    PyatsSnapshotDiff,
+)
 
 
 class PyatsCredentialForm(NetBoxModelForm):
@@ -159,7 +168,7 @@ class DeviceDiffForm(forms.Form):
 
     ATW-241 child 4: the two snapshots must share the same ``kind``. A
     ``kind='parse'`` row is only diffable against another ``parse`` row (two
-    manual parses of the same commands); a ``kind='state'``/``'full'`` row is
+    manual parses of the same commands); a ``kind='state'``/`'full'`` row is
     only diffable against its own kind (different command sets). The template
     groups the picker options by ``kind`` via ``<optgroup>`` as a visual hint;
     this ``clean()`` is the actual filter enforcement (no JS, ADR-0001 §4).
@@ -290,13 +299,31 @@ class DeviceComplianceForm(forms.Form):
     """Form backing the device-page "Run compliance" picker (Phase 4).
 
     Posted to the ``device_compliance`` view. The operator selects a golden
-    config and a snapshot of the same device; the view enqueues
-    :func:`jobs.enqueue_compliance`. The device is in the URL; ``golden_id``
-    and ``snapshot_id`` are validated by the view to belong to that device.
+    config and a snapshot of the same device, and a comparison mode; the view
+    enqueues :func:`jobs.enqueue_compliance`. The device is in the URL;
+    ``golden_id`` and ``snapshot_id`` are validated by the view to belong to
+    that device.
+
+    ``mode`` selects the comparison semantics (ATW-434): ``ordered`` (v2,
+    default) is a sequence-aware line diff that flags re-ordered ACL/route-map
+    /interface lines as drift; ``set`` (v1) is an order-independent set diff
+    that classifies a re-ordered config as compliant. The default is
+    ``ordered`` so the operator gets the more informative comparison unless
+    they explicitly opt into the v1 semantics.
     """
 
     golden_id = forms.IntegerField(required=True, label="Golden config")
     snapshot_id = forms.IntegerField(required=True, label="Snapshot")
+    mode = forms.ChoiceField(
+        required=False,
+        choices=ComplianceModeChoices.choices,
+        initial=ComplianceModeChoices.MODE_ORDERED,
+        label="Mode",
+        help_text=(
+            "Ordered (v2, default) flags re-ordered lines as drift; Set (v1) "
+            "treats a re-ordered config as compliant."
+        ),
+    )
 
 
 class PyatsComplianceRunFilterForm(NetBoxModelFilterSetForm):
@@ -309,6 +336,10 @@ class PyatsComplianceRunFilterForm(NetBoxModelFilterSetForm):
     result = forms.ChoiceField(
         required=False,
         choices=[("", "---------")] + ComplianceResultChoices.choices,
+    )
+    mode = forms.ChoiceField(
+        required=False,
+        choices=[("", "---------")] + ComplianceModeChoices.choices,
     )
     has_drift = forms.BooleanField(required=False, label="Only runs with drift")
     has_warnings = forms.BooleanField(required=False, label="Only runs with warnings")
@@ -434,3 +465,87 @@ class DeviceParseForm(forms.Form):
         if not commands and not manual_command:
             raise forms.ValidationError("Select at least one parser command or type a manual command.")
         return self.cleaned_data
+
+
+# --------------------------------------------------------------------------- #
+# Capture schedule forms (ATW-433, ADR-0008)
+# --------------------------------------------------------------------------- #
+
+
+class PyatsCaptureScheduleForm(NetBoxModelForm):
+    """Create/edit form for a PyATS Capture Schedule (ATW-433).
+
+    The operator enters a ``device_filter`` as a JSON ORM lookup spec (e.g.
+    ``{"region_id__in": [1, 2]}`` or ``{"id__in": [10, 20]}``). The field is a
+    ``JSONField`` rendered as a textarea; the dispatcher re-resolves it to a
+    Device queryset at run time. The ``kind`` reuses
+    :class:`SnapshotKindChoices` (no new choice values).
+    """
+
+    device_filter = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 6, "class": "font-monospace"}),
+        help_text=(
+            'JSON ORM filter spec (e.g. {"region_id__in": [1, 2]} or '
+            '{"id__in": [10, 20]}). Re-resolved to a Device queryset at run '
+            "time. Leave empty to match no devices."
+        ),
+    )
+
+    fieldsets = (
+        FieldSet("name", "kind", "enabled", "device_filter", name="Schedule"),
+        FieldSet("tags", name="Tags"),
+    )
+
+    class Meta:
+        model = PyatsCaptureSchedule
+        fields = (
+            "name",
+            "kind",
+            "enabled",
+            "device_filter",
+            "tags",
+        )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Pre-populate the JSON textarea with the stored spec as a pretty
+        # JSON string so the operator sees the current filter on edit.
+        if self.instance and self.instance.pk and self.instance.device_filter:
+            import json
+
+            self.fields["device_filter"].initial = json.dumps(self.instance.device_filter, indent=2)
+
+    def clean_device_filter(self):
+        """Parse the ``device_filter`` textarea to a dict (empty on blank).
+
+        The field is a ``CharField`` on the form so the operator types JSON;
+        the model stores a ``JSONField``. A blank submission yields an empty
+        dict (matches the model default). An invalid JSON string raises a
+        validation error so the form re-renders rather than crashing at save.
+        """
+        import json
+
+        raw = (self.cleaned_data.get("device_filter") or "").strip()
+        if not raw:
+            return {}
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise forms.ValidationError(f"device_filter must be valid JSON: {exc}")
+        if not isinstance(parsed, dict):
+            raise forms.ValidationError('device_filter must be a JSON object (e.g. {"id__in": [1, 2]}).')
+        return parsed
+
+
+class PyatsCaptureScheduleFilterForm(NetBoxModelFilterSetForm):
+    """Filter form for the PyatsCaptureSchedule list view (ATW-433)."""
+
+    model = PyatsCaptureSchedule
+
+    q = forms.CharField(required=False, label="Search")
+    kind = forms.ChoiceField(
+        required=False,
+        choices=[("", "---------")] + SnapshotKindChoices.choices,
+    )
+    enabled = forms.NullBooleanField(required=False, label="Enabled")

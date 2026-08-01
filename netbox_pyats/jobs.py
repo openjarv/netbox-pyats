@@ -56,6 +56,19 @@ from .choices import (
     SnapshotTriggerChoices,
 )
 
+# ``JobRunner`` is only available inside a running NetBox process. The plugin
+# is importable in pure-Python test mode (no NetBox installed) for the logic
+# modules; ``jobs.py`` keeps its NetBox-only imports lazy so importing the
+# module never requires NetBox. ``JobRunner`` is the one exception that must be
+# available at class-definition time (``RunCaptureSchedulesJob`` subclasses
+# it), so guard the import and fall back to ``object`` when NetBox is absent —
+# the ``RunCaptureSchedulesJob`` class is then inert (only constructed inside
+# NetBox), matching the ``PluginConfig = object`` pattern in ``__init__.py``.
+try:
+    from netbox.jobs import JobRunner
+except ModuleNotFoundError:  # pragma: no cover - pure-Python test mode
+    JobRunner = object  # type: ignore[misc,assignment]
+
 logger = logging.getLogger(__name__)
 
 
@@ -171,6 +184,41 @@ def _record_error(job, pyats_job_id: int, exc: BaseException) -> None:
         logger.exception("netbox_pyats: failed to record PyatsJob error row")
 
 
+def _persist_error_row(row, *, label: str):
+    """Best-effort persist + save of a pre-built error result row (ATW-431).
+
+    The four job callables (capture / diff / compliance / parse) each build an
+    error result row (a :class:`PyatsSnapshot` / :class:`PyatsSnapshotDiff` /
+    :class:`PyatsComplianceRun` with ``status="error"`` / ``result="error"``)
+    on an uncaught exception, then ``full_clean()`` + ``save()`` it so the
+    operator sees the failure in the device-page history. That try-write /
+    drop-ref-on-failure block was duplicated ~4 times; this helper cuts the
+    duplication and keeps the graceful-degradation contract uniform.
+
+    Args:
+        row: an unsaved model instance already populated with the error
+            fields (status/result, parser_warnings, diff/data, summary,
+            size_bytes, and the relevant FKs). The caller sets the FKs to
+            ``None`` or the loaded objects per each job's nullable-FK
+            contract (ATW-68 / migration 0006/0008).
+        label: a short human label for the log message (e.g. ``"snapshot"``,
+            ``"diff"``, ``"compliance run"``) so the exception log identifies
+            which job type failed to persist.
+
+    Returns:
+        The saved row on success, or ``None`` on failure — the caller drops
+        the reference on ``None`` so the outer ``try/finally`` records a
+        :class:`PyatsJob` error rather than linking an unsaved row.
+    """
+    try:
+        row.full_clean()
+        row.save()
+        return row
+    except Exception:  # noqa: BLE001 - never mask the original error
+        logger.exception("netbox_pyats: failed to persist error-row %s", label)
+        return None
+
+
 def enqueue_capture(
     device,
     *,
@@ -278,8 +326,8 @@ def capture_snapshot_job(
         except Exception as exc:  # noqa: BLE001 - any uncaught error → error row + job failure
             # Still write a row so the operator sees the failure in the history,
             # then re-raise so NetBox marks the Job as errored.
-            try:
-                snapshot = PyatsSnapshot(
+            snapshot = _persist_error_row(
+                PyatsSnapshot(
                     device=device,
                     kind=kind,
                     status="error",
@@ -290,15 +338,9 @@ def capture_snapshot_job(
                     pyats_version="",
                     parsed_os="",
                     size_bytes=0,
-                )
-                snapshot.full_clean()
-                snapshot.save()
-            except Exception:  # noqa: BLE001 - never mask the original error
-                # The error-row write itself failed (e.g. full_clean rejected
-                # it). Drop the reference so the outer except records a
-                # PyatsJob error rather than trying to FK-link an unsaved row.
-                snapshot = None
-                logger.exception("netbox_pyats: failed to persist error-row snapshot")
+                ),
+                label="snapshot",
+            )
             # ADR-0005 §3 step 3: the result row was still created, so the
             # PyatsJob is a success-of-plumbing with an error result row (FK
             # set, status=error, error text empty — the row carries the
@@ -491,8 +533,8 @@ def run_diff_job(job, before_id: int, after_id: int, pyats_job_id: int | None = 
         try:
             result = diff_snapshots(before_snap.data, after_snap.data, name=str(device))
         except Exception as exc:  # noqa: BLE001 - any uncaught error → error row + job failure
-            try:
-                diff_row = PyatsSnapshotDiff(
+            diff_row = _persist_error_row(
+                PyatsSnapshotDiff(
                     device=device,
                     before=before_snap,
                     after=after_snap,
@@ -501,15 +543,9 @@ def run_diff_job(job, before_id: int, after_id: int, pyats_job_id: int | None = 
                     summary={},
                     parser_warnings=[f"diff error: {exc}", traceback.format_exc()],
                     size_bytes=0,
-                )
-                diff_row.full_clean()
-                diff_row.save()
-            except Exception:  # noqa: BLE001 - never mask the original error
-                # The error-row write itself failed; drop the reference so the
-                # outer except records a PyatsJob error rather than linking an
-                # unsaved row (mirrors capture_snapshot_job).
-                diff_row = None
-                logger.exception("netbox_pyats: failed to persist error-row diff")
+                ),
+                label="diff",
+            )
             if pyats_job_id is not None and diff_row is not None:
                 _finish_success(job, pyats_job_id, related_diff=diff_row)
             raise
@@ -553,7 +589,7 @@ def run_diff_job(job, before_id: int, after_id: int, pyats_job_id: int | None = 
 # --------------------------------------------------------------------------- #
 
 
-def enqueue_compliance(device, *, golden_id, snapshot_id, user=None):
+def enqueue_compliance(device, *, golden_id, snapshot_id, user=None, mode=None):
     """Enqueue a compliance run job on the dedicated ``pyats`` RQ queue.
 
     This is the entry point the device-page PyATS compliance sub-tab calls
@@ -569,6 +605,9 @@ def enqueue_compliance(device, *, golden_id, snapshot_id, user=None):
         golden_id: primary key of the :class:`PyatsGoldenConfig` to compare.
         snapshot_id: primary key of the :class:`PyatsSnapshot` to compare.
         user: the NetBox user initiating the compliance run (for the Job row).
+        mode: the compliance comparison mode (``"ordered"`` v2 default, or
+            ``"set"`` v1). ``None`` lets the job default to ``ordered`` (the
+            v2 default) — see :class:`~netbox_pyats.choices.ComplianceModeChoices`.
 
     Returns:
         The NetBox :class:`core.models.Job` row tracking this compliance run.
@@ -586,6 +625,7 @@ def enqueue_compliance(device, *, golden_id, snapshot_id, user=None):
         golden_id=golden_id,
         snapshot_id=snapshot_id,
         pyats_job_id=pyats_job.pk,
+        mode=mode,
     )
     pyats_job.core_job = core_job
     pyats_job.rq_job_id = getattr(core_job, "job_id", "") or ""
@@ -594,7 +634,9 @@ def enqueue_compliance(device, *, golden_id, snapshot_id, user=None):
     return core_job
 
 
-def run_compliance_job(job, golden_id: int, snapshot_id: int, pyats_job_id: int | None = None, **kwargs):
+def run_compliance_job(
+    job, golden_id: int, snapshot_id: int, pyats_job_id: int | None = None, mode: str | None = None, **kwargs
+):
     """RQ worker entry point — run compliance and persist the result.
 
     NetBox's :class:`core.models.Job.enqueue` calls this with ``job`` (the
@@ -709,11 +751,19 @@ def run_compliance_job(job, golden_id: int, snapshot_id: int, pyats_job_id: int 
                 snapshot_raw = legacy_config.get("raw") or ""
         golden_text = golden.config_text or ""
 
+        # Resolve the comparison mode. The enqueue path passes the operator's
+        # choice through ``mode``; ``None`` defaults to ordered (v2) inside
+        # run_compliance. We resolve it here too so the persisted row records
+        # the effective mode (not the raw kwarg) for the operator.
+        from .choices import ComplianceModeChoices
+
+        effective_mode = mode if mode in dict(ComplianceModeChoices.choices) else ComplianceModeChoices.MODE_ORDERED
+
         try:
-            result = run_compliance(golden_text, snapshot_raw, name=str(device))
+            result = run_compliance(golden_text, snapshot_raw, name=str(device), mode=effective_mode)
         except Exception as exc:  # noqa: BLE001 - any uncaught error → error row + job failure
-            try:
-                run_row = PyatsComplianceRun(
+            run_row = _persist_error_row(
+                PyatsComplianceRun(
                     device=device,
                     golden=golden,
                     snapshot=snapshot,
@@ -722,15 +772,10 @@ def run_compliance_job(job, golden_id: int, snapshot_id: int, pyats_job_id: int 
                     summary={},
                     parser_warnings=[f"compliance error: {exc}", traceback.format_exc()],
                     size_bytes=0,
-                )
-                run_row.full_clean()
-                run_row.save()
-            except Exception:  # noqa: BLE001 - never mask the original error
-                # The error-row write itself failed; drop the reference so the
-                # outer except records a PyatsJob error rather than linking an
-                # unsaved row (mirrors capture_snapshot_job / run_diff_job).
-                run_row = None
-                logger.exception("netbox_pyats: failed to persist error-row compliance run")
+                    mode=effective_mode,
+                ),
+                label="compliance run",
+            )
             if pyats_job_id is not None and run_row is not None:
                 _finish_success(job, pyats_job_id, related_compliance=run_row)
             raise
@@ -744,6 +789,7 @@ def run_compliance_job(job, golden_id: int, snapshot_id: int, pyats_job_id: int 
             summary=result.summary,
             parser_warnings=result.warnings,
             size_bytes=result.size_bytes,
+            mode=effective_mode,
         )
         run_row.full_clean()
         run_row.save()
@@ -1074,8 +1120,8 @@ def parse_commands_job(job, commands: list[str], pyats_job_id: int | None = None
         except Exception as exc:  # noqa: BLE001 - any uncaught error → error row + job failure
             # Still write a row so the operator sees the failure in the history,
             # then re-raise so NetBox marks the Job as errored.
-            try:
-                snapshot = PyatsSnapshot(
+            snapshot = _persist_error_row(
+                PyatsSnapshot(
                     device=device,
                     kind=SnapshotKindChoices.KIND_PARSE,
                     status="error",
@@ -1086,12 +1132,9 @@ def parse_commands_job(job, commands: list[str], pyats_job_id: int | None = None
                     pyats_version="",
                     parsed_os="",
                     size_bytes=0,
-                )
-                snapshot.full_clean()
-                snapshot.save()
-            except Exception:  # noqa: BLE001 - never mask the original error
-                snapshot = None
-                logger.exception("netbox_pyats: failed to persist error-row parse snapshot")
+                ),
+                label="parse snapshot",
+            )
             if pyats_job_id is not None and snapshot is not None:
                 _finish_success(job, pyats_job_id, related_snapshot=snapshot)
             raise
@@ -1217,8 +1260,131 @@ def refresh_parser_catalog_job(job, pyats_job_id: int | None = None, **kwargs):
         raise
 
 
+# --------------------------------------------------------------------------- #
+# Scheduled capture dispatcher (ATW-433, ADR-0008)
+# --------------------------------------------------------------------------- #
+
+
+def run_capture_schedules_job(job, **kwargs):
+    """RQ worker entry point — dispatch captures for all enabled schedules.
+
+    Thin module-level wrapper kept for direct enqueue (and tests). The real
+    dispatcher is :class:`RunCaptureSchedulesJob` (a :class:`JobRunner`
+    subclass); NetBox's scheduler calls :meth:`JobRunner.handle`, which wraps
+    this callable and provides recurring re-scheduling via
+    :meth:`Job.enqueue`'s ``interval`` parameter. This wrapper exists so the
+    plugin can enqueue a one-shot dispatch with
+    ``Job.enqueue(run_capture_schedules_job, ...)`` and so tests can call the
+    dispatcher without standing up a :class:`JobRunner` instance.
+
+    Reads every :class:`PyatsCaptureSchedule` with ``enabled=True``,
+    re-resolves each schedule's ``device_filter`` to a Device queryset, and
+    calls :func:`enqueue_batch_capture` per schedule on the ``pyats`` queue
+    (one ``enqueue_batch_capture`` per schedule → one traceable
+    ``PyatsJob(job_type=batch_capture)`` per schedule). After dispatch, each
+    schedule's ``last_run_at`` is updated.
+
+    This callable runs on NetBox's **default** queue (the one justified
+    exception to "all plugin work on ``pyats``": the dispatcher does no pyATS
+    work — it only enqueues the real capture work onto ``pyats``, which queues
+    up and runs when the pyats worker comes online — the existing "capture
+    sits on pyats queue until a worker comes online" behaviour documented in
+    workers.md:57). The operator schedules it via
+    :class:`RunCaptureSchedulesJob` (see ADR-0008 for the scheduling surface).
+    """
+    from django.utils import timezone
+
+    from .models import PyatsCaptureSchedule, _resolve_device_filter
+
+    logger.info("netbox_pyats: dispatching capture schedules")
+    dispatched = 0
+    skipped = 0
+    now = timezone.now()
+    try:
+        for schedule in PyatsCaptureSchedule.objects.filter(enabled=True):
+            devices_qs = _resolve_device_filter(schedule.device_filter)
+            device_count = devices_qs.count()
+            if device_count == 0:
+                logger.info(
+                    "netbox_pyats: schedule %s skipped (device_filter matched 0 devices)",
+                    schedule.name,
+                )
+                skipped += 1
+                schedule.last_run_at = now
+                schedule.full_clean()
+                schedule.save(update_fields=["last_run_at", "last_updated"])
+                continue
+
+            core_job = enqueue_batch_capture(
+                devices_qs,
+                kind=schedule.kind,
+                user=None,
+            )
+            dispatched += 1
+            schedule.last_run_at = now
+            schedule.full_clean()
+            schedule.save(update_fields=["last_run_at", "last_updated"])
+            logger.info(
+                "netbox_pyats: schedule %s dispatched %d device(s) (core.Job #%s)",
+                schedule.name,
+                device_count,
+                core_job.pk,
+            )
+
+        logger.info(
+            "netbox_pyats: capture schedules dispatch complete (dispatched=%d, skipped=%d)",
+            dispatched,
+            skipped,
+        )
+        return {"dispatched": dispatched, "skipped": skipped}
+    except Exception as exc:  # noqa: BLE001 - top-level try/finally re-raises
+        logger.exception("netbox_pyats: capture schedules dispatch failed: %s", exc)
+        raise
+
+
+class RunCaptureSchedulesJob(JobRunner):
+    """Recurring dispatcher for capture schedules (ATW-433, ADR-0008).
+
+    A registered NetBox :class:`~netbox.jobs.JobRunner` subclass that dispatches
+    one :func:`enqueue_batch_capture` per enabled :class:`PyatsCaptureSchedule`
+    on the ``pyats`` queue. Subclassing :class:`JobRunner` (rather than only
+    exposing a plain function) is what makes the dispatcher **recurring**:
+    ``JobRunner.handle``'s ``finally`` block re-enqueues the next run when
+    ``Job.enqueue(..., interval=N)`` is used (see
+    ``netbox/jobs.py`` ``JobRunner.handle``). A plain-function callable runs
+    once and stops — there is no auto-reschedule path for it.
+
+    The dispatcher itself runs on NetBox's **default** queue (the one justified
+    exception to "all plugin work on ``pyats``": it does no pyATS work — it
+    only enqueues the real captures onto ``pyats``, which run when the pyats
+    worker comes online). The operator sets the cadence by enqueuing this job
+    with ``schedule_at`` / ``interval`` (e.g. via a plugin view or a one-off
+    enqueue from the NetBox shell); NetBox's ``Job`` row carries the
+    ``scheduled``/``interval`` fields and ``JobRunner.handle`` drives the
+    recurrence.
+
+    See ADR-0008 for the structural decision and the rejected alternatives
+    (plain function, ``rq-scheduler``, external cron as the primary path).
+    """
+
+    class Meta:
+        name = "Run Capture Schedules"
+
+    def run(self, *args, **kwargs):
+        """Dispatch captures for all enabled schedules (delegates to the wrapper).
+
+        ``JobRunner.handle`` calls ``run`` after marking the ``Job`` running;
+        the body is identical to :func:`run_capture_schedules_job` so a
+        one-shot enqueue and a recurring ``JobRunner`` schedule share one code
+        path. ``self.job`` is the NetBox :class:`core.models.Job` row tracking
+        this run.
+        """
+        return run_capture_schedules_job(self.job, **kwargs)
+
+
 __all__ = (
     "PYATS_QUEUE",
+    "RunCaptureSchedulesJob",
     "batch_capture_job",
     "capture_snapshot_job",
     "enqueue_batch_capture",
@@ -1231,4 +1397,5 @@ __all__ = (
     "refresh_parser_catalog_job",
     "run_compliance_job",
     "run_diff_job",
+    "run_capture_schedules_job",
 )

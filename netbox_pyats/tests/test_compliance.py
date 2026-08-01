@@ -1,4 +1,4 @@
-"""Tests for :mod:`netbox_pyats.compliance` (Phase 4, ATW-15).
+"""Tests for :mod:`netbox_pyats.compliance` (Phase 4, ATW-15; v2 ATW-434).
 
 Pure-Python: exercises the compliance engine against plain config-text strings
 (no NetBox, no RQ, no Genie). Covers the shipped end-to-end compliance path:
@@ -18,6 +18,12 @@ Pure-Python: exercises the compliance engine against plain config-text strings
   Phase 3 ``inc/diff_tree.html`` partial renders it unchanged.
 - Realistic Cisco IOS running-config golden vs. snapshot raw text (the
   scenario the worker actually runs).
+
+ATW-434 adds the v2 ordered (sequence-aware) diff as the default mode, with
+the v1 set diff retained as an explicit ``mode="set"`` opt-in. The ordered
+diff flags re-ordered lines (ACL entry order, route-map sequence, interface
+definition order) as drift — the documented v1 gap. Both modes are exercised
+here.
 """
 
 import json
@@ -26,7 +32,7 @@ import pytest
 
 pytest.importorskip("pyats")  # keep parity with the other pure-Python test files
 
-from netbox_pyats.choices import ComplianceResultChoices
+from netbox_pyats.choices import ComplianceModeChoices, ComplianceResultChoices
 from netbox_pyats.compliance import run_compliance
 
 # A realistic Cisco IOS/XE running-config fragment, used for both the golden
@@ -49,6 +55,19 @@ interface GigabitEthernet0/1
 end
 """
 
+# A small ACL-bearing config used to exercise order-sensitive drift (ATW-434).
+# Two ACL entries whose order is semantically significant: permit 10.0.0.1
+# before deny 10.0.0.0/24 is *not* the same policy as the reverse.
+ACL_GOLDEN = """!
+hostname rtr01
+!
+ip access-list extended ACL_IN
+ permit ip host 10.0.0.1 any
+ deny ip 10.0.0.0 0.0.0.255 any
+!
+end
+"""
+
 
 class TestCompliant:
     def test_matching_golden_and_snapshot_yields_compliant(self):
@@ -63,22 +82,14 @@ class TestCompliant:
         # Compliant runs carry an all-unchanged diff tree so the viewer can
         # render "nothing changed" explicitly.
         assert r.diff["status"] == "unchanged"
-
-    def test_compliant_with_reordered_lines_still_compliant(self):
-        # v1 is a set diff (order-independent): a re-ordered config with the
-        # same lines classifies as compliant. Documented v1 limitation —
-        # order-sensitive compliance is v2.
-        golden_lines = BASE_CONFIG.splitlines()
-        snapshot_lines = list(reversed(golden_lines))
-        snapshot_text = "\n".join(snapshot_lines)
-        r = run_compliance(BASE_CONFIG, snapshot_text)
-        assert r.result == ComplianceResultChoices.RESULT_COMPLIANT
-        assert r.has_drift is False
+        # v2 ordered is the default mode.
+        assert r.mode == ComplianceModeChoices.MODE_ORDERED
+        assert r.diff["mode"] == ComplianceModeChoices.MODE_ORDERED
 
     def test_compliant_ignores_bang_delimiters_and_blank_lines(self):
         # Extra "!" delimiter lines and blank lines are noise; two configs
         # that differ only in delimiter/blank-line placement classify as
-        # compliant.
+        # compliant in both modes (delimiters are dropped by normalization).
         golden = "hostname rtr01\n!\ninterface Gig0\n ip address 10.0.0.1 255.255.255.0\n"
         snapshot = "hostname rtr01\n\ninterface Gig0\n ip address 10.0.0.1 255.255.255.0\n!\n"
         r = run_compliance(golden, snapshot)
@@ -93,6 +104,103 @@ class TestCompliant:
         r = run_compliance(golden, snapshot)
         assert r.result == ComplianceResultChoices.RESULT_COMPLIANT
         assert r.has_drift is False
+
+
+class TestOrderedModeReorderDrift:
+    """ATW-434: the v2 ordered (default) diff flags re-ordered lines as drift.
+
+    This is the order-sensitive drift the v1 set diff missed (ACL entry order,
+    route-map sequence, interface definition order). Each test pins the
+    default mode explicitly to guard against a future default flip.
+    """
+
+    def test_reordered_acl_entries_yield_drift_ordered(self):
+        # The golden requires permit-then-deny; the snapshot has the reverse
+        # order. The set diff would call this compliant (same lines); the
+        # ordered diff must flag it as drift.
+        snapshot = ACL_GOLDEN.replace(
+            " permit ip host 10.0.0.1 any\n deny ip 10.0.0.0 0.0.0.255 any",
+            " deny ip 10.0.0.0 0.0.0.255 any\n permit ip host 10.0.0.1 any",
+        )
+        r = run_compliance(ACL_GOLDEN, snapshot)
+        assert r.mode == ComplianceModeChoices.MODE_ORDERED
+        assert r.result == ComplianceResultChoices.RESULT_DRIFT
+        assert r.has_drift is True
+        # The two ACL lines show up as added+removed (moved), not unchanged.
+        assert r.summary["added"] >= 1
+        assert r.summary["removed"] >= 1
+
+    def test_reversed_config_yields_drift_ordered(self):
+        # A fully reversed config has the same lines in reverse order — set
+        # diff calls it compliant, ordered diff calls it drift.
+        golden_lines = [ln for ln in BASE_CONFIG.splitlines() if ln.strip() and ln.strip() != "!"]
+        snapshot_lines = list(reversed(golden_lines))
+        snapshot_text = "\n".join(snapshot_lines)
+        r = run_compliance(BASE_CONFIG, snapshot_text)
+        assert r.mode == ComplianceModeChoices.MODE_ORDERED
+        assert r.result == ComplianceResultChoices.RESULT_DRIFT
+        assert r.has_drift is True
+
+    def test_reordered_interfaces_yield_drift_ordered(self):
+        # Two interfaces swapped in definition order — set diff misses this,
+        # ordered diff flags it.
+        golden = (
+            "hostname rtr01\n"
+            "interface Gig0\n ip address 10.0.0.1 255.255.255.0\n"
+            "interface Gig1\n ip address 10.0.0.2 255.255.255.0\n"
+        )
+        snapshot = (
+            "hostname rtr01\n"
+            "interface Gig1\n ip address 10.0.0.2 255.255.255.0\n"
+            "interface Gig0\n ip address 10.0.0.1 255.255.255.0\n"
+        )
+        r = run_compliance(golden, snapshot)
+        assert r.result == ComplianceResultChoices.RESULT_DRIFT
+        assert r.has_drift is True
+
+    def test_ordered_mode_records_mode_on_result(self):
+        r = run_compliance(BASE_CONFIG, BASE_CONFIG)
+        assert r.mode == ComplianceModeChoices.MODE_ORDERED
+        assert r.diff["mode"] == ComplianceModeChoices.MODE_ORDERED
+
+    def test_ordered_mode_compliant_when_lines_in_same_order(self):
+        # Same lines in the same order → compliant even in ordered mode.
+        r = run_compliance(ACL_GOLDEN, ACL_GOLDEN)
+        assert r.result == ComplianceResultChoices.RESULT_COMPLIANT
+        assert r.has_drift is False
+
+
+class TestSetMode:
+    """v1 set (order-independent) diff, retained as an explicit opt-in.
+
+    A re-ordered config with the same lines classifies as compliant — the
+    documented v1 limitation. Kept so operators whose configs legitimately
+    vary in section order can opt out of order-sensitive drift.
+    """
+
+    def test_reordered_acl_entries_yield_compliant_set(self):
+        snapshot = ACL_GOLDEN.replace(
+            " permit ip host 10.0.0.1 any\n deny ip 10.0.0.0 0.0.0.255 any",
+            " deny ip 10.0.0.0 0.0.0.255 any\n permit ip host 10.0.0.1 any",
+        )
+        r = run_compliance(ACL_GOLDEN, snapshot, mode=ComplianceModeChoices.MODE_SET)
+        assert r.mode == ComplianceModeChoices.MODE_SET
+        assert r.result == ComplianceResultChoices.RESULT_COMPLIANT
+        assert r.has_drift is False
+
+    def test_reversed_config_still_compliant_set(self):
+        golden_lines = BASE_CONFIG.splitlines()
+        snapshot_lines = list(reversed(golden_lines))
+        snapshot_text = "\n".join(snapshot_lines)
+        r = run_compliance(BASE_CONFIG, snapshot_text, mode=ComplianceModeChoices.MODE_SET)
+        assert r.mode == ComplianceModeChoices.MODE_SET
+        assert r.result == ComplianceResultChoices.RESULT_COMPLIANT
+        assert r.has_drift is False
+
+    def test_set_mode_records_mode_on_result(self):
+        r = run_compliance(BASE_CONFIG, BASE_CONFIG, mode=ComplianceModeChoices.MODE_SET)
+        assert r.mode == ComplianceModeChoices.MODE_SET
+        assert r.diff["mode"] == ComplianceModeChoices.MODE_SET
 
 
 class TestDrift:
@@ -120,8 +228,8 @@ class TestDrift:
         assert r.has_drift is True
 
     def test_changed_line_yields_drift(self):
-        # A "changed" line is a remove + an add in the set diff (the line text
-        # differs), so both counts are non-zero.
+        # A "changed" line is a remove + an add (the line text differs), so
+        # both counts are non-zero.
         golden = "hostname rtr01\n"
         snapshot = "hostname rtr02\n"
         r = run_compliance(golden, snapshot)
@@ -143,6 +251,42 @@ class TestDrift:
         assert r.has_drift is True
         assert r.summary["added"] == 1
         assert r.summary["removed"] == 1
+
+    def test_drift_in_both_modes(self):
+        # Genuine content drift (not just re-ordering) is drift in both modes.
+        golden = "hostname rtr01\ninterface Gig0\n ip address 10.0.0.1 255.255.255.0\n"
+        snapshot = "hostname rtr01\ninterface Gig0\n ip address 10.0.0.99 255.255.255.0\n"
+        for mode in (ComplianceModeChoices.MODE_ORDERED, ComplianceModeChoices.MODE_SET):
+            r = run_compliance(golden, snapshot, mode=mode)
+            assert r.result == ComplianceResultChoices.RESULT_DRIFT, mode
+            assert r.has_drift is True, mode
+            assert r.summary["added"] == 1, mode
+            assert r.summary["removed"] == 1, mode
+
+
+class TestDuplicateLines:
+    """The ordered diff can emit the same line text at multiple positions
+    (e.g. two `` ip address`` leaves from two interfaces). The children dict
+    must disambiguate them so each leaf has a unique key — otherwise the
+    viewer would collapse them. (ATW-434.)
+    """
+
+    def test_ordered_diff_disambiguates_duplicate_lines(self):
+        # Two interfaces with the same subnet line text — the ordered diff
+        # emits the line twice; the children dict keys must not collide.
+        golden = (
+            "interface Gig0\n ip address 10.0.0.1 255.255.255.0\n"
+            "interface Gig1\n ip address 10.0.0.1 255.255.255.0\n"
+        )
+        snapshot = (
+            "interface Gig0\n ip address 10.0.0.1 255.255.255.0\n"
+            "interface Gig1\n ip address 10.0.0.1 255.255.255.0\n"
+        )
+        r = run_compliance(golden, snapshot)
+        assert r.result == ComplianceResultChoices.RESULT_COMPLIANT
+        # The two duplicate " ip address ..." lines both surface in the tree.
+        keys = list(r.diff["children"].keys())
+        assert sum(1 for k in keys if k.startswith(" ip address 10.0.0.1")) == 2
 
 
 class TestErrorInputs:
@@ -185,6 +329,27 @@ class TestErrorInputs:
         r = run_compliance("", "")
         assert r.result == ComplianceResultChoices.RESULT_ERROR
         assert any("golden config is empty" in w for w in r.warnings)
+
+    def test_error_records_mode(self):
+        # The mode is echoed back on error results so the row records which
+        # mode the operator requested even when inputs are bad.
+        r = run_compliance("", BASE_CONFIG, mode=ComplianceModeChoices.MODE_SET)
+        assert r.result == ComplianceResultChoices.RESULT_ERROR
+        assert r.mode == ComplianceModeChoices.MODE_SET
+
+
+class TestUnknownModeDegradesToOrdered:
+    def test_unknown_mode_falls_back_to_ordered(self):
+        # An unknown mode string degrades to ordered (the more informative
+        # comparison) rather than raising — the job passes the user-selected
+        # mode straight through and must not crash on a bad value.
+        golden = "hostname rtr01\n"
+        snapshot = "hostname rtr02\n"
+        r = run_compliance(golden, snapshot, mode="nonsense")
+        assert r.result == ComplianceResultChoices.RESULT_DRIFT
+        # The effective mode recorded is ordered (the fallback), not the
+        # bogus value.
+        assert r.mode == ComplianceModeChoices.MODE_ORDERED
 
 
 class TestComplianceResultSizeBytes:
@@ -285,3 +450,19 @@ class TestEndToEndCompliancePath:
         assert r.has_drift is True
         assert r.summary["removed"] == 3  # the three removed lines
         assert r.summary["added"] == 0
+
+    def test_realistic_ordered_drift_acl_reordered(self):
+        # ATW-434: the real-world scenario the ordered diff unlocks — an ACL
+        # whose entry order drifted between the golden and the snapshot. The
+        # v1 set diff would call this compliant; the v2 ordered default flags
+        # it as drift.
+        golden_text = ACL_GOLDEN
+        snapshot_raw = ACL_GOLDEN.replace(
+            " permit ip host 10.0.0.1 any\n deny ip 10.0.0.0 0.0.0.255 any",
+            " deny ip 10.0.0.0 0.0.0.255 any\n permit ip host 10.0.0.1 any",
+        )
+        r = run_compliance(golden_text, snapshot_raw, name="rtr01")
+        assert r.result == ComplianceResultChoices.RESULT_DRIFT
+        assert r.has_drift is True
+        assert r.summary["added"] >= 1
+        assert r.summary["removed"] >= 1
