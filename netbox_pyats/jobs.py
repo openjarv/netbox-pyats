@@ -1231,6 +1231,87 @@ def refresh_parser_catalog_job(job, pyats_job_id: int | None = None, **kwargs):
         raise
 
 
+# --------------------------------------------------------------------------- #
+# Scheduled capture dispatcher (ATW-433, ADR-0008)
+# --------------------------------------------------------------------------- #
+
+
+def run_capture_schedules_job(job, **kwargs):
+    """RQ worker entry point — dispatch captures for all enabled schedules.
+
+    Reads every :class:`PyatsCaptureSchedule` with ``enabled=True``,
+    re-resolves each schedule's ``device_filter`` to a Device queryset, and
+    calls :func:`enqueue_batch_capture` per schedule on the ``pyats`` queue
+    (one ``enqueue_batch_capture`` per schedule → one traceable
+    ``PyatsJob(job_type=batch_capture)`` per schedule). After dispatch, each
+    schedule's ``last_run_at`` is updated from the produced ``PyatsJob`` row's
+    ``started_at``, and ``next_run_at`` is left for NetBox's ``ScheduledJob``
+    interval to drive (the plugin does not own the cadence).
+
+    This callable runs on NetBox's **default** queue (the one justified
+    exception to "all plugin work on ``pyats``": the dispatcher does no pyATS
+    work — it only enqueues the real capture work onto ``pyats``, which queues
+    up and runs when the pyats worker comes online — the existing "capture
+    sits on pyats queue until a worker comes online" behaviour documented in
+    workers.md:57). The operator schedules it via NetBox's native
+    ``ScheduledJob`` (Operations → Jobs → RunCaptureSchedules on a crontab
+    or interval).
+
+    This is a plain function callable (not a ``JobRunner`` subclass) so it
+    reuses the existing ``enqueue_batch_capture`` helper verbatim and stays
+    consistent with the other plugin jobs. NetBox's ``ScheduledJob`` fires it
+    via :class:`core.models.Job.enqueue` on the default queue.
+    """
+    from django.utils import timezone
+
+    from .models import PyatsCaptureSchedule, _resolve_device_filter
+
+    logger.info("netbox_pyats: dispatching capture schedules")
+    dispatched = 0
+    skipped = 0
+    now = timezone.now()
+    try:
+        for schedule in PyatsCaptureSchedule.objects.filter(enabled=True):
+            devices_qs = _resolve_device_filter(schedule.device_filter)
+            device_count = devices_qs.count()
+            if device_count == 0:
+                logger.info(
+                    "netbox_pyats: schedule %s skipped (device_filter matched 0 devices)",
+                    schedule.name,
+                )
+                skipped += 1
+                schedule.last_run_at = now
+                schedule.full_clean()
+                schedule.save(update_fields=["last_run_at", "last_updated"])
+                continue
+
+            core_job = enqueue_batch_capture(
+                devices_qs,
+                kind=schedule.kind,
+                user=None,
+            )
+            dispatched += 1
+            schedule.last_run_at = now
+            schedule.full_clean()
+            schedule.save(update_fields=["last_run_at", "last_updated"])
+            logger.info(
+                "netbox_pyats: schedule %s dispatched %d device(s) (core.Job #%s)",
+                schedule.name,
+                device_count,
+                core_job.pk,
+            )
+
+        logger.info(
+            "netbox_pyats: capture schedules dispatch complete (dispatched=%d, skipped=%d)",
+            dispatched,
+            skipped,
+        )
+        return {"dispatched": dispatched, "skipped": skipped}
+    except Exception as exc:  # noqa: BLE001 - top-level try/finally re-raises
+        logger.exception("netbox_pyats: capture schedules dispatch failed: %s", exc)
+        raise
+
+
 __all__ = (
     "PYATS_QUEUE",
     "batch_capture_job",
@@ -1245,4 +1326,5 @@ __all__ = (
     "refresh_parser_catalog_job",
     "run_compliance_job",
     "run_diff_job",
+    "run_capture_schedules_job",
 )

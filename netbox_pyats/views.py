@@ -58,6 +58,7 @@ from utilities.views import ViewTab, register_model_view
 from . import filtersets, forms, jobs, tables
 from .choices import SnapshotKindChoices, SnapshotTriggerChoices
 from .models import (
+    PyatsCaptureSchedule,
     PyatsComplianceRun,
     PyatsCredential,
     PyatsGoldenConfig,
@@ -906,3 +907,51 @@ def _refresh_parser_catalog_url_for_device(device):
         "plugins:netbox_pyats:device_refresh_parser_catalog",
         kwargs={"device_id": device.pk},
     )
+
+
+# --------------------------------------------------------------------------- #
+# Capture schedule views (ATW-433, ADR-0008)
+# --------------------------------------------------------------------------- #
+
+
+class PyatsCaptureScheduleListView(generic.ObjectListView):
+    """List of all PyATS capture schedules (ATW-433).
+
+    Filterable by kind, enabled, and name. The operator creates a schedule
+    here, then schedules the ``RunCaptureSchedules`` custom job in NetBox's
+    Operations → Jobs to run it on a cadence (ADR-0008).
+    """
+
+    queryset = PyatsCaptureSchedule.objects.all()
+    table = tables.PyatsCaptureScheduleTable
+    filterset = filtersets.PyatsCaptureScheduleFilterSet
+    filterset_form = forms.PyatsCaptureScheduleFilterForm
+
+
+@register_model_view(PyatsCaptureSchedule)
+class PyatsCaptureScheduleView(generic.ObjectView):
+    """Detail view for a single capture schedule (ATW-433)."""
+
+    queryset = PyatsCaptureSchedule.objects.all()
+
+
+@register_model_view(PyatsCaptureSchedule, "edit")
+class PyatsCaptureScheduleEditView(generic.ObjectEditView):
+    """Create/edit view for a PyATS Capture Schedule (ATW-433)."""
+
+    queryset = PyatsCaptureSchedule.objects.all()
+    form = forms.PyatsCaptureScheduleForm
+
+
+@register_model_view(PyatsCaptureSchedule, "delete")
+class PyatsCaptureScheduleDeleteView(generic.ObjectDeleteView):
+    """Standard delete view for a PyatsCaptureSchedule row (ATW-433)."""
+
+    queryset = PyatsCaptureSchedule.objects.all()
+
+
+class PyatsCaptureScheduleBulkDeleteView(generic.BulkDeleteView):
+    """Bulk delete for PyatsCaptureSchedule rows (ATW-433)."""
+
+    queryset = PyatsCaptureSchedule.objects.all()
+    table = tables.PyatsCaptureScheduleTable

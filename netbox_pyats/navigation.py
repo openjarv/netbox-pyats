@@ -43,6 +43,21 @@ menu = PluginMenu(
             ),
         ),
         (
+            _("Capture Schedules"),
+            (
+                PluginMenuItem(
+                    link="plugins:netbox_pyats:pyatscaptureschedule_list",
+                    link_text=_("PyATS Capture Schedules"),
+                    permissions=["netbox_pyats.view_pyatscaptureschedule"],
+                ),
+                PluginMenuItem(
+                    link="plugins:netbox_pyats:pyatscaptureschedule_add",
+                    link_text=_("Add Capture Schedule"),
+                    permissions=["netbox_pyats.add_pyatscaptureschedule"],
+                ),
+            ),
+        ),
+        (
             _("Golden Configs & Compliance"),
             (
                 PluginMenuItem(
