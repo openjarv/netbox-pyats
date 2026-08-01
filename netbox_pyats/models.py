@@ -217,9 +217,10 @@ class PyatsSnapshot(NetBoxModel):
     - ``config``: ``{"config": {<parsed show-running-config output>},
                      "config_raw": "<raw show-running-config text>"}``
     - ``state``:  ``{"state": {<command: <parsed output>, ...>}}`` — one entry
-      per command in :data:`netbox_pyats.capture.STATE_COMMANDS`; commands
-      whose parser is missing for the device's os are recorded as ``None``
-      with a warning.
+      per command resolved by :func:`netbox_pyats.capture.resolve_state_commands`
+      (defaults to :data:`netbox_pyats.capture.STATE_COMMANDS`, overridable per-OS
+      via ``PLUGINS_CONFIG``); commands whose parser is missing for the device's
+      os are recorded as ``None`` with a warning.
     - ``full``:   ``{"config": {...}, "config_raw": "...", "state": {...}}``
 
     ``data["config"]`` is the Genie abstract-config structured dict (used by

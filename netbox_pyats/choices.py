@@ -27,9 +27,10 @@ class SnapshotKindChoices(models.TextChoices):
     """What a :class:`PyatsSnapshot` captures from a device.
 
     ``config`` runs parser-based config capture (``show running-config`` via
-    ``device.parse(...)``). ``state`` runs a small OS-agnostic state command
-    set (see :data:`netbox_pyats.capture.STATE_COMMANDS`), each parsed via
-    ``device.parse(...)``; commands whose parser is missing for the device's
+    ``device.parse(...)``). ``state`` runs a small state command set (see
+    :data:`netbox_pyats.capture.STATE_COMMANDS`, overridable per-OS via
+    ``PLUGINS_CONFIG['netbox_pyats']['state_commands_per_os']``), each parsed
+    via ``device.parse(...)``; commands whose parser is missing for the device's
     os are skipped with a warning. ``full`` runs both and stores them under
     ``data["config"]`` and ``data["state"]`` respectively, so a single row
     captures a complete pre/post-change picture.
