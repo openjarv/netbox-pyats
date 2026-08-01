@@ -12,13 +12,17 @@ The plugin splits scheduling into three pieces (ADR-0008):
 1. **`PyatsCaptureSchedule`** (the *what*) — an operator-authored model in the
    plugin UI: a name, a device filter (JSON ORM spec), a capture kind
    (config / state / full), and an enabled flag.
-2. **`run_capture_schedules_job`** (the *dispatch*) — a custom job callable
-   that reads enabled schedules, re-resolves each device filter to a live
-   Device queryset, and enqueues one batch capture per schedule on the `pyats`
-   RQ queue (the same queue manual and bulk captures use).
-3. **NetBox `ScheduledJob`** (the *when*) — NetBox's native scheduler
-   (Operations → Jobs) fires the dispatcher on a crontab or interval. The
-   plugin owns no cron worker and adds no `rq-scheduler` dependency.
+2. **`RunCaptureSchedulesJob`** (the *dispatch*) — a NetBox `JobRunner`
+   subclass (`netbox_pyats/jobs.py`) that reads enabled schedules, re-resolves
+   each device filter to a live Device queryset, and enqueues one batch
+   capture per schedule on the `pyats` RQ queue (the same queue manual and
+   bulk captures use). The dispatcher runs on NetBox's **default** RQ queue
+   (it does no pyATS work — it only enqueues the real captures onto `pyats`).
+3. **NetBox `Job` `schedule_at`/`interval`** (the *when*) — the operator
+   enqueues the dispatcher with a recurrence interval (in minutes) and an
+   optional first-run time. NetBox's `JobRunner.handle` auto-reschedules the
+   next run after each execution, so the dispatch recurs without a
+   plugin-side cron worker and without `rq-scheduler`.
 
 ## Creating a schedule
 
@@ -39,22 +43,53 @@ schedule creation and dispatch are picked up or dropped automatically.
 
 ## Scheduling the dispatcher job
 
-After creating one or more schedules, schedule the dispatcher in NetBox's
-native jobs UI:
+After creating one or more schedules, enqueue the dispatcher as a recurring
+NetBox `Job`. NetBox 4.x has no generic "schedule any callable" form in the
+web UI (only Custom Scripts get the native `_schedule_at`/`_interval` form
+fields), so the recurring enqueue is initiated from the NetBox shell (or a
+one-off plugin view). The dispatcher is a `JobRunner` subclass
+(`RunCaptureSchedulesJob`), so once enqueued with an `interval`,
+`JobRunner.handle` auto-reschedules each subsequent run — you only enqueue
+once.
 
-1. Navigate to **Operations → Jobs**.
-2. Click **Schedule a job** (or the equivalent in your NetBox version).
-3. Select the job **RunCaptureSchedules** (category PyATS).
-4. Pick a schedule type: **immediately** (one-off), **interval** (every N
-   minutes), or **custom** (crontab expression, e.g. `0 2 * * *` for 02:00
-   daily).
-5. Save.
+### Via the NetBox shell (recurring)
 
-The dispatcher runs on NetBox's **default** RQ queue (it does no pyATS work —
-it only enqueues the real captures onto the `pyats` queue). The captures
-queue up on `pyats` and run when the pyats worker comes online (see
-[workers.md](workers.md) § "capture sits on pyats queue until a worker comes
-online").
+```bash
+docker compose -f docker-compose.dev.yml exec netbox python manage.py shell -c "
+from core.models import Job
+from netbox_pyats.jobs import RunCaptureSchedulesJob
+from django.utils import timezone
+from datetime import timedelta
+
+# Run nightly at 02:00 — first run in ~hours from now, then every 1440 min.
+first_run = timezone.now().replace(hour=2, minute=0, second=0, microsecond=0)
+if first_run <= timezone.now():
+    first_run = first_run + timedelta(days=1)
+Job.enqueue(
+    RunCaptureSchedulesJob.handle,
+    name='PyATS nightly capture schedules',
+    schedule_at=first_run,
+    interval=1440,  # minutes (24h)
+)
+"
+```
+
+### One-shot dispatch (run now)
+
+To fire the dispatcher immediately (e.g. to test the schedules you just
+created), enqueue it without `schedule_at`/`interval`:
+
+```bash
+docker compose -f docker-compose.dev.yml exec netbox python manage.py shell -c "
+from core.models import Job
+from netbox_pyats.jobs import run_capture_schedules_job
+Job.enqueue(run_capture_schedules_job, name='PyATS capture schedules (one-shot)')
+"
+```
+
+The captures queue up on `pyats` and run when the pyats worker comes online
+(see [workers.md](workers.md) § "capture sits on pyats queue until a worker
+comes online").
 
 ## Verifying a scheduled run
 
@@ -67,17 +102,21 @@ online").
 ## External cron fallback
 
 If you already run an external scheduler (host crontab, k8s CronJob), you can
-trigger the dispatcher via the NetBox CLI or API instead of the native
-ScheduledJob:
+trigger a one-shot dispatch on your own cadence instead of using NetBox's
+`interval` recurrence:
 
 ```bash
-# Trigger the dispatcher via the NetBox management CLI (example):
-python manage.py runjob --job netbox_pyats.run_capture_schedules_job
+# Trigger a one-shot dispatch via the NetBox shell (example):
+docker compose -f docker-compose.dev.yml exec netbox python manage.py shell -c "
+from core.models import Job
+from netbox_pyats.jobs import run_capture_schedules_job
+Job.enqueue(run_capture_schedules_job, name='PyATS capture schedules (cron)')
+"
 ```
 
-The dispatcher is the same callable the native ScheduledJob fires, so the
-behavior is identical. The documented happy path is NetBox's native
-ScheduledJob (it keeps the cadence in NetBox's single pane of glass); the
+The dispatcher is the same callable the `interval` path fires, so the
+behavior is identical. The documented happy path is NetBox's `interval`
+recurrence (it keeps the cadence in NetBox's single pane of glass); the
 external-cron path is a fallback for operators who already have one.
 
 ## See also

@@ -918,8 +918,8 @@ class PyatsCaptureScheduleListView(generic.ObjectListView):
     """List of all PyATS capture schedules (ATW-433).
 
     Filterable by kind, enabled, and name. The operator creates a schedule
-    here, then schedules the ``RunCaptureSchedules`` custom job in NetBox's
-    Operations → Jobs to run it on a cadence (ADR-0008).
+    here, then enqueues the ``RunCaptureSchedulesJob`` dispatcher with an
+    ``interval`` to run it on a recurring cadence (ADR-0008).
     """
 
     queryset = PyatsCaptureSchedule.objects.all()

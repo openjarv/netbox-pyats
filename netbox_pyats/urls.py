@@ -91,7 +91,8 @@ urlpatterns = [
     # Capture schedules (ATW-433, ADR-0008) — operator-authored intent model
     # for recurring snapshot capture. Full CRUD (add/edit/delete/bulk-delete)
     # like the other operator-authored models. The cadence is owned by
-    # NetBox's native ScheduledJob (Operations → Jobs → RunCaptureSchedules).
+    # NetBox's native Job interval (RunCaptureSchedulesJob, a JobRunner
+    # subclass), auto-rescheduled by JobRunner.handle.
     path(
         "capture-schedules/",
         views.PyatsCaptureScheduleListView.as_view(),

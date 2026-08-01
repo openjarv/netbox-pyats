@@ -1063,12 +1063,13 @@ class PyatsCaptureSchedule(NetBoxModel):
 
     The scheduling surface for the plugin's nightly-baseline value prop: the
     operator defines *what* to capture (a device filter + capture kind), and
-    a registered NetBox Custom Job (:class:`netbox_pyats.jobs.RunCaptureSchedules`)
-    dispatches the captures via :func:`netbox_pyats.jobs.enqueue_batch_capture`
-    on the ``pyats`` RQ queue. NetBox's native ``ScheduledJob`` owns the
-    *cadence* (crontab / interval), configured by the operator in Operations
-    → Jobs. The plugin owns no cron worker and adds no ``rq-scheduler``
-    dependency (ADR-0008).
+    a registered NetBox :class:`~netbox.jobs.JobRunner` subclass
+    (:class:`netbox_pyats.jobs.RunCaptureSchedulesJob`) dispatches the captures
+    via :func:`netbox_pyats.jobs.enqueue_batch_capture` on the ``pyats`` RQ
+    queue. NetBox's native :class:`core.models.Job` with ``schedule_at``/
+    ``interval`` owns the *cadence*, auto-rescheduled by
+    ``JobRunner.handle``. The plugin owns no cron worker and adds no
+    ``rq-scheduler`` dependency (ADR-0008).
 
     :attr:`device_filter` is a serialized Q-filter spec (e.g.
     ``{"region_id__in": [1, 2]}`` or ``{"id__in": [10, 20]}``), **not** a M2M
@@ -1080,7 +1081,7 @@ class PyatsCaptureSchedule(NetBoxModel):
 
     :attr:`last_run_at` / :attr:`next_run_at` are display-only fields written
     by the dispatcher after each run, for the list-view badge. They are not
-    the cadence source — NetBox's ``ScheduledJob`` owns that.
+    the cadence source — the NetBox ``Job`` row's ``interval`` owns that.
 
     Full CRUD (add/edit/delete) — this is operator-authored config, not
     append-only history. REST + GraphQL are generated from the model via the
@@ -1120,7 +1121,7 @@ class PyatsCaptureSchedule(NetBoxModel):
     next_run_at = models.DateTimeField(
         blank=True,
         null=True,
-        help_text="When the next ScheduledJob firing is expected (display-only, written by the job).",
+        help_text="When the next recurring dispatch is expected (display-only, written by the job).",
     )
 
     clone_fields = ("kind", "device_filter", "enabled")

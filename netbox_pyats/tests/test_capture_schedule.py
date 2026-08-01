@@ -79,9 +79,19 @@ class PyatsCaptureScheduleModelTest(TestCase):
         assert sched.resolve_devices().count() == 0
 
     def test_resolve_devices_non_dict_filter(self):
+        # The model field is NOT NULL with default=dict, so the DB-legal
+        # "no filter" value is the empty dict {} (handled by _resolve_device_filter
+        # as "match no devices"). A non-dict value like None is handled by the
+        # _resolve_device_filter helper (defensive), but cannot be persisted
+        # on the NOT NULL field — test the helper directly for that case.
+        from netbox_pyats.models import _resolve_device_filter
+
+        assert _resolve_device_filter(None).count() == 0
+        assert _resolve_device_filter("not-a-dict").count() == 0
+        # The persisted "no filter" case uses {} (the field's default).
         sched = PyatsCaptureSchedule(
-            name="Non-dict",
-            device_filter=None,
+            name="Empty dict",
+            device_filter={},
             kind=SnapshotKindChoices.KIND_FULL,
             enabled=True,
         )
