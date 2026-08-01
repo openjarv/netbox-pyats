@@ -1,6 +1,7 @@
 from netbox.filtersets import NetBoxModelFilterSet
 
 from .models import (
+    PyatsCaptureSchedule,
     PyatsComplianceRun,
     PyatsCredential,
     PyatsGoldenConfig,
@@ -141,5 +142,24 @@ class PyatsParserCatalogFilterSet(NetBoxModelFilterSet):
             "pyats_os",
             "genie_version",
             "pyats_version",
+            "created",
+        ]
+
+
+class PyatsCaptureScheduleFilterSet(NetBoxModelFilterSet):
+    """FilterSet for the PyatsCaptureSchedule model (ATW-433).
+
+    Lets the schedule list view be filtered by ``kind``, ``enabled``, and
+    ``name`` — the axes the operator is most likely to filter on when
+    managing recurring captures.
+    """
+
+    class Meta:
+        model = PyatsCaptureSchedule
+        fields = [
+            "id",
+            "name",
+            "kind",
+            "enabled",
             "created",
         ]

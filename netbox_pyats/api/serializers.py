@@ -2,6 +2,7 @@ from netbox.api.serializers import NetBoxModelSerializer
 from rest_framework import serializers
 
 from netbox_pyats.models import (
+    PyatsCaptureSchedule,
     PyatsComplianceRun,
     PyatsCredential,
     PyatsGoldenConfig,
@@ -337,3 +338,31 @@ class PyatsParserCatalogSerializer(NetBoxModelSerializer):
             "created",
             "last_updated",
         )
+
+
+class PyatsCaptureScheduleSerializer(NetBoxModelSerializer):
+    """Serializer for the PyatsCaptureSchedule model (ATW-433).
+
+    Fully editable via the REST API in v1 (operators can create/update/delete
+    schedules, e.g. to seed them from an external config-management tool).
+    The ``device_filter`` JSONField is returned as-is (it is the filter spec).
+    ``last_run_at`` / ``next_run_at`` are written by the dispatcher job, so
+    they are read-only on the API.
+    """
+
+    class Meta:
+        model = PyatsCaptureSchedule
+        fields = [
+            "id",
+            "url",
+            "name",
+            "device_filter",
+            "kind",
+            "enabled",
+            "last_run_at",
+            "next_run_at",
+            "tags",
+            "created",
+            "last_updated",
+        ]
+        read_only_fields = ("id", "url", "last_run_at", "next_run_at", "created", "last_updated")

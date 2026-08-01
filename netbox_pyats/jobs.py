@@ -56,6 +56,19 @@ from .choices import (
     SnapshotTriggerChoices,
 )
 
+# ``JobRunner`` is only available inside a running NetBox process. The plugin
+# is importable in pure-Python test mode (no NetBox installed) for the logic
+# modules; ``jobs.py`` keeps its NetBox-only imports lazy so importing the
+# module never requires NetBox. ``JobRunner`` is the one exception that must be
+# available at class-definition time (``RunCaptureSchedulesJob`` subclasses
+# it), so guard the import and fall back to ``object`` when NetBox is absent —
+# the ``RunCaptureSchedulesJob`` class is then inert (only constructed inside
+# NetBox), matching the ``PluginConfig = object`` pattern in ``__init__.py``.
+try:
+    from netbox.jobs import JobRunner
+except ModuleNotFoundError:  # pragma: no cover - pure-Python test mode
+    JobRunner = object  # type: ignore[misc,assignment]
+
 logger = logging.getLogger(__name__)
 
 
@@ -1231,8 +1244,131 @@ def refresh_parser_catalog_job(job, pyats_job_id: int | None = None, **kwargs):
         raise
 
 
+# --------------------------------------------------------------------------- #
+# Scheduled capture dispatcher (ATW-433, ADR-0008)
+# --------------------------------------------------------------------------- #
+
+
+def run_capture_schedules_job(job, **kwargs):
+    """RQ worker entry point — dispatch captures for all enabled schedules.
+
+    Thin module-level wrapper kept for direct enqueue (and tests). The real
+    dispatcher is :class:`RunCaptureSchedulesJob` (a :class:`JobRunner`
+    subclass); NetBox's scheduler calls :meth:`JobRunner.handle`, which wraps
+    this callable and provides recurring re-scheduling via
+    :meth:`Job.enqueue`'s ``interval`` parameter. This wrapper exists so the
+    plugin can enqueue a one-shot dispatch with
+    ``Job.enqueue(run_capture_schedules_job, ...)`` and so tests can call the
+    dispatcher without standing up a :class:`JobRunner` instance.
+
+    Reads every :class:`PyatsCaptureSchedule` with ``enabled=True``,
+    re-resolves each schedule's ``device_filter`` to a Device queryset, and
+    calls :func:`enqueue_batch_capture` per schedule on the ``pyats`` queue
+    (one ``enqueue_batch_capture`` per schedule → one traceable
+    ``PyatsJob(job_type=batch_capture)`` per schedule). After dispatch, each
+    schedule's ``last_run_at`` is updated.
+
+    This callable runs on NetBox's **default** queue (the one justified
+    exception to "all plugin work on ``pyats``": the dispatcher does no pyATS
+    work — it only enqueues the real capture work onto ``pyats``, which queues
+    up and runs when the pyats worker comes online — the existing "capture
+    sits on pyats queue until a worker comes online" behaviour documented in
+    workers.md:57). The operator schedules it via
+    :class:`RunCaptureSchedulesJob` (see ADR-0008 for the scheduling surface).
+    """
+    from django.utils import timezone
+
+    from .models import PyatsCaptureSchedule, _resolve_device_filter
+
+    logger.info("netbox_pyats: dispatching capture schedules")
+    dispatched = 0
+    skipped = 0
+    now = timezone.now()
+    try:
+        for schedule in PyatsCaptureSchedule.objects.filter(enabled=True):
+            devices_qs = _resolve_device_filter(schedule.device_filter)
+            device_count = devices_qs.count()
+            if device_count == 0:
+                logger.info(
+                    "netbox_pyats: schedule %s skipped (device_filter matched 0 devices)",
+                    schedule.name,
+                )
+                skipped += 1
+                schedule.last_run_at = now
+                schedule.full_clean()
+                schedule.save(update_fields=["last_run_at", "last_updated"])
+                continue
+
+            core_job = enqueue_batch_capture(
+                devices_qs,
+                kind=schedule.kind,
+                user=None,
+            )
+            dispatched += 1
+            schedule.last_run_at = now
+            schedule.full_clean()
+            schedule.save(update_fields=["last_run_at", "last_updated"])
+            logger.info(
+                "netbox_pyats: schedule %s dispatched %d device(s) (core.Job #%s)",
+                schedule.name,
+                device_count,
+                core_job.pk,
+            )
+
+        logger.info(
+            "netbox_pyats: capture schedules dispatch complete (dispatched=%d, skipped=%d)",
+            dispatched,
+            skipped,
+        )
+        return {"dispatched": dispatched, "skipped": skipped}
+    except Exception as exc:  # noqa: BLE001 - top-level try/finally re-raises
+        logger.exception("netbox_pyats: capture schedules dispatch failed: %s", exc)
+        raise
+
+
+class RunCaptureSchedulesJob(JobRunner):
+    """Recurring dispatcher for capture schedules (ATW-433, ADR-0008).
+
+    A registered NetBox :class:`~netbox.jobs.JobRunner` subclass that dispatches
+    one :func:`enqueue_batch_capture` per enabled :class:`PyatsCaptureSchedule`
+    on the ``pyats`` queue. Subclassing :class:`JobRunner` (rather than only
+    exposing a plain function) is what makes the dispatcher **recurring**:
+    ``JobRunner.handle``'s ``finally`` block re-enqueues the next run when
+    ``Job.enqueue(..., interval=N)`` is used (see
+    ``netbox/jobs.py`` ``JobRunner.handle``). A plain-function callable runs
+    once and stops — there is no auto-reschedule path for it.
+
+    The dispatcher itself runs on NetBox's **default** queue (the one justified
+    exception to "all plugin work on ``pyats``": it does no pyATS work — it
+    only enqueues the real captures onto ``pyats``, which run when the pyats
+    worker comes online). The operator sets the cadence by enqueuing this job
+    with ``schedule_at`` / ``interval`` (e.g. via a plugin view or a one-off
+    enqueue from the NetBox shell); NetBox's ``Job`` row carries the
+    ``scheduled``/``interval`` fields and ``JobRunner.handle`` drives the
+    recurrence.
+
+    See ADR-0008 for the structural decision and the rejected alternatives
+    (plain function, ``rq-scheduler``, external cron as the primary path).
+    """
+
+    class Meta:
+        name = "Run Capture Schedules"
+
+    def run(self, *args, **kwargs):
+        """Dispatch captures for all enabled schedules (delegates to the wrapper).
+
+        ``JobRunner.handle`` calls ``run`` after marking the ``Job`` running;
+        the body is identical to :func:`run_capture_schedules_job` so a
+        one-shot enqueue and a recurring ``JobRunner`` schedule share one code
+        path. ``self.job`` is the NetBox :class:`core.models.Job` row tracking
+        this run.
+        """
+        return run_capture_schedules_job(self.job, **kwargs)
+
+
 __all__ = (
     "PYATS_QUEUE",
+    "RunCaptureSchedulesJob",
     "batch_capture_job",
     "capture_snapshot_job",
     "enqueue_batch_capture",
@@ -1245,4 +1381,5 @@ __all__ = (
     "refresh_parser_catalog_job",
     "run_compliance_job",
     "run_diff_job",
+    "run_capture_schedules_job",
 )
