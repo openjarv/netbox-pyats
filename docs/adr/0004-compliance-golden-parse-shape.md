@@ -162,6 +162,98 @@ already stored raw text under that key).
   comparison. The line-oriented path remains the fallback for the
   no-connection case and the default for v1.
 
+## v2 ordered text diff (ATW-434)
+
+Date: 2026-08-01
+Status: Accepted (Senior Dev Engineer implementation; CTO scope-reviewed under
+the ATW-427 GAP FILLING sweep)
+Related: [ATW-434](/ATW/issues/ATW-434), [ATW-439](/ATW/issues/ATW-439)
+
+### Context
+
+The v1 line-set diff (above) is order-independent: a re-ordered config
+classifies as `compliant`. This is correct for "does the device carry the
+golden lines?" but it misses **order-sensitive drift** — ACL entry order,
+route-map sequence, interface definition order — where the *order* of the
+lines is the policy, not just their presence. A reordered ACL that permits
+`10.0.0.1` before denying `10.0.0.0/24` is a different policy from the reverse,
+and the v1 set diff called both `compliant`.
+
+The gap-filling sweep ([ATW-439](/ATW/issues/ATW-439)) flagged this as a MEDIUM
+gap. `parsed_os` was already captured on the snapshot at capture time (so v2
+*could* pick the right Genie parser), and the original ADR-0004 v2 note
+suggested parsing the golden with the same Genie parser as the snapshot. This
+section records what v2 actually did and why it did not take that path.
+
+### Considered options for v2
+
+1. **Parse the golden with the same Genie parser the snapshot used.** Rejected
+   for the same reason as ADR-0004 option 1: `show running-config` has no
+   worker-only Genie parser. Confirmed again against genie 26.6 +
+   `genie.libs.parser.utils.get_parser("show running-config", Device(os="iosxe"))`
+   raises `ParserNotFound`; the command is not even in
+   `get_parser_commands(device)`. The abstract-config parser is driven by a
+   connected `Device`'s abstract tree, which requires a live SSH round-trip.
+   Pulling a live device into the compliance path breaks the "no extra SSH
+   round-trip" Phase 4 contract that v1 established. The snapshot's
+   `parsed_os` is recorded for *future* structured-compliance work that has a
+   connected device; v2 does not consume it.
+2. **Normalize both sides into a section→keyed-children tree (original
+   ADR-0004 option 3).** Rejected again for the same reason: a Genie-shape
+   normalizer is lossy and Genie-shape-coupled, breaking on every Genie
+   release that changes the abstract-config schema. Not worth the maintenance
+   burden for the order-detection use case.
+3. **Ordered text diff via `difflib.SequenceMatcher` (chosen).** Keep the
+   v1 text-on-both-sides path (golden `config_text` vs snapshot
+   `data["config_raw"]`, both plain strings), but compare the normalized line
+   *sequences* with a longest-common-subsequence diff instead of a set diff.
+   A re-ordered line is reported as a `removed` (at its golden position) + an
+   `added` (at its snapshot position), so order-sensitive drift shows up as
+   non-zero added/removed counts — exactly the gap v1 missed. No Genie, no
+   device connection, no new dependencies (difflib is stdlib), unit-testable
+   without Genie installed.
+
+### Decision
+
+**v2 compliance is an ordered (sequence-aware) line diff, with the v1 set
+diff retained as an explicit `mode="set"` opt-in.** `run_compliance` takes a
+`mode` kwarg (`"ordered"` default, `"set"` v1); the chosen mode is recorded on
+the `PyatsComplianceRun.mode` column (migration `0011_compliance_run_mode`)
+and surfaced in the UI (device-page compliance form, compliance run detail,
+compliance run list/filter). The default flips to `ordered` so operators get
+the more informative comparison; operators whose configs legitimately vary
+in section order between captures can opt back into the v1 set semantics.
+
+The diff tree shape is unchanged (a `dict` root with `children` keyed by
+line, each child a `leaf` with `status` `unchanged` / `added` / `removed`),
+so the Phase 3 `inc/diff_tree.html` partial renders it unchanged. The only
+addition is a `mode` tag on the root node for diagnostics. Duplicate line
+texts (e.g. two ` ip address` leaves from two interfaces) are disambiguated
+with a `#<n>` suffix on the children-dict key so each leaf has a unique key
+— the viewer renders the un-suffixed line in the common case and the index
+only when the same line appears more than once.
+
+### Consequences
+
+- Order-sensitive drift (ACL/route-map/interface order) is now detected by
+  default. A reordered config that v1 called `compliant` is now `drift` —
+  the documented v1 limitation is closed.
+- The v1 set semantics are retained for operators who want them; they opt
+  in via the `mode` selector on the device-page compliance form (or the
+  `mode` kwarg to `enqueue_compliance` / `run_compliance_job`).
+- Existing compliance runs (pre-v2) backfill to `mode="ordered"` via the
+  migration default; their `result` is unchanged (the row recorded the v1
+  outcome; the `mode` column records what *would* have been the default, not
+  a re-classification of historical rows).
+- The compliance run row, list view, filter form, filterset, table, API
+  serializer, and device-page form all expose `mode` so the operator can see
+  which semantics produced each result and filter on it.
+- The diff tree carries a `mode` tag on the root node for diagnostics; the
+  viewer does not render it (it renders `status` / `type` / `name` as before).
+- v3 can revisit Genie-structured compliance if a connected device is
+  available at compliance time; the ordered text path remains the
+  no-connection default.
+
 ## DoesNotExist error-row persistence (blocker #3, same PR)
 
 `run_compliance_job`'s `DoesNotExist` handler builds a `PyatsComplianceRun`
