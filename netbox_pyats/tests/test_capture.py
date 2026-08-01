@@ -26,7 +26,12 @@ import pytest
 
 pytest.importorskip("pyats")
 
-from netbox_pyats.capture import STATE_COMMANDS, CaptureResult, capture_snapshot
+from netbox_pyats.capture import (
+    STATE_COMMANDS,
+    CaptureResult,
+    capture_snapshot,
+    resolve_state_commands,
+)
 from netbox_pyats.choices import SnapshotKindChoices, SnapshotStatusChoices
 from netbox_pyats.testbed import UNSUPPORTED_OS
 
@@ -462,3 +467,88 @@ class TestParseCapture:
         )
         assert result.status == SnapshotStatusChoices.STATUS_SUCCESS
         assert result.data["state"]["show clock"] == {"raw": "14:32:01.123 UTC Mon"}
+
+
+class TestResolveStateCommands:
+    """ATW-432: resolve_state_commands picks per-OS command sets from
+    PLUGINS_CONFIG, falling back to the OS-agnostic STATE_COMMANDS default.
+    """
+
+    def test_no_config_returns_default(self):
+        assert resolve_state_commands("iosxe") == STATE_COMMANDS
+
+    def test_unknown_os_returns_default(self):
+        assert resolve_state_commands("nonsenseos") == STATE_COMMANDS
+
+    def test_per_os_config_returns_matching_set(self):
+        from django.test import override_settings
+
+        per_os = {"nxos": ["show version", "show vlan"]}
+        with override_settings(PLUGINS_CONFIG={"netbox_pyats": {"state_commands_per_os": per_os}}):
+            assert resolve_state_commands("nxos") == ("show version", "show vlan")
+
+    def test_per_os_config_unknown_os_falls_back(self):
+        from django.test import override_settings
+
+        per_os = {"nxos": ["show vlan"]}
+        with override_settings(PLUGINS_CONFIG={"netbox_pyats": {"state_commands_per_os": per_os}}):
+            assert resolve_state_commands("iosxe") == STATE_COMMANDS
+
+    def test_per_os_config_replaces_not_extends(self):
+        from django.test import override_settings
+
+        per_os = {"nxos": ["show vlan"]}
+        with override_settings(PLUGINS_CONFIG={"netbox_pyats": {"state_commands_per_os": per_os}}):
+            assert resolve_state_commands("nxos") == ("show vlan",)
+            assert resolve_state_commands("nxos") != STATE_COMMANDS
+
+
+class TestPerOsStateCapture:
+    """ATW-432: capture_snapshot with kind='state' uses the per-OS command
+    set when PLUGINS_CONFIG provides one for the device's os.
+    """
+
+    def test_state_capture_uses_per_os_commands(self):
+        from django.test import override_settings
+
+        per_os = {"nxos": ["show version", "show vlan"]}
+        state_outputs = {
+            "show version": {"version": "9.3"},
+            "show vlan": {"vlans": {"1": {"name": "default"}}},
+        }
+        d = FakePyatsDevice(os="nxos", state_outputs=state_outputs)
+        with override_settings(PLUGINS_CONFIG={"netbox_pyats": {"state_commands_per_os": per_os}}):
+            result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_STATE)
+        assert result.status == SnapshotStatusChoices.STATUS_SUCCESS
+        assert set(result.data["state"].keys()) == {"show version", "show vlan"}
+        assert result.data["state"]["show vlan"] == {"vlans": {"1": {"name": "default"}}}
+        assert result.warnings == []
+
+    def test_full_capture_uses_per_os_commands_for_state_half(self):
+        from django.test import override_settings
+
+        per_os = {"iosxe": ["show version", "show platform"]}
+        state_outputs = {
+            "show version": {"version": "16.12"},
+            "show platform": {"platform": "c9300"},
+        }
+        d = FakePyatsDevice(os="iosxe", config_output={"hostname": "rtr01"}, state_outputs=state_outputs)
+        with override_settings(PLUGINS_CONFIG={"netbox_pyats": {"state_commands_per_os": per_os}}):
+            result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_FULL)
+        assert result.status == SnapshotStatusChoices.STATUS_SUCCESS
+        assert set(result.data["state"].keys()) == {"show version", "show platform"}
+
+    def test_per_os_graceful_degradation_for_missing_parser(self):
+        from django.test import override_settings
+
+        per_os = {"iosxe": ["show version", "show bad"]}
+        d = FakePyatsDevice(
+            os="iosxe",
+            unsupported_commands=["show bad"],
+            state_outputs={"show version": {"version": "16.12"}},
+        )
+        with override_settings(PLUGINS_CONFIG={"netbox_pyats": {"state_commands_per_os": per_os}}):
+            result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_STATE)
+        assert result.status == SnapshotStatusChoices.STATUS_SUCCESS
+        assert result.data["state"]["show bad"] is None
+        assert any("show bad" in w for w in result.warnings)

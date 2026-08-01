@@ -55,6 +55,46 @@ STATE_COMMANDS: tuple[str, ...] = (
 )
 
 
+def _get_plugin_config() -> dict:
+    """Return the plugin's PLUGINS_CONFIG block (empty dict if unset).
+
+    Mirrors :func:`netbox_pyats.crypto._get_config` so capture-time config
+    reads stay consistent. The conftest configures a minimal
+    ``PLUGINS_CONFIG`` for pure-Python tests, so this is safe to call in the
+    unit lane.
+    """
+    from django.conf import settings
+
+    return getattr(settings, "PLUGINS_CONFIG", {}).get("netbox_pyats", {}) or {}
+
+
+def resolve_state_commands(os_value: str) -> tuple[str, ...]:
+    """Return the state-capture command list for a given pyATS ``os``.
+
+    Resolution order (first match wins):
+
+    1. ``PLUGINS_CONFIG['netbox_pyats']['state_commands_per_os']`` — an
+       operator-provided ``{os: (commands...)}`` dict. If the device's os
+       has an entry, that tuple is used as-is (operator-extensible per-OS
+       state sets, e.g. NX-OS ``show vlan``, IOS-XE ``show platform``).
+    2. :data:`STATE_COMMANDS` — the OS-agnostic default (the original 8
+       commands). Used when the os is not in the per-os config, or when
+       no per-os config is set at all.
+
+    The per-os config is **additive per os, not per command**: an operator
+    who configures ``state_commands_per_os = {"nxos": ["show vlan"]}``
+    gets *only* ``show vlan`` for NX-OS devices (the default set is not
+    merged in). This is explicit — operators who want the defaults plus
+    extras list them all. The per-command graceful-degradation contract
+    (ParserNotFound → skip with warning) is unchanged.
+    """
+    per_os = _get_plugin_config().get("state_commands_per_os", {})
+    if os_value in per_os:
+        commands = per_os[os_value]
+        return tuple(commands) if not isinstance(commands, tuple) else commands
+    return STATE_COMMANDS
+
+
 @dataclass
 class CaptureResult:
     """Outcome of a single :func:`capture_snapshot` call.
@@ -165,15 +205,22 @@ def _capture_config(pyats_device) -> tuple[dict, str]:
     return config, raw_text
 
 
-def _capture_state(pyats_device) -> dict:
+def _capture_state(pyats_device, commands: tuple[str, ...] = STATE_COMMANDS) -> dict:
     """Run parser-based state capture on a connected pyATS Device.
 
-    Runs a small, OS-agnostic set of state commands via
+    Runs the given set of state commands via
     ``pyats_device.parse(<command>)`` — the verified Genie "service" that
     returns a structured dict for a CLI command. Each command's parsed output
     is merged into a single dict keyed by command; commands whose parser is
     missing for the device's os are skipped with a warning (recorded by the
     caller).
+
+    ``commands`` defaults to :data:`STATE_COMMANDS` (the OS-agnostic set) for
+    backward compatibility. The caller (:func:`capture_snapshot`) resolves the
+    command list per-device via :func:`resolve_state_commands`, which honours
+    ``PLUGINS_CONFIG['netbox_pyats']['state_commands_per_os']`` so operators
+    can run per-OS state sets (e.g. NX-OS ``show vlan``, IOS-XE ``show
+    platform``) in the automated ``state``/``full`` capture (ATW-432).
 
     Why not ``Genie.learn(device)``: the verified Genie API has no top-level
     ``genie.learn(device)`` function. ``genie`` is a namespace package whose
@@ -190,7 +237,7 @@ def _capture_state(pyats_device) -> dict:
     build plan §6.1: "multi-vendor bounded by Genie parser availability").
     """
     state: dict[str, Any] = {}
-    for command in STATE_COMMANDS:
+    for command in commands:
         try:
             output = pyats_device.parse(command)
         except Exception as exc:  # noqa: BLE001 - per-command parser miss is a warning, not fatal
@@ -347,7 +394,7 @@ def capture_snapshot(
                 data["config_raw"] = ""
         if kind in (SnapshotKindChoices.KIND_STATE, SnapshotKindChoices.KIND_FULL):
             try:
-                state = _capture_state(pyats_device)
+                state = _capture_state(pyats_device, resolve_state_commands(os_value))
                 # _capture_state records per-command parser misses as None.
                 # Surface those as warnings so the UI shows which state
                 # commands were skipped on this device's os.
@@ -468,5 +515,6 @@ __all__ = (
     "CaptureResult",
     "capture_snapshot",
     "capture_snapshot_for_netbox_device",
+    "resolve_state_commands",
     "UNSUPPORTED_OS",
 )
