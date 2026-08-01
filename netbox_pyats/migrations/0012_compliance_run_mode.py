@@ -19,6 +19,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("netbox_pyats", "0010_parser_catalog_and_parse_kind"),
+        ("netbox_pyats", "0011_pyatscaptureschedule"),
     ]
 
     operations = [

@@ -218,7 +218,7 @@ section records what v2 actually did and why it did not take that path.
 **v2 compliance is an ordered (sequence-aware) line diff, with the v1 set
 diff retained as an explicit `mode="set"` opt-in.** `run_compliance` takes a
 `mode` kwarg (`"ordered"` default, `"set"` v1); the chosen mode is recorded on
-the `PyatsComplianceRun.mode` column (migration `0011_compliance_run_mode`)
+the `PyatsComplianceRun.mode` column (migration `0012_compliance_run_mode`)
 and surfaced in the UI (device-page compliance form, compliance run detail,
 compliance run list/filter). The default flips to `ordered` so operators get
 the more informative comparison; operators whose configs legitimately vary
