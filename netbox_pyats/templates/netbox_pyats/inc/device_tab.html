@@ -151,7 +151,7 @@
   <form method="post" action="{{ compliance_url }}">
     {% csrf_token %}
     <div class="row mb-3">
-      <div class="col col-md-5">
+      <div class="col col-md-4">
         <label class="form-label" for="id_golden_id">Golden config</label>
         <select name="golden_id" id="id_golden_id" class="form-select">
           {% for g in golden_configs %}
@@ -159,12 +159,19 @@
           {% endfor %}
         </select>
       </div>
-      <div class="col col-md-5">
+      <div class="col col-md-4">
         <label class="form-label" for="id_snapshot_id">Snapshot</label>
         <select name="snapshot_id" id="id_snapshot_id" class="form-select">
           {% for snap in config_snapshots %}
             <option value="{{ snap.pk }}">{{ snap.get_kind_display }} · {{ snap.captured_at|date:'Y-m-d H:i:s' }} · #{{ snap.pk }}</option>
           {% endfor %}
+        </select>
+      </div>
+      <div class="col col-md-2">
+        <label class="form-label" for="id_mode">Mode</label>
+        <select name="mode" id="id_mode" class="form-select">
+          <option value="ordered" selected>Ordered (v2)</option>
+          <option value="set">Set (v1)</option>
         </select>
       </div>
       <div class="col col-md-2 d-flex align-items-end">
@@ -174,7 +181,7 @@
       </div>
     </div>
     <p class="text-muted small mb-0">
-      Queues a compliance run on the dedicated <code>pyats</code> RQ worker. The result (compliant / drift / error + diff tree) appears in the compliance history when the worker finishes.
+      Queues a compliance run on the dedicated <code>pyats</code> RQ worker. <strong>Ordered (v2)</strong> flags re-ordered lines (ACL/route-map/interface order) as drift; <strong>Set (v1)</strong> treats a re-ordered config as compliant. The result appears in the compliance history when the worker finishes.
     </p>
   </form>
 {% elif golden_configs and not config_snapshots %}
@@ -195,6 +202,7 @@
       <tr>
         <th>Result</th>
         <th>Drift</th>
+        <th>Mode</th>
         <th>Golden vs Snapshot</th>
         <th>Created at</th>
         <th></th>
@@ -205,6 +213,7 @@
         <tr>
           <td><span class="badge bg-{{ r.get_result_color }}">{{ r.get_result_display }}</span></td>
           <td>{% if r.has_drift %}<i class="mdi mdi-alert text-warning"></i>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+          <td><span class="badge bg-light text-dark">{{ r.get_mode_display }}</span></td>
           <td>{% if r.golden %}<a href="{{ r.golden.get_absolute_url }}">{{ r.golden.name }}</a>{% else %}<span class="text-muted">— deleted (see warnings)</span>{% endif %} vs {% if r.snapshot %}<a href="{{ r.snapshot.get_absolute_url }}">#{{ r.snapshot_id }}</a>{% else %}<span class="text-muted">#{{ r.snapshot_id|default:"—" }}</span>{% endif %}</td>
           <td>{{ r.created|date:'Y-m-d H:i' }}</td>
           <td><a href="{{ r.get_absolute_url }}" class="btn btn-sm btn-outline-primary">View</a></td>

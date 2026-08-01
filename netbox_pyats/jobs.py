@@ -589,7 +589,7 @@ def run_diff_job(job, before_id: int, after_id: int, pyats_job_id: int | None = 
 # --------------------------------------------------------------------------- #
 
 
-def enqueue_compliance(device, *, golden_id, snapshot_id, user=None):
+def enqueue_compliance(device, *, golden_id, snapshot_id, user=None, mode=None):
     """Enqueue a compliance run job on the dedicated ``pyats`` RQ queue.
 
     This is the entry point the device-page PyATS compliance sub-tab calls
@@ -605,6 +605,9 @@ def enqueue_compliance(device, *, golden_id, snapshot_id, user=None):
         golden_id: primary key of the :class:`PyatsGoldenConfig` to compare.
         snapshot_id: primary key of the :class:`PyatsSnapshot` to compare.
         user: the NetBox user initiating the compliance run (for the Job row).
+        mode: the compliance comparison mode (``"ordered"`` v2 default, or
+            ``"set"`` v1). ``None`` lets the job default to ``ordered`` (the
+            v2 default) — see :class:`~netbox_pyats.choices.ComplianceModeChoices`.
 
     Returns:
         The NetBox :class:`core.models.Job` row tracking this compliance run.
@@ -622,6 +625,7 @@ def enqueue_compliance(device, *, golden_id, snapshot_id, user=None):
         golden_id=golden_id,
         snapshot_id=snapshot_id,
         pyats_job_id=pyats_job.pk,
+        mode=mode,
     )
     pyats_job.core_job = core_job
     pyats_job.rq_job_id = getattr(core_job, "job_id", "") or ""
@@ -630,7 +634,9 @@ def enqueue_compliance(device, *, golden_id, snapshot_id, user=None):
     return core_job
 
 
-def run_compliance_job(job, golden_id: int, snapshot_id: int, pyats_job_id: int | None = None, **kwargs):
+def run_compliance_job(
+    job, golden_id: int, snapshot_id: int, pyats_job_id: int | None = None, mode: str | None = None, **kwargs
+):
     """RQ worker entry point — run compliance and persist the result.
 
     NetBox's :class:`core.models.Job.enqueue` calls this with ``job`` (the
@@ -745,8 +751,16 @@ def run_compliance_job(job, golden_id: int, snapshot_id: int, pyats_job_id: int 
                 snapshot_raw = legacy_config.get("raw") or ""
         golden_text = golden.config_text or ""
 
+        # Resolve the comparison mode. The enqueue path passes the operator's
+        # choice through ``mode``; ``None`` defaults to ordered (v2) inside
+        # run_compliance. We resolve it here too so the persisted row records
+        # the effective mode (not the raw kwarg) for the operator.
+        from .choices import ComplianceModeChoices
+
+        effective_mode = mode if mode in dict(ComplianceModeChoices.choices) else ComplianceModeChoices.MODE_ORDERED
+
         try:
-            result = run_compliance(golden_text, snapshot_raw, name=str(device))
+            result = run_compliance(golden_text, snapshot_raw, name=str(device), mode=effective_mode)
         except Exception as exc:  # noqa: BLE001 - any uncaught error → error row + job failure
             run_row = _persist_error_row(
                 PyatsComplianceRun(
@@ -758,6 +772,7 @@ def run_compliance_job(job, golden_id: int, snapshot_id: int, pyats_job_id: int 
                     summary={},
                     parser_warnings=[f"compliance error: {exc}", traceback.format_exc()],
                     size_bytes=0,
+                    mode=effective_mode,
                 ),
                 label="compliance run",
             )
@@ -774,6 +789,7 @@ def run_compliance_job(job, golden_id: int, snapshot_id: int, pyats_job_id: int 
             summary=result.summary,
             parser_warnings=result.warnings,
             size_bytes=result.size_bytes,
+            mode=effective_mode,
         )
         run_row.full_clean()
         run_row.save()

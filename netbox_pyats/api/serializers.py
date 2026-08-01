@@ -230,6 +230,7 @@ class PyatsComplianceRunSerializer(NetBoxModelSerializer):
             "golden",
             "snapshot",
             "result",
+            "mode",
             "diff",
             "summary",
             "parser_warnings",

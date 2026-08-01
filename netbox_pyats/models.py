@@ -31,6 +31,7 @@ from netbox.models import NetBoxModel
 
 from . import crypto
 from .choices import (
+    ComplianceModeChoices,
     ComplianceResultChoices,
     CredentialProtocolChoices,
     CredentialScopeChoices,
@@ -733,6 +734,18 @@ class PyatsComplianceRun(NetBoxModel):
     size_bytes = models.PositiveBigIntegerField(
         default=0,
         help_text="Size of the JSON-serialized `diff` payload in bytes (set by the job).",
+    )
+    mode = models.CharField(
+        max_length=10,
+        choices=ComplianceModeChoices,
+        default=ComplianceModeChoices.MODE_ORDERED,
+        help_text=(
+            "Comparison mode used for this run: `ordered` (v2, default) is a "
+            "sequence-aware line diff that catches ACL/route-map/interface "
+            "order drift; `set` (v1) is an order-independent set diff. Set by "
+            "the enqueue path from the operator's choice; recorded on the row "
+            "so the operator can see which semantics produced the result."
+        ),
     )
 
     clone_fields = ("device",)

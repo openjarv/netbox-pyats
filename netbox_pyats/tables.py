@@ -211,6 +211,12 @@ class PyatsComplianceRunTable(NetBoxTable):
         verbose_name="Result",
     )
     has_drift = tables.BooleanColumn(verbose_name="Drift")
+    mode = tables.TemplateColumn(
+        template_code=(
+            "{% load helpers %}" '<span class="badge bg-light text-dark">{{ record.get_mode_display }}</span>'
+        ),
+        verbose_name="Mode",
+    )
     size_bytes = tables.Column(verbose_name="Size (bytes)")
     has_warnings = tables.BooleanColumn(verbose_name="Warnings")
     created = tables.DateTimeColumn(verbose_name="Created at")
@@ -226,6 +232,7 @@ class PyatsComplianceRunTable(NetBoxTable):
             "snapshot",
             "result",
             "has_drift",
+            "mode",
             "size_bytes",
             "has_warnings",
             "created",
@@ -237,6 +244,7 @@ class PyatsComplianceRunTable(NetBoxTable):
             "snapshot",
             "result",
             "has_drift",
+            "mode",
             "size_bytes",
             "created",
         )
