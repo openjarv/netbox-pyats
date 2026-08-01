@@ -96,6 +96,7 @@ class PyatsComplianceRunViewTest(TestCase):
     user_permissions = (
         "netbox_pyats.view_pyatscompliancerun",
         "netbox_pyats.add_pyatscompliancerun",
+        "netbox_pyats.view_pyatssnapshot",
         "dcim.view_device",
     )
 
