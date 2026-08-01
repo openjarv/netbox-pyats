@@ -191,7 +191,7 @@ class PyatsComplianceRunViewTest(TestCase):
             diff={},
             summary={},
         )
-        url = reverse("dcim:device:pyats", kwargs={"pk": self.device.pk})
+        url = f"/dcim/devices/{self.device.pk}/pyats/"
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "— deleted (see warnings)")
