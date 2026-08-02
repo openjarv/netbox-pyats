@@ -1,11 +1,11 @@
 {% load helpers %}
-{# Recursive partial rendering a PyatsSnapshotDiff diff node as a collapsible tree.
+{% comment %}Recursive partial rendering a PyatsSnapshotDiff diff node as a collapsible tree.
    Called with `node` = one node dict from netbox_pyats.diff:
      {"type": "dict"|"list"|"leaf"|<scalar-tag>, "status": "added"|"removed"|"changed"|"unchanged",
       "children": {...} (containers) | "before"/"after"/"value" (leaves)}
    Server-rendered <details> — no JS dependency. Changed subtrees are open by
    default; unchanged ones collapsed, so the operator sees the differences
-   without expanding everything. #}
+   without expanding everything.{% endcomment %}
 {% with status=node.status type=node.type %}
   <details{% if status == 'changed' or status == 'added' or status == 'removed' %} open{% endif %} class="diff-node diff-{{ status }}">
     <summary>
