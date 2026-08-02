@@ -231,18 +231,37 @@ cmd_build() {
   # test_netbox from scratch (all ~200 NetBox migrations + plugin migrations).
   # We use --create-db explicitly so the build is authoritative even if a
   # stale test_netbox somehow exists in this worktree's postgres.
-  # Passing `-k nope_no_match_just_seed_build` makes pytest run zero tests
-  # after migrations, so the build pays ONLY the migration cost, not the
-  # test-run cost.
-  echo "running netbox-test --create-db (building test_netbox migrations; zero tests) ..."
+  #
+  # We run a SINGLE fast TestCase (PyatsCredentialModelTest) to force
+  # Django's test runner to create + migrate test_netbox. A no-op `-k
+  # nope` deselected all tests and left test_netbox uncreated, because
+  # Django's TestCase test-db setup only fires when at least one TestCase
+  # is collected and run. PyatsCredentialModelTest is a model smoke test
+  # (create/read/delete a PyatsCredential row) — it runs in <1 s after
+  # migrations and proves the schema is usable, not just present. We pass
+  # `--create-db -q` to keep the output minimal; the test result itself
+  # is irrelevant (we just want the migrated test_netbox to exist for the
+  # dump), so we tolerate a non-zero exit if the single test fails for a
+  # cosmetic reason — the dump step verifies test_netbox exists.
+  echo "running netbox-test --create-db (building test_netbox migrations + 1 smoke test) ..."
   local t0 t1
   t0="$(date +%s)"
   docker compose -f docker-compose.dev.yml -f docker-compose.test.yml \
     --env-file .env run --rm -T netbox-test \
-    --create-db netbox_pyats/tests -k nope_no_match_just_seed_build || true
+    --create-db -q netbox_pyats/tests/test_models.py::PyatsCredentialModelTest || true
   t1="$(date +%s)"
   echo "  migration build took $((t1 - t0))s"
   echo
+
+  # Verify test_netbox actually exists before dumping (the single-test run
+  # should have created it; if not, we fail loudly instead of dumping an
+  # empty/missing DB).
+  local has_test_db
+  has_test_db="$(docker compose -f docker-compose.dev.yml --env-file .env exec -T postgres \
+    psql -U netbox -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='test_netbox'" 2>/dev/null | tr -d '[:space:]')"
+  if [ "$has_test_db" != "1" ]; then
+    die "test_netbox was not created by the netbox-test run — cannot dump. Check the netbox-test logs."
+  fi
 
   # Dump test_netbox into a temp host file, then copy it + the marker into
   # the shared seed volume. pg_dump -Fc gives a custom-format dump that
