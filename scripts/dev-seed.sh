@@ -109,7 +109,16 @@ PLUGIN_MIGRATIONS_DIR="netbox_pyats/migrations"
 # marker copy pulled out of a volume. mktemp -d gives a unique, predictable
 # path; the trap removes it on any exit path so no temp files leak.
 TMP_DIR="$(mktemp -d -t dev-seed.XXXXXX)"
-cleanup() { rm -rf "$TMP_DIR"; }
+cleanup() {
+  # Files copied OUT of a Docker volume via a bind-mounted temp path are
+  # root-owned (the alpine container runs as root). chown them back to the
+  # host user before rm so the cleanup does not fail with Permission denied.
+  if [ -d "$TMP_DIR" ]; then
+    docker run --rm -v "$TMP_DIR:/cleanup" --entrypoint sh \
+      docker.io/alpine:3 -c "chown -R $(id -u):$(id -g) /cleanup 2>/dev/null" 2>/dev/null || true
+    rm -rf "$TMP_DIR" 2>/dev/null || true
+  fi
+}
 trap cleanup EXIT
 
 die() { echo "error: $*" >&2; exit 1; }
@@ -377,13 +386,18 @@ _restore() {
   # temp dir, then stream it into pg_restore inside the worktree's postgres
   # container. The dump is ~tens of MiB so the temp copy is cheap and keeps
   # the restore path container-agnostic (no volume mount gymnastics).
-  local tmp_dump="$TMP_DIR/restore-test_netbox.dump"
+  # Mount a temp DIR (not a file path) — mounting a not-yet-existing file
+  # path creates a directory, not a file, which would break the stream read.
+  local tmp_dump_dir="$TMP_DIR/restore-dump"
+  mkdir -p "$tmp_dump_dir"
   docker run --rm \
     -v "$SEED_VOLUME:/seed:ro" \
-    -v "$tmp_dump:/dump-out" \
+    -v "$tmp_dump_dir:/dump-out" \
     --entrypoint sh \
     docker.io/alpine:3 \
-    -c "cp /seed/test_netbox.dump /dump-out"
+    -c "cp /seed/test_netbox.dump /dump-out/test_netbox.dump"
+  local tmp_dump="$tmp_dump_dir/test_netbox.dump"
+  [ -f "$tmp_dump" ] || die "failed to copy test_netbox.dump out of seed volume $SEED_VOLUME"
 
   # Create the (empty) test_netbox database, then restore the schema into it.
   # pg_restore --schema-only because pytest-django re-creates test fixtures
@@ -401,15 +415,23 @@ _restore() {
 
   # Write the worktree's .dev-test-marker from the seed's marker so
   # dev-worktree.sh test can detect stale-schema drift on the next run.
-  local marker_wt_tmp="$TMP_DIR/${SEED_MARKER_NAME}-wt"
+  # Copy the marker out of the seed volume into a temp DIR (mounting a
+  # not-yet-existing file path creates a directory, not a file, so we
+  # mount a dir and copy into it, then read the file back on the host).
+  local marker_out_dir="$TMP_DIR/marker-wt"
+  mkdir -p "$marker_out_dir"
   docker run --rm \
     -v "$SEED_VOLUME:/seed:ro" \
-    -v "$marker_wt_tmp:/marker-out" \
+    -v "$marker_out_dir:/marker-out" \
     --entrypoint sh \
     docker.io/alpine:3 \
-    -c "cp /seed/${SEED_MARKER_NAME} /marker-out"
-  cp "$marker_wt_tmp" .dev-test-marker
-  echo "  wrote worktree marker: .dev-test-marker"
+    -c "cp /seed/${SEED_MARKER_NAME} /marker-out/${SEED_MARKER_NAME}"
+  if [ -f "$marker_out_dir/${SEED_MARKER_NAME}" ]; then
+    cp "$marker_out_dir/${SEED_MARKER_NAME}" .dev-test-marker
+    echo "  wrote worktree marker: .dev-test-marker"
+  else
+    echo "  warning: seed marker not found in volume — .dev-test-marker not written" >&2
+  fi
   echo
   echo "restore complete. Run 'scripts/dev-worktree.sh test' to use the seeded test_netbox."
 }
@@ -435,16 +457,22 @@ cmd_info() {
   echo "--- seed volume ---"
   if docker volume inspect "$SEED_VOLUME" >/dev/null 2>&1; then
     echo "  $SEED_VOLUME: present"
-    # Print the marker from inside the volume.
-    local marker_info="$TMP_DIR/${SEED_MARKER_NAME}-info"
+    # Print the marker from inside the volume. Mount a temp DIR (mounting
+    # a not-yet-existing file path creates a directory, not a file).
+    local marker_info_dir="$TMP_DIR/marker-info"
+    mkdir -p "$marker_info_dir"
     if docker run --rm \
         -v "$SEED_VOLUME:/seed:ro" \
-        -v "$marker_info:/marker-out" \
+        -v "$marker_info_dir:/marker-out" \
         --entrypoint sh \
         docker.io/alpine:3 \
-        -c "cp /seed/${SEED_MARKER_NAME} /marker-out 2>/dev/null" 2>/dev/null; then
-      echo "  marker:"
-      sed 's/^/    /' "$marker_info" 2>/dev/null || echo "    (unreadable)"
+        -c "cp /seed/${SEED_MARKER_NAME} /marker-out/${SEED_MARKER_NAME} 2>/dev/null" 2>/dev/null; then
+      if [ -f "$marker_info_dir/${SEED_MARKER_NAME}" ]; then
+        echo "  marker:"
+        sed 's/^/    /' "$marker_info_dir/${SEED_MARKER_NAME}"
+      else
+        echo "  marker: (missing)"
+      fi
     else
       echo "  marker: (missing)"
     fi
