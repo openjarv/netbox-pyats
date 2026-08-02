@@ -85,10 +85,10 @@
 <div class="row mb-3">
   <div class="col col-md-12">
     <div class="card">
-      <h5 class="card-header">Diff tree (golden vs snapshot)</h5>
+      <h5 class="card-header">Diff (golden vs snapshot)</h5>
       <div class="card-body">
         {% if object.diff %}
-          {% include 'netbox_pyats/inc/diff_tree.html' with node=object.diff %}
+          {% include 'netbox_pyats/inc/diff_table.html' with lines=lines %}
         {% else %}
           <span class="text-muted">No diff data (compliant run with no drift, or error — see parser warnings).</span>
         {% endif %}

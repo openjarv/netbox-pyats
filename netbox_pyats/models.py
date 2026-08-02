@@ -662,8 +662,8 @@ class PyatsComplianceRun(NetBoxModel):
     and Phase 3's empty/error diff rows.
 
     The ``diff`` payload shape is the same as :class:`PyatsSnapshotDiff.diff`
-    (see that model's docstring) so the ``inc/diff_tree.html`` partial renders
-    it unchanged.
+    (see that model's docstring) so the side-by-side ``inc/diff_table.html``
+    partial renders it unchanged (ATW-524/ATW-525).
     """
 
     device = models.ForeignKey(
