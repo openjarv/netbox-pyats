@@ -113,6 +113,16 @@ The first run builds the `netbox-pyats-worker` image (installs `pyats[full]` +
 minutes to pass its healthcheck on first boot (migrations + superuser + search
 index), during which the two RQ workers wait (`depends_on: service_healthy`).
 
+> **Seed volume restore (ATW-534 #1).** If a shared migrated-postgres seed
+> volume exists on the host (built by `scripts/dev-seed.sh build`),
+> `dev-worktree.sh up` restores a pre-migrated `test_netbox` into this
+> worktree's own postgres on first boot, so the first
+> `dev-worktree.sh test` skips the ~8 min migration cold start and runs
+> in seconds. See [Seed volume](#seed-volume-dev-seedsh--skip-the-migration-cold-start)
+> below. The restore is automatic when the seed exists and the worktree's
+> `.env` has `POSTGRES_SEED_VOLUME` set (which `dev-worktree.sh add` does
+> for you).
+
 Check status (run from inside the worktree):
 
 ```bash
@@ -191,6 +201,18 @@ drift — it drops and recreates `test_netbox` from scratch. CI uses
 `--create-db` for every run (one-shot, authoritative pre-merge regression
 pass); local uses `--reuse-db` for velocity.
 
+> **Stale-schema guard (ATW-534 #2).** You no longer have to remember when
+> to use `--create-db`. `dev-worktree.sh test` (with no extra args) now
+> compares the worktree's current migration-state hash against a marker
+> written at seed-restore / last-`--create-db` time (`.dev-test-marker`).
+> If a migration was added or changed on `main` since the marker, or the
+> NetBox image tag changed, the guard auto-falls-back to `--create-db`
+> with a one-line warning instead of failing opaquely. The marker is
+> refreshed after a successful `--create-db` run, so the next
+> `--reuse-db` run knows the schema is current. If you pass explicit args
+> (e.g. `test --create-db -v` or `test <file>`), the guard is skipped —
+> you asked for a specific run.
+
 The `netbox-test` service counts toward `MAX_CONCURRENT_STACKS` while it
 runs ([ATW-356](/ATW/issues/ATW-356)), so two test runs (or a test run + a
 web stack) cannot oversubscribe the host. See [Working in
@@ -237,11 +259,21 @@ stays in sync.
 
 ### Integration lane (Docker + NetBox)
 
-The full suite (model, view, API) runs inside the NetBox container where
-the NetBox models are importable. Use `make test-integration` or the
-canonical one-run-per-fresh-stack path above. For faster re-runs without
-re-migrating ~200 NetBox tables each time, use the `--reuse-db` workflow
-added by [ATW-357](/ATW/issues/ATW-357).
+The full suite (model, view, API) runs inside the dedicated `netbox-test`
+compose service ([ATW-357](/ATW/issues/ATW-357)) where the NetBox models
+are importable. Use `make test-integration` (which routes to
+`scripts/dev-worktree.sh test`, the SAFE path) or
+`scripts/dev-worktree.sh test` directly.
+
+> **One integration entrypoint (ATW-534 #3).** `make test-integration`
+> previously routed to `docker compose exec netbox pytest`, which runs
+> pytest *inside the granian web container* and re-hits the
+> ATW-85/188 connection race (granian's idle connections hold
+> `test_netbox` between DROP and CREATE). That path is **retired**.
+> `make test-integration` now invokes `dev-worktree.sh test` (the
+> `netbox-test` service, no granian). One integration entrypoint, not
+> two. If you need the old behavior for debugging, run the
+> `docker compose exec` command by hand, but prefer the safe path.
 
 ### Keeping the split clean
 
@@ -252,6 +284,67 @@ outside NetBox or silently drag the unit lane into needing a database.
 Keep the lanes separable: if a test needs the DB, it belongs in the
 integration lane, not the unit set. (Test conventions: see
 [Contributing — Running tests](contributing.md#running-tests).)
+
+### Seed volume (`dev-seed.sh`) — skip the migration cold start
+
+The `--reuse-db` velocity win only pays off inside the *same* worktree's
+postgres volume. Each worktree gets its own isolated
+`<project>_netbox-postgres` volume, so every new worktree re-pays the
+~8-9 min NetBox migration cold start into a brand-new `test_netbox`. A
+single PR generates 4 worktrees (Author + Review + Security + QA), only
+one of which reuses ([ATW-527](/ATW/issues/ATW-527)).
+
+The seed volume ([ATW-534](/ATW/issues/ATW-534) #1) fixes this. A single
+shared named Docker volume, `netbox-pyats-pg-seed` (host-wide, NOT
+per-worktree), holds a `pg_dump -Fc` of a fully-migrated `test_netbox`.
+When the seed exists, `dev-worktree.sh add` writes
+`POSTGRES_SEED_VOLUME=netbox-pyats-pg-seed` into the worktree's `.env`,
+and `dev-worktree.sh up` restores `test_netbox` from the seed into the
+worktree's *own* postgres on first boot — turning the ~8 min cold start
+into a ~30 s `pg_restore`. The worktree's postgres volume stays
+per-worktree and isolated; only the seed is shared (read-only at restore
+time).
+
+**Build the seed** (run from a worktree at the latest `origin/main`):
+
+```bash
+# from a worktree at origin/main:
+scripts/dev-seed.sh build          # ~8-9 min one-time cost
+scripts/dev-seed.sh info           # show seed + worktree migration state
+```
+
+The build spins a one-shot `netbox-test` service running `--create-db`
+with a no-op `-k` filter (zero tests run — only the migration cost is
+paid), then dumps `test_netbox` into the shared volume with a marker
+recording the migration-state hash and NetBox image. Re-seed whenever
+migrations change on `main` (a CI job or a routine can do this).
+
+**Use the seed** — automatic once it exists. `dev-worktree.sh add`
+auto-detects the seed volume and writes the var into `.env`;
+`dev-worktree.sh up` does the restore. New worktrees then pass the
+integration lane in seconds, not minutes, on first run.
+
+| Action | Command |
+| --- | --- |
+| Build / rebuild the seed | `scripts/dev-seed.sh build` |
+| Restore into current worktree | `scripts/dev-seed.sh restore` |
+| Force-restore (overwrite existing test_netbox) | `scripts/dev-seed.sh force-restore` |
+| Remove the seed volume | `scripts/dev-seed.sh remove` |
+| Show seed + worktree state | `scripts/dev-seed.sh info` |
+| Disable the seed for one worktree | `POSTGRES_SEED_VOLUME= scripts/dev-worktree.sh add ...` |
+
+The seed is **opt-in**: if no seed volume exists, `dev-worktree.sh up`
+behaves exactly as before — the first `dev-worktree.sh test` pays the
+full migration cold start into the worktree's own postgres
+([ATW-534](/ATW/issues/ATW-534) #4). Set `POSTGRES_SEED_VOLUME=` (empty)
+on `add` to force-disable the seed for a specific worktree even when one
+exists.
+
+The seed respects the OOM guardrail ([ATW-201](/ATW/issues/ATW-201)):
+`dev-seed.sh build` refuses to run if another netbox dev stack is
+already running on the host. All postgres work happens inside containers
+on the isolated `devnet` bridge — no port is published to the host's
+public IP during the seed build ([ATW-35](/ATW/issues/ATW-35)).
 
 ## Teardown
 
@@ -399,6 +492,25 @@ the plugin at the same time without colliding. The rules:
 - **The trunk worktree stays on `main`.** It is only used for pulling latest,
   merging PRs, and creating new worktrees. Never checkout a feature branch in
   `/home/hermes/netbox-pyats`.
+
+### Cost model — per-worktree dev time
+
+Each new worktree pays a one-time cost on its first integration test run.
+Budget for it explicitly rather than assuming "seconds":
+
+| Worktree state | First `dev-worktree.sh test` | Why |
+| --- | --- | --- |
+| No seed volume (or seed disabled) | ~8-9 min | ~200 NetBox migrations into a fresh `test_netbox` |
+| Seed volume present (restored at `up`) | ~30 s + test runtime | `pg_restore` of the pre-migrated schema |
+| Re-run in the same worktree | seconds | `--reuse-db` keeps `test_netbox` |
+
+The `--reuse-db` velocity win (ATW-357) only pays off on **re-runs inside
+the same worktree's postgres volume**. Cross-worktree reuse requires the
+seed volume ([ATW-534](/ATW/issues/ATW-534) #1). A single PR generates 4
+worktrees (Author + Review + Security + QA); without the seed, that's
+~32-36 min of migration cold start per PR. With the seed, it's ~2 min
+total. Build the seed once after migrations change on `main`, and every
+new worktree benefits until the next migration change.
 
 ## Troubleshooting
 
