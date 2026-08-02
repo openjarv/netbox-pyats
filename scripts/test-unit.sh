@@ -43,6 +43,7 @@ unit_tests=(
   "${repo_root}/netbox_pyats/tests/test_template_extension.py"
   "${repo_root}/netbox_pyats/tests/test_navmenu_uniqueness_guard.py"
   "${repo_root}/netbox_pyats/tests/test_panel.py"
+  "${repo_root}/netbox_pyats/tests/test_diff_tree_template.py"
 )
 
 exec python3 -m pytest "${unit_tests[@]}" "$@"

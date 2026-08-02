@@ -177,6 +177,7 @@ jobs:
                  netbox_pyats/tests/test_template_extension.py \
                  netbox_pyats/tests/test_navmenu_uniqueness_guard.py \
                  netbox_pyats/tests/test_panel.py \
+                 netbox_pyats/tests/test_diff_tree_template.py \
                  -v
 
   integration:
