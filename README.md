@@ -17,11 +17,11 @@ Once installed, the plugin has its own top-level **PyATS** entry in the NetBox n
 </p>
 <p align="center"><em>Left: the top-level PyATS menu in the NetBox nav. Right: the device-page PyATS tab — capture form and recent snapshots with status badges.</em></p>
 
-The diff and compliance views render the same collapsible before/after tree:
+The diff and compliance views render the same side-by-side before/after diff table:
 
 <p align="center">
-  <img src="docs/screenshots/diff-viewer.png" alt="Snapshot diff viewer with a collapsible before/after tree and summary badges" width="45%">&nbsp;&nbsp;
-  <img src="docs/screenshots/compliance-run-drift.png" alt="Compliance run viewer showing a drift result with a collapsible diff tree" width="45%">
+  <img src="docs/screenshots/diff-viewer.png" alt="Snapshot diff viewer with a side-by-side before/after diff table and summary badges" width="45%">&nbsp;&nbsp;
+  <img src="docs/screenshots/compliance-run-drift.png" alt="Compliance run viewer showing a drift result with a side-by-side before/after diff table" width="45%">
 </p>
 <p align="center"><em>Left: the snapshot diff viewer. Right: a compliance run with a <code>drift</code> result.</em></p>
 
@@ -42,8 +42,8 @@ v0.1 ships three feature groups — see the [usage guide](docs/user/usage.md) fo
 
 ### Compare
 
-- **Snapshot diffs** — `PyatsSnapshotDiff` + `run_diff` RQ job; structured recursive diff over JSONB with a server-rendered collapsible tree viewer (no JS).
-- **Diff viewer** — `/plugins/pyats/diffs/<pk>/`; before/after side-by-side for changed leaves, summary badges, raw-JSON fallback.
+- **Snapshot diffs** — `PyatsSnapshotDiff` + `run_diff` RQ job; structured recursive diff over JSONB flattened into a server-rendered side-by-side diff table (no JS).
+- **Diff viewer** — `/plugins/pyats/diffs/<pk>/`; flat `Path / Before / After` table with red/green monospace values for changed leaves, summary badges, raw-JSON fallback.
 
 ### Compliance & Jobs
 
