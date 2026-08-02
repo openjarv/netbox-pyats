@@ -57,6 +57,7 @@ from utilities.views import ViewTab, register_model_view
 
 from . import filtersets, forms, jobs, tables
 from .choices import SnapshotKindChoices, SnapshotTriggerChoices
+from .diff import flatten_diff_tree
 from .models import (
     PyatsCaptureSchedule,
     PyatsComplianceRun,
@@ -325,12 +326,18 @@ class PyatsSnapshotDiffView(generic.ObjectView):
     """Detail view for a single snapshot diff.
 
     Renders the JSONB ``diff`` tree, the ``summary`` counts, and
-    ``parser_warnings`` via the diff detail template (a server-side collapsible
-    tree — no JS dependency). The ``before``/``after`` snapshot rows are linked
+    ``parser_warnings`` via the diff detail template. The diff is rendered as
+    a flat side-by-side Path / Before / After table (ATW-524/ATW-525) — the
+    view flattens ``object.diff`` into ``lines`` via
+    :func:`netbox_pyats.diff.flatten_diff_tree` and passes the list to
+    ``inc/diff_table.html``. The ``before``/``after`` snapshot rows are linked
     so the operator can drill into either side.
     """
 
     queryset = PyatsSnapshotDiff.objects.all()
+
+    def get_extra_context(self, request, instance):
+        return {"lines": flatten_diff_tree(instance.diff)}
 
 
 @register_model_view(PyatsSnapshotDiff, "delete")
@@ -461,13 +468,19 @@ class PyatsComplianceRunView(generic.ObjectView):
     """Detail view for a single compliance run.
 
     Renders the JSONB ``diff`` tree, the ``summary`` counts, and
-    ``parser_warnings`` via the compliance run detail template (which reuses
-    the Phase 3 ``inc/diff_tree.html`` partial — no JS dependency). The
+    ``parser_warnings`` via the compliance run detail template. The diff is
+    rendered as a flat side-by-side Path / Before / After table
+    (ATW-524/ATW-525) — the view flattens ``object.diff`` into ``lines`` via
+    :func:`netbox_pyats.diff.flatten_diff_tree` and passes the list to
+    ``inc/diff_table.html`` (same partial the snapshot-diff view uses). The
     ``golden``/``snapshot`` rows are linked so the operator can drill into
     either side.
     """
 
     queryset = PyatsComplianceRun.objects.all()
+
+    def get_extra_context(self, request, instance):
+        return {"lines": flatten_diff_tree(instance.diff)}
 
 
 @register_model_view(PyatsComplianceRun, "delete")

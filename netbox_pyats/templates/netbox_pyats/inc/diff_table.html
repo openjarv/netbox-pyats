@@ -1,0 +1,49 @@
+{% load helpers %}
+{% comment %}Side-by-side flat diff table (ATW-524/ATW-525).
+
+   Replaces the recursive collapsible-tree viewer (inc/diff_tree.html). The
+   view flattens the diff tree into a list of DiffLine rows
+   (netbox_pyats.diff.flatten_diff_tree) and passes them as ``lines``. This
+   partial renders Path / Before / After columns with red/green text — no
+   Bootstrap badges, no <details> collapsing, no |json pretty-print, no
+   "dict"/"leaf" type tags. Monospace values so side-by-side alignment holds.
+
+   Context: ``lines`` = list[netbox_pyats.diff.DiffLine] (may be empty).{% endcomment %}
+{% if lines %}
+  <table class="table table-sm table-striped diff-table">
+    <thead>
+      <tr>
+        <th>Path</th>
+        <th>Before</th>
+        <th>After</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for line in lines %}
+        <tr class="diff-row diff-{{ line.status }}">
+          <td><code>{{ line.path }}</code></td>
+          <td>
+            {% if line.status == 'added' %}
+              <pre class="mb-0 text-muted">—</pre>
+            {% elif line.status == 'unchanged' %}
+              <pre class="mb-0 text-muted">{{ line.before }}</pre>
+            {% else %}
+              <pre class="mb-0 text-danger">{{ line.before }}</pre>
+            {% endif %}
+          </td>
+          <td>
+            {% if line.status == 'removed' %}
+              <pre class="mb-0 text-muted">—</pre>
+            {% elif line.status == 'unchanged' %}
+              <pre class="mb-0 text-muted">{{ line.after }}</pre>
+            {% else %}
+              <pre class="mb-0 text-success">{{ line.after }}</pre>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <span class="text-muted">No changes.</span>
+{% endif %}

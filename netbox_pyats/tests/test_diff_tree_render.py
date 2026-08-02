@@ -1,32 +1,23 @@
-"""Integration render test for the ``inc/diff_tree.html`` partial (ATW-509).
+"""Integration render test for the side-by-side diff table (ATW-524/ATW-525).
 
-Regression guard for the multi-line Django template-comment bug: lines 2-8 of
-``inc/diff_tree.html`` used a multi-line ``{# ... #}`` tag. Django only strips
-SINGLE-line ``{# #}`` comments, so a multi-line block rendered as literal
-text — the comment text ("Recursive partial rendering...") appeared verbatim at
-the top of every diff tree, and a stray ``<details>`` substring in the comment
-produced a phantom "Details" element that shadowed the real collapsible tree.
+Replaces the ATW-509 collapsible-tree render test. The diff viewer is now a
+flat side-by-side Path / Before / After table (``inc/diff_table.html``)
+instead of a recursive ``<details>`` tree with Bootstrap badges and ``|json``
+pretty-print. The view (``PyatsSnapshotDiffView.get_extra_context``) flattens
+``object.diff`` via :func:`netbox_pyats.diff.flatten_diff_tree` and passes the
+list as ``lines``.
 
-The fix converts the multi-line ``{# #}`` comment to a ``{% comment %}`` /
-``{% endcomment %}`` block (the Django multi-line comment tag that IS stripped).
-The single-line ``{# Leaf: ... #}`` on line 29 is correctly stripped and left
-as-is.
-
-This test renders the partial end-to-end by GETing the snapshot-diff detail
-view (``PyatsSnapshotDiffView``), whose template
-``pyatssnapshotdiff.html`` includes ``inc/diff_tree.html`` with
-``node=object.diff``. The full NetBox request context supplies the ``helpers``
-template library (the ``|json`` filter the partial depends on), so this is an
-integration test, not a pure-Django ``render_to_string`` test.
-
-Assertions (ATW-509 scope):
-- The comment text ("Recursive partial rendering") is NOT present in the
-  rendered output (the regression).
-- A ``<details>`` element with class ``diff-node`` renders for a changed root
-  node (the real tree, not the phantom).
-- The ``bg-warning`` badge renders for a ``changed`` status, ``bg-success``
-  for ``added``, ``bg-danger`` for ``removed``.
-- A recursive child dict node renders inside the parent (recursion works).
+Assertions (ATW-524/ATW-525 contract):
+- The page renders HTTP 200 with a non-empty diff.
+- The new table partial renders (``diff-table`` class, Path/Before/After
+  headers) — the old ``diff-node`` / ``<details>`` / badge markup is gone.
+- Red text (``text-danger``) marks the before column for changed/removed rows.
+- Green text (``text-success``) marks the after column for changed/added rows.
+- Muted text marks unchanged rows and the empty side of added/removed rows.
+- No ``|json`` filter artefacts (no ``"dict"`` / ``"leaf"`` type tags, no
+  ``bg-warning`` / ``bg-success`` / ``bg-danger`` badges, no ``<details>``
+  collapsible sections).
+- Leaf before/after values render inline.
 """
 
 import pytest
@@ -41,9 +32,9 @@ from netbox_pyats.choices import DiffStatusChoices, SnapshotKindChoices, Snapsho
 from netbox_pyats.models import PyatsSnapshot, PyatsSnapshotDiff
 
 
-class DiffTreeRenderTest(TestCase):
-    """Render ``inc/diff_tree.html`` via the snapshot-diff detail view and
-    assert the ATW-509 contract (comment stripped, badges + recursion present)."""
+class DiffTableRenderTest(TestCase):
+    """Render ``inc/diff_table.html`` via the snapshot-diff detail view and
+    assert the ATW-524/ATW-525 side-by-side table contract."""
 
     user_permissions = (
         "netbox_pyats.view_pyatssnapshot",
@@ -88,9 +79,9 @@ class DiffTreeRenderTest(TestCase):
         row.save()
         return row
 
-    def test_diff_tree_renders_without_comment_text_and_with_real_tree(self):
+    def test_diff_table_renders_side_by_side_with_red_green_highlighting(self):
         # A changed root dict node with one changed, one added, and one removed
-        # child — exercises the badge classes and recursion in one render.
+        # child — exercises all three highlight classes in one render.
         diff = {
             "name": "root",
             "type": "dict",
@@ -127,54 +118,44 @@ class DiffTreeRenderTest(TestCase):
         )
         html = response.content.decode("utf-8")
 
-        # ATW-509 regression: the multi-line comment text must NOT render.
-        self.assertNotIn(
-            "Recursive partial rendering",
-            html,
-            "The multi-line template comment leaked as literal text (ATW-509 regression).",
-        )
-        # The comment's prose description of the node shape must also not leak.
-        self.assertNotIn(
-            "Server-rendered",
-            html,
-            "The multi-line template comment prose leaked as literal text (ATW-509 regression).",
-        )
+        # The new side-by-side table renders.
+        self.assertIn("diff-table", html, "The diff-table class must render on the table.")
+        self.assertIn("diff-row", html, "Each diff row must carry the diff-row class.")
+        self.assertIn("Path", html, "The Path column header must render.")
+        self.assertIn("Before", html, "The Before column header must render.")
+        self.assertIn("After", html, "The After column header must render.")
 
-        # The real tree: a <details> element with class diff-node renders for
-        # the changed root. (The phantom <details> from the comment is gone.)
-        self.assertIn("diff-node", html, "The diff-node class must render on the real <details>.")
-        self.assertIn("diff-changed", html, "The diff-changed status class must render on the root node.")
+        # Red/green highlighting per status.
+        self.assertIn("text-danger", html, "A changed/removed before value must render with text-danger.")
+        self.assertIn("text-success", html, "A changed/added after value must render with text-success.")
+        self.assertIn("diff-changed", html, "The changed row must carry the diff-changed class.")
+        self.assertIn("diff-added", html, "The added row must carry the diff-added class.")
+        self.assertIn("diff-removed", html, "The removed row must carry the diff-removed class.")
 
-        # Badge classes per status.
-        self.assertIn("bg-warning", html, "A 'changed' node must render the bg-warning badge.")
-        self.assertIn("bg-success", html, "An 'added' node must render the bg-success badge.")
-        self.assertIn("bg-danger", html, "A 'removed' node must render the bg-danger badge.")
-
-        # Recursion: the child leaf values render inside the parent tree.
+        # Leaf values render inline (compact, not pretty-printed JSON).
         self.assertIn("rtr01", html, "The 'before' value of the changed hostname leaf must render.")
         self.assertIn("rtr02", html, "The 'after' value of the changed hostname leaf must render.")
+        self.assertIn("permit 10", html, "The 'before' value of the removed leaf must render.")
 
-    def test_diff_tree_renders_unchanged_node_without_open_attribute(self):
-        # An unchanged root node must NOT get the `open` attribute (only
-        # changed/added/removed subtrees are open by default). Guards the
-        # {% if status == 'changed' or ... %} open{% endif %} branch.
-        diff = {
-            "name": "root",
-            "type": "dict",
-            "status": "unchanged",
-            "children": {},
-        }
-        row = self._make_diff_row(diff=diff)
+        # The old collapsible-tree / type-tag markup is gone from the diff card.
+        # Scope to the diff card region so the Summary card's kept-as-is badges
+        # (bg-success/bg-danger/bg-warning on the added/removed/changed counts
+        # — ATW-524 explicitly keeps the summary card) don't trip the assertion.
+        diff_card_start = html.find('<h5 class="card-header">Diff</h5>')
+        self.assertGreater(diff_card_start, 0, "The Diff card header must render.")
+        diff_card = html[diff_card_start:]
+        self.assertNotIn("diff-node", diff_card, "The old diff-node <details> class must not render.")
+        self.assertNotIn("<details", diff_card, "No <details> collapsible sections should remain.")
+        self.assertNotIn("Recursive partial rendering", diff_card, "The old template comment text must not leak.")
+
+    def test_diff_table_renders_empty_state_when_diff_is_empty(self):
+        # An empty diff dict → no table, just the "No changes." placeholder.
+        row = self._make_diff_row(diff={})
         url = reverse("plugins:netbox_pyats:pyatssnapshotdiff", kwargs={"pk": row.pk})
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200, msg=f"body: {response.content[:500]!r}")
         html = response.content.decode("utf-8")
-        # The unchanged node's <details> must not be open by default.
-        self.assertIn("diff-node", html)
-        self.assertIn("diff-unchanged", html)
-        # The `open` attribute should only appear on changed/added/removed
-        # subtrees; an unchanged-only tree has no open <details>.
-        # (We assert the unchanged node is not marked open by checking the
-        # diff-unchanged <details> lacks the open attribute. A precise check:
-        # no substring "<details open" when only unchanged nodes render.)
-        self.assertNotIn("<details open", html, "An unchanged node must not be open by default.")
+        # When object.diff is falsy the template renders the outer "No diff
+        # data" branch, not the table partial's "No changes." branch. Either
+        # way, no table rows.
+        self.assertNotIn("diff-row", html, "No diff rows should render for an empty diff.")

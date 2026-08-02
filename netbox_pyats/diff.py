@@ -298,7 +298,146 @@ def _node_status(children: dict) -> str:
     return _STATUS_UNCHANGED
 
 
+@dataclass
+class DiffLine:
+    """One flat row in a side-by-side diff table (ATW-524/ATW-525).
+
+    A flattened view of one leaf in the diff tree, carrying the dotted path
+    and the before/after values as plain strings. The side-by-side diff
+    table template (``inc/diff_table.html``) renders a list of these as a
+    flat Path / Before / After table with red/green highlighting — replacing
+    the recursive collapsible-tree viewer.
+
+    Field semantics:
+
+    - ``path``: dotted key path, e.g. ``"config.interfaces.Gig0.ip"``. List
+      indices use bracket notation, e.g. ``"vlans[1]"``.
+    - ``status``: one of ``added`` / ``removed`` / ``changed`` / ``unchanged``
+      (mirrors the diff-tree node status).
+    - ``before``: plain string repr of the before value; ``""`` when status is
+      ``added`` (no before side).
+    - ``after``: plain string repr of the after value; ``""`` when status is
+      ``removed`` (no after side).
+
+    Container-only nodes (dict/list with no leaf children of their own, i.e.
+    pure structural) do NOT produce a DiffLine — only leaves and
+    added/removed/changed entries do.
+    """
+
+    path: str
+    status: str
+    before: str
+    after: str
+
+
+def _stringify(value: Any) -> str:
+    """Compact one-line string repr of a leaf value for the side-by-side table.
+
+    Scalars use ``str(value)`` (with ``repr`` for strings would add quotes —
+    we want the raw value the operator sees in a config). Dicts and lists
+    serialize to compact one-line JSON via ``json.dumps(value, default=str)``
+    so nested-container leaf values stay on a single table row instead of
+    bleeding across multiple lines like the old ``|json`` pretty-print did.
+    ``None`` renders as the empty string so an unset leaf reads as a blank
+    table cell rather than the literal text ``"None"``.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, default=str)
+    return str(value)
+
+
+def flatten_diff_tree(diff: dict | None) -> list[DiffLine]:
+    """Flatten a structured diff tree into a list of side-by-side table rows.
+
+    Walks the diff tree produced by :func:`diff_snapshots` (the JSONB ``diff``
+    dict stored on :class:`~netbox_pyats.models.PyatsSnapshotDiff` /
+    :class:`~netbox_pyats.models.PyatsComplianceRun`) and returns a flat list
+    of :class:`DiffLine` rows — one per leaf — for the side-by-side diff
+    table viewer (ATW-524/ATW-525).
+
+    The diff engine itself is untouched; this is a render-flattening layer on
+    top. Empty / error / missing diffs return ``[]``.
+
+    Args:
+        diff: the JSONB ``diff`` dict from a diff/compliance row, or
+            ``None`` / ``{}`` for an empty/error row.
+
+    Returns:
+        A flat list of :class:`DiffLine` rows. Dict children descend with
+        ``path + "." + key``; list children descend with ``path + "[" + index
+        + "]"``. Only leaves (and added/removed/changed entries) emit rows;
+        pure-structural containers do not.
+    """
+    if not diff or not isinstance(diff, dict):
+        return []
+    lines: list[DiffLine] = []
+    _flatten_node(diff, "", lines)
+    return lines
+
+
+def _flatten_node(node: Any, path: str, out: list[DiffLine]) -> None:
+    """Recursively flatten one diff node, appending leaves to ``out``.
+
+    Dict/list container nodes recurse into ``children``; leaf nodes (and the
+    added/removed/changed entries the engine emits for non-recurring values)
+    append one :class:`DiffLine`. The root node carries its own ``name`` but
+    no path component — its children descend from the empty path.
+    """
+    if not isinstance(node, dict):
+        return
+    status = node.get("status")
+    node_type = node.get("type")
+    children = node.get("children")
+
+    if node_type in (_NODE_TYPE_DICT, _NODE_TYPE_LIST) and isinstance(children, dict):
+        for key, child in children.items():
+            child_path = _join_path(path, key, node_type)
+            _flatten_node(child, child_path, out)
+        return
+
+    if status == _STATUS_ADDED:
+        out.append(DiffLine(path=path, status=_STATUS_ADDED, before="", after=_stringify(node.get("after"))))
+    elif status == _STATUS_REMOVED:
+        out.append(DiffLine(path=path, status=_STATUS_REMOVED, before=_stringify(node.get("before")), after=""))
+    elif status == _STATUS_CHANGED:
+        out.append(
+            DiffLine(
+                path=path,
+                status=_STATUS_CHANGED,
+                before=_stringify(node.get("before")),
+                after=_stringify(node.get("after")),
+            )
+        )
+    elif status == _STATUS_UNCHANGED:
+        out.append(
+            DiffLine(
+                path=path,
+                status=_STATUS_UNCHANGED,
+                before=_stringify(node.get("value")),
+                after=_stringify(node.get("value")),
+            )
+        )
+
+
+def _join_path(parent: str, key: str, parent_type: str) -> str:
+    """Join a parent path and child key per the parent container's type.
+
+    Dict parents use dotted keys (``config.hostname``); list parents use
+    bracket indices (``vlans[1]``). The root call has an empty parent so the
+    first child's path is just the key (or ``[0]`` for a list root).
+    """
+    if parent_type == _NODE_TYPE_LIST:
+        return f"{parent}[{key}]"
+    if parent == "":
+        return str(key)
+    return f"{parent}.{key}"
+
+
 __all__ = (
+    "DiffLine",
     "DiffResult",
     "diff_snapshots",
+    "flatten_diff_tree",
 )
