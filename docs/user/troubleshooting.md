@@ -63,7 +63,7 @@ Malformed diff inputs. Read `parser_warnings` for the cause. The diff row is alw
 
 The golden text does not normalize to the same line set as the snapshot's raw running-config text.
 
-- Open the compliance-run detail view; the diff tree shows exactly which leaves diverged — start there.
+- Open the compliance-run detail view; the diff table shows exactly which leaves diverged — start there.
 - v1 is **order-independent** line-set diff: a re-ordered config is still `compliant`, but any added/removed line is `drift`. If you expected order-insensitive compliance and got `drift`, the device really is carrying a line the golden does not (or is missing a line the golden has).
 - Trailing whitespace, blank lines, and lone `!` delimiter lines are stripped as noise — those do not cause `drift`.
 - If you need order-sensitive compliance (e.g. ACL entry order), that is v2 — see [Compliance engine](compliance.md) for the v1 vs v2 distinction.

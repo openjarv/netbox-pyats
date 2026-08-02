@@ -24,7 +24,7 @@ The row is **always created**, even on `error`, so the outcome is visible in-lin
 | Result | Meaning |
 |--------|---------|
 | `compliant` | the diff between the golden text and the snapshot's raw running-config text has no added/removed lines. |
-| `drift` | the diff has any added/removed lines; the diff tree shows *what* drifted. In ordered mode, re-ordered lines count as drift. |
+| `drift` | the diff has any added/removed lines; the diff view shows *what* drifted. In ordered mode, re-ordered lines count as drift. |
 | `error` | the golden text is empty, the snapshot has no `config_raw` payload, or the snapshot is `unsupported` / `error`. The row is still created with a warning naming the missing input. |
 
 ## Both modes are line-oriented text diff, not Genie-structured diff
@@ -33,9 +33,9 @@ The golden `config_text` is compared against the snapshot's raw `show running-co
 
 The comparison is pure-Python and Genie-free: `difflib` (stdlib) for ordered mode, set arithmetic for set mode. No worker-only Genie parse of the golden is needed — `show running-config` has no Genie parser that runs without a live device connection (confirmed against genie 26.6), and pulling a live device into the compliance path would break the "no extra SSH round-trip" contract. The snapshot's `parsed_os` is recorded for future structured-compliance work that has a connected device; the v2 ordered text diff does not consume it. See ADR-0004 §"v2 ordered text diff".
 
-## The diff tree
+## The diff view
 
-The compliance diff tree has the same JSON-serializable shape as `PyatsSnapshotDiff.diff`, so the Phase 3 `inc/diff_tree.html` partial renders it unchanged. Each leaf is a config line marked `unchanged` / `added` / `removed`. The compliance-run viewer (`/plugins/pyats/compliance-runs/<pk>/`) renders the same collapsible before/after tree as the diff viewer, plus a result badge (compliant / drift / error), a mode badge (Ordered / Set), a drift indicator, and any warnings.
+The compliance diff tree has the same JSON-serializable shape as `PyatsSnapshotDiff.diff`, so the Phase 3 `inc/diff_table.html` partial renders it unchanged. The view flattens the tree into a list of `DiffLine` rows (`netbox_pyats.diff.flatten_diff_tree`); each leaf is a config line marked `unchanged` / `added` / `removed`. The compliance-run viewer (`/plugins/pyats/compliance-runs/<pk>/`) renders the same side-by-side before/after table as the diff viewer — a `Path / Before / After` column per leaf with red/green monospace values — plus a result badge (compliant / drift / error), a mode badge (Ordered / Set), a drift indicator, and any warnings.
 
 Duplicate line texts (e.g. two ` ip address` lines from two interfaces) are disambiguated with a `#<n>` suffix on the tree key so each leaf renders distinctly; the un-suffixed line is the common case.
 

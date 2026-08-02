@@ -43,15 +43,14 @@ From the same device's **PyATS** tab → **Diff two snapshots** picker (only off
 
 The `run_diff` job is enqueued on the `pyats` queue. When the worker finishes, the diff appears in the tab's recent-diffs list. Open it (`/plugins/pyats/diffs/<pk>/`) to see:
 
-- a server-rendered collapsible `<details>` tree (no JS) of added/removed/changed/unchanged leaves,
-- before/after values shown side-by-side for changed leaves,
+- a server-rendered side-by-side diff table (no JS) of added/removed/changed/unchanged leaves, with a `Path / Before / After` column per leaf and red/green monospace values for the changed lines,
 - a flat summary (added / removed / changed / unchanged counts),
 - raw-JSON fallback,
 - parser warnings.
 
 The diff engine is pure-Python and operates on already-serialized JSONB — no pyATS needed for diffs. Empty/unsupported snapshots yield `status="empty"` (neutral badge); malformed inputs yield `status="error"` with a warning — a diff row is always created so the outcome is visible in-line.
 
-<img src="../screenshots/diff-viewer.png" alt="The snapshot diff viewer showing a collapsible before/after tree with summary badges" width="720">
+<img src="../screenshots/diff-viewer.png" alt="The snapshot diff viewer showing a side-by-side before/after diff table with summary badges" width="720">
 
 ## 4 — Add a golden config
 
@@ -68,12 +67,12 @@ From the device's **PyATS** tab → **Run compliance** picker (shown when the de
 The `run_compliance` job is enqueued on the `pyats` queue. The worker extracts the golden `config_text` and the snapshot's raw `data["config_raw"]` running-config text, diffs them line-by-line, and classifies the outcome:
 
 - `compliant` — no added/removed lines.
-- `drift` — any divergence; the diff tree shows *what* drifted.
+- `drift` — any divergence; the diff table shows *what* drifted.
 - `error` — the golden is empty, the snapshot has no `config_raw` payload, or the snapshot is `unsupported` / `error`. The row is still created with a warning naming the missing input.
 
-The compliance-run viewer (`/plugins/pyats/compliance-runs/<pk>/`) reuses the Phase 3 diff-tree partial, so the same collapsible before/after tree renders the golden-vs-snapshot divergence, plus a result badge and any warnings. See [Compliance engine](compliance.md) for the full classification rules and the v1 line-set diff semantics.
+The compliance-run viewer (`/plugins/pyats/compliance-runs/<pk>/`) reuses the diff partial, so the same side-by-side before/after table renders the golden-vs-snapshot divergence, plus a result badge and any warnings. See [Compliance engine](compliance.md) for the full classification rules and the v1 line-set diff semantics.
 
-<img src="../screenshots/compliance-run-drift.png" alt="The compliance-run viewer showing a drift result with a collapsible before/after diff tree" width="720">
+<img src="../screenshots/compliance-run-drift.png" alt="The compliance-run viewer showing a drift result with a side-by-side before/after diff table" width="720">
 
 ## 6 — Browse everything
 
@@ -86,7 +85,7 @@ The compliance-run viewer (`/plugins/pyats/compliance-runs/<pk>/`) reuses the Ph
 - **PyATS Compliance Runs** — filterable by device, result.
 - **PyATS Jobs** (`/plugins/pyats/jobs/`) — one row per capture / diff / compliance / batch-capture job, with a `pending` → `running` → `success` / `error` / `partial` status lifecycle and typed links to the result row each job produced. Filterable by type, status, and device.
 
-Each detail view renders the JSONB payload / diff tree / golden text / compliance diff and any warnings.
+Each detail view renders the JSONB payload / diff table / golden text / compliance diff and any warnings.
 
 <img src="../screenshots/jobs-view.png" alt="The unified PyATS Jobs view showing capture and batch-capture jobs with status badges including a partial row" width="720">
 
