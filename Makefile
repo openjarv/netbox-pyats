@@ -4,7 +4,7 @@
 # source of truth stays in scripts/. Run `make <target>` from the repo root
 # (or from a worktree).
 
-.PHONY: test test-unit test-integration lint format
+.PHONY: test test-unit test-integration lint format seed
 
 # Pure-Python unit lane: 103 tests, no Docker, no NetBox, ~3s.
 # Use this for logic changes (diff, testbed, capture, compliance, crypto).
@@ -12,11 +12,28 @@
 test-unit:
 	scripts/test-unit.sh $(ARGS)
 
-# Full integration suite inside the dev container (requires Docker).
-# See docs/developer/setup.md for the one-run-per-fresh-stack workflow.
+# Full integration suite via the dedicated `netbox-test` compose service
+# (ATW-357 / ATW-354). This is the SAFE path: pytest runs without granian,
+# so the granian-connection race (ATW-85 / ATW-188) cannot occur, and
+# --reuse-db keeps the migrated test_netbox across runs. The stale-schema
+# guard (ATW-534 #2) auto-falls-back to --create-db if migrations drifted
+# since the last seed/--create-db. Extra pytest flags pass through.
+#
+# Historical note: this target previously routed to
+#   docker compose exec netbox pytest
+# which runs pytest INSIDE the granian web container and re-hits the
+# ATW-85/188 race (granian's idle connections hold test_netbox between
+# DROP and CREATE). That path is RETIRED (ATW-534 #3) — one integration
+# entrypoint, not two. If you need the old behavior for debugging, run
+# the docker compose exec command by hand, but prefer this target.
 test-integration:
-	docker compose -f docker-compose.dev.yml exec -w /opt/netbox/netbox/netbox_pyats_src \
-		netbox pytest netbox_pyats/tests $(ARGS)
+	scripts/dev-worktree.sh test $(ARGS)
+
+# Build the shared migrated-postgres seed volume (ATW-534 #1). Run from a
+# worktree at the latest origin/main. Once built, new worktrees auto-detect
+# the seed and skip the ~8 min migration cold start on first test run.
+seed:
+	scripts/dev-seed.sh build $(ARGS)
 
 # Lint + format checks (fast lane, no Docker).
 lint:

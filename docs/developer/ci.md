@@ -51,6 +51,18 @@ The integration lane is a **required** check: no merge is green without it passi
 
 Bring-up is **scoped** to `postgres redis` — the `netbox-test` service depends on them only (NOT `netbox`), so the web server, workers, and `netbox-pyats-worker` are not started. The plugin's test suite is designed to run without workers: `conftest.py` dual-mode skips cleanly when the RQ backend is absent, test files gate themselves with `pytest.importorskip`, and job-callable tests invoke `run_*_job` directly rather than through the queue. The workers are only needed for live device capture from the UI. Refs: [ATW-244](/ATW/issues/ATW-244), [ATW-245](/ATW/issues/ATW-245).
 
+> **Local dev: seed volume + stale-schema guard (ATW-534).** CI uses
+> `--create-db` for every run (authoritative, no cross-run state). Local
+> dev uses `--reuse-db` for velocity, backed by the shared
+> migrated-postgres seed volume (`scripts/dev-seed.sh`) so a fresh
+> worktree's first `dev-worktree.sh test` runs in ~30 s instead of ~8 min.
+> `dev-worktree.sh test` also auto-falls-back to `--create-db` if the
+> worktree's migration state drifted from the seed marker
+> (`.dev-test-marker`), removing the "when do I need --create-db?"
+> guesswork. CI is unaffected — it always passes `--create-db` explicitly,
+> so the guard is skipped. See [Dev environment bring-up — Seed
+> volume](setup.md#seed-volume-dev-seedsh--skip-the-migration-cold-start).
+
 ```bash
 docker compose -f docker-compose.dev.yml -f docker-compose.test.yml up -d --wait postgres redis
 docker compose -f docker-compose.dev.yml -f docker-compose.test.yml run --rm -T netbox-test --create-db netbox_pyats/tests -v

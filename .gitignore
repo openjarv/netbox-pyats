@@ -45,6 +45,10 @@ graphify-out/20*/
 # claimed loopback port.
 .env
 .dev-port
+# Per-worktree test-schema marker (ATW-534 #2). Written by dev-worktree.sh
+# test / dev-seed.sh restore; records the migration-state hash the current
+# test_netbox was built against, so the stale-schema guard can detect drift.
+.dev-test-marker
 
 # graphify-mcp HTTP api-key (ATW-42) — never commit.
 dev/graphify-mcp/api-key

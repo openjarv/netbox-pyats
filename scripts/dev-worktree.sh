@@ -82,6 +82,25 @@ WT_ROOT="$(dirname "$TRUNK_ROOT")/$(basename "$TRUNK_ROOT")-wt"
 PORT_MIN=8001
 PORT_MAX=8010
 
+# Shared migrated-postgres seed volume name (host-wide, NOT namespaced by
+# project). When a seed volume exists, `dev-worktree.sh add` writes
+# POSTGRES_SEED_VOLUME=<name> into the worktree's .env so `dev-worktree.sh
+# up` restores a pre-migrated `test_netbox` into the worktree's own postgres
+# on first boot — turning the ~8 min NetBox migration cold start into a
+# ~30 s pg_restore (ATW-527 / ATW-534). Opt-in: if no seed volume exists,
+# the var is left unset and behavior is unchanged (ATW-534 #4). Override
+# with `POSTGRES_SEED_VOLUME=<name>` in the environment to force a specific
+# seed volume, or set it to empty to disable the seed for a worktree.
+SEED_VOLUME_DEFAULT="netbox-pyats-pg-seed"
+# Worktree-side marker file recording the migration-state hash + NETBOX_IMAGE
+# the worktree's test_netbox was last seeded / --create-db'd against.
+# `dev-worktree.sh test` compares the worktree's current migration-state hash
+# against this marker to detect stale-schema drift and auto-fall-back to
+# --create-db with a warning (ATW-534 #2).
+DEV_TEST_MARKER=".dev-test-marker"
+# Plugin migration directory used to compute the migration-state hash.
+PLUGIN_MIGRATIONS_DIR="netbox_pyats/migrations"
+
 # Maximum concurrent netbox dev stacks allowed on the host (ATW-201 OOM
 # guardrail). The host has 7.8 GiB RAM + 2 GiB swap; one stack is ~5.7 GiB of
 # mem_limit, so 2 concurrent stacks guarantee OOM. Override to 2+ only on a
@@ -163,16 +182,66 @@ next_free_port() {
   die "port pool exhausted ($PORT_MIN..$PORT_MAX). Remove stale worktrees with: $0 remove <issue-id>"
 }
 
+# Compute a stable hash of the plugin migration state. This is the marker
+# `dev-worktree.sh test` compares against to detect stale schema (ATW-534
+# #2). Includes the NETBOX_IMAGE tag (so a NetBox upgrade invalidates the
+# seeded test_netbox) and the plugin migration file CONTENTS (so a new
+# plugin migration invalidates it). NetBox's own migrations live inside
+# the image and are covered by the NETBOX_IMAGE tag. Kept in sync with the
+# same function in scripts/dev-seed.sh.
+migration_state_hash() {
+  local netbox_image="${NETBOX_IMAGE:-docker.io/netboxcommunity/netbox:v4.6-5.0.2}"
+  local h=""
+  if [ -d "$PLUGIN_MIGRATIONS_DIR" ]; then
+    h="$(find "$PLUGIN_MIGRATIONS_DIR" -name '*.py' -not -name '__init__.py' \
+        -print0 | sort -z | xargs -0 cat 2>/dev/null | sha256sum | cut -d' ' -f1)"
+  else
+    h="no-migrations-dir"
+  fi
+  printf '%s|%s\n' "$h" "$netbox_image"
+}
+
+# Resolve the seed volume name to use for a new worktree. Order of
+# precedence: explicit $POSTGRES_SEED_VOLUME env var (set to empty to
+# disable), else the default shared volume name IF it exists on the host,
+# else empty (no seed — opt-in, ATW-534 #4).
+seed_volume_for_new_worktree() {
+  if [ -n "${POSTGRES_SEED_VOLUME+x}" ]; then
+    printf '%s' "$POSTGRES_SEED_VOLUME"
+    return
+  fi
+  if docker volume inspect "$SEED_VOLUME_DEFAULT" >/dev/null 2>&1; then
+    printf '%s' "$SEED_VOLUME_DEFAULT"
+    return
+  fi
+  printf ''
+}
+
+# Read the seed volume name configured in the current worktree's .env
+# (set by `dev-worktree.sh add` when a seed existed). Empty if no seed
+# is configured for this worktree.
+worktree_seed_volume() {
+  [ -f "./.env" ] || { printf ''; return; }
+  local v
+  v="$(grep -E '^POSTGRES_SEED_VOLUME=' .env | cut -d= -f2- || true)"
+  printf '%s' "$v"
+}
+
 usage() {
   cat >&2 <<EOF
 usage: dev-worktree.sh <command> [args]
 
   add <issue-id> <type> <slug>     create a worktree for an issue
   up                               bring up the compose stack in the current worktree
+                                   (restores test_netbox from the seed volume
+                                   if POSTGRES_SEED_VOLUME is set in .env —
+                                   ATW-534 #1)
   test [pytest-args...]            run the integration suite via the netbox-test
                                    service (--reuse-db keeps test_netbox across
-                                   runs). Requires postgres + redis; starts them
-                                   if needed. ATW-357.
+                                   runs; auto-falls-back to --create-db if the
+                                   migration state drifted from the seed marker —
+                                   ATW-534 #2). Requires postgres + redis; starts
+                                   them if needed. ATW-357.
   remove <issue-id>                tear down the worktree + its compose stack
   cleanup                          tear down orphaned/stopped compose stacks (ATW-201)
   audit                            print exposure + cleanup report (ATW-201)
@@ -185,6 +254,13 @@ examples:
   dev-worktree.sh remove atw-44
   dev-worktree.sh cleanup
   dev-worktree.sh audit
+
+seed volume (ATW-534 #1):
+  scripts/dev-seed.sh build                # build the shared seed volume
+  scripts/dev-seed.sh info                 # show seed + worktree migration state
+  # dev-worktree.sh add auto-detects the seed and writes POSTGRES_SEED_VOLUME
+  # into the worktree .env; dev-worktree.sh up restores test_netbox from it.
+  # Override: POSTGRES_SEED_VOLUME= (empty) disables the seed for one add.
 EOF
   exit 2
 }
@@ -348,6 +424,17 @@ EOF
   local host_uid host_gid
   host_uid="$(id -u)"
   host_gid="$(id -g)"
+
+  # Seed volume detection (ATW-534 #1). If a shared migrated-postgres seed
+  # volume exists on the host (built by `scripts/dev-seed.sh build`), write
+  # its name into the worktree's .env so `dev-worktree.sh up` restores a
+  # pre-migrated test_netbox into the worktree's own postgres on first boot.
+  # Opt-in: if no seed volume exists, the var is omitted and behavior is
+  # unchanged (ATW-534 #4). Set POSTGRES_SEED_VOLUME= (empty) in the
+  # environment to force-disable the seed for this worktree.
+  local seed_vol
+  seed_vol="$(seed_volume_for_new_worktree)"
+
   cat > "$wt/.env" <<EOF
 # Per-worktree dev environment. Generated by scripts/dev-worktree.sh.
 # Edit by hand if you need different resource caps; do not commit this file.
@@ -356,6 +443,9 @@ NETBOX_PORT=$port
 HOST_UID=$host_uid
 HOST_GID=$host_gid
 EOF
+  if [ -n "$seed_vol" ]; then
+    printf 'POSTGRES_SEED_VOLUME=%s\n' "$seed_vol" >> "$wt/.env"
+  fi
 
   cat <<EOF
 created worktree: $wt
@@ -364,6 +454,18 @@ base:            $base_ref
 base SHA:        $base_sha
 compose project: $issue_id
 netbox port:     127.0.0.1:$port
+seed volume:     ${seed_vol:-<none>}
+EOF
+  if [ -n "$seed_vol" ]; then
+    cat <<EOF
+
+Note: a shared migrated-postgres seed volume was detected
+($seed_vol). \`dev-worktree.sh up\` will restore a pre-migrated
+test_netbox into this worktree's postgres on first boot, skipping
+the ~8 min NetBox migration cold start (ATW-534 #1).
+EOF
+  fi
+  cat <<EOF
 
 Next:
   cd $wt
@@ -394,6 +496,27 @@ cmd_up() {
   docker compose -f docker-compose.dev.yml --env-file .env up -d
   echo
   echo "netbox: http://localhost:$port  (admin / admin)"
+
+  # Seed-volume restore (ATW-534 #1). If the worktree's .env has
+  # POSTGRES_SEED_VOLUME set and that volume exists on the host, restore a
+  # pre-migrated test_netbox into the worktree's own postgres so the first
+  # `dev-worktree.sh test` skips the ~8 min migration cold start and runs
+  # in seconds (pg_restore). Opt-in: no var, no restore. We wait for
+  # postgres to be healthy first (the `up -d` above starts it, but the
+  # healthcheck needs a moment). The restore is idempotent — it skips if
+  # test_netbox already exists in this worktree's postgres (e.g. on re-up).
+  local seed_vol
+  seed_vol="$(worktree_seed_volume)"
+  if [ -n "$seed_vol" ] && docker volume inspect "$seed_vol" >/dev/null 2>&1; then
+    echo
+    echo "seed volume $seed_vol detected — restoring test_netbox (ATW-534 #1) ..."
+    echo "waiting for postgres to be healthy ..."
+    docker compose -f docker-compose.dev.yml --env-file .env up -d --wait postgres >/dev/null 2>&1 || true
+    if ! scripts/dev-seed.sh restore; then
+      echo "warning: seed restore failed — the first 'dev-worktree.sh test' will" >&2
+      echo "         pay the full ~8 min migration cold start instead. Continuing." >&2
+    fi
+  fi
 }
 
 # Concurrency-cap guardrail (ATW-201 / ATW-356). Counts every running netbox
@@ -484,18 +607,84 @@ cmd_test() {
   docker compose -f docker-compose.dev.yml -f docker-compose.test.yml \
     --env-file .env up -d --wait postgres redis
 
+  # --- Stale-schema guard (ATW-534 #2) -------------------------------------
+  # Before running pytest with the default --reuse-db, compare the
+  # worktree's current migration-state hash (plugin migration file contents
+  # + NETBOX_IMAGE) against the marker written at seed-restore /
+  # last---create-db time (.dev-test-marker). If the marker is missing or
+  # the hash drifted (a migration was added/changed on main, or the NetBox
+  # image tag changed), --reuse-db would run pytest against a stale
+  # test_netbox schema and fail opaquely. Auto-fall-back to --create-db
+  # with a one-line warning instead, so the test lane self-heals instead
+  # of leaving the agent to guess "when do I need --create-db?".
+  #
+  # The guard ONLY applies to the default --reuse-db path. If the user
+  # passed explicit args (e.g. `test --create-db -v` or `test <file>`),
+  # we respect them verbatim — the user knows what they want. The guard
+  # also writes/refreshes the marker after a --create-db run so the next
+  # --reuse-db run knows the schema is current.
+  local user_passed_args=0
+  [ $# -gt 0 ] && user_passed_args=1
+
+  local use_create_db=0
+  local marker_hash="" current_hash=""
+  current_hash="$(migration_state_hash)"
+  if [ "$user_passed_args" -eq 0 ]; then
+    if [ -f "$DEV_TEST_MARKER" ]; then
+      marker_hash="$(grep -E '^migration_hash=' "$DEV_TEST_MARKER" | cut -d= -f2- || true)"
+    fi
+    if [ -z "$marker_hash" ] || [ "$marker_hash" != "$current_hash" ]; then
+      use_create_db=1
+      if [ -z "$marker_hash" ]; then
+        echo "warning: no $DEV_TEST_MARKER found — falling back to --create-db (fresh test_netbox)." >&2
+      else
+        echo "warning: migration state drifted from $DEV_TEST_MARKER (marker=$marker_hash, current=$current_hash)." >&2
+        echo "         falling back to --create-db so pytest runs against a fresh test_netbox (ATW-534 #2)." >&2
+      fi
+      echo "         this is a one-time cost; the next 'dev-worktree.sh test' will reuse the rebuilt schema." >&2
+    fi
+  fi
+
   # Run the one-shot test container. --rm removes it after the run. Pass any
   # extra args through to pytest (they replace the service's default command).
   # Use -T to disable TTY allocation (no interactive stdin in CI/agents).
-  if [ $# -gt 0 ]; then
+  local rc=0
+  if [ "$user_passed_args" -eq 1 ]; then
     echo "running netbox-test with args: $*"
     docker compose -f docker-compose.dev.yml -f docker-compose.test.yml \
-      --env-file .env run --rm -T netbox-test "$@"
+      --env-file .env run --rm -T netbox-test "$@" || rc=$?
+  elif [ "$use_create_db" -eq 1 ]; then
+    echo "running netbox-test with --create-db (stale-schema fallback, ATW-534 #2)"
+    docker compose -f docker-compose.dev.yml -f docker-compose.test.yml \
+      --env-file .env run --rm -T netbox-test --create-db netbox_pyats/tests || rc=$?
   else
     echo "running netbox-test (default: --reuse-db netbox_pyats/tests)"
     docker compose -f docker-compose.dev.yml -f docker-compose.test.yml \
-      --env-file .env run --rm -T netbox-test
+      --env-file .env run --rm -T netbox-test || rc=$?
   fi
+
+  # After a successful --create-db run (whether auto-fallback or explicit),
+  # write/refresh the worktree marker so the next --reuse-db run knows the
+  # schema is current. We only write on exit code 0 (pytest success) so a
+  # failed migration build does not falsely mark the schema as current.
+  # Skip when the user passed explicit args (we don't know if they used
+  # --create-db or just ran a single file against the existing schema).
+  if [ "$rc" -eq 0 ] && [ "$user_passed_args" -eq 0 ] && [ "$use_create_db" -eq 1 ]; then
+    local ts
+    ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    cat > "$DEV_TEST_MARKER" <<EOF
+# Worktree test marker — written by dev-worktree.sh test after a --create-db
+# run (ATW-534 #2). The stale-schema guard compares the worktree's current
+# migration-state hash against migration_hash below; on drift it auto-falls
+# back to --create-db. Do not edit by hand.
+migration_hash=$current_hash
+netbox_image=${NETBOX_IMAGE:-docker.io/netboxcommunity/netbox:v4.6-5.0.2}
+created_at=$ts
+EOF
+    echo "wrote $DEV_TEST_MARKER (migration hash recorded for stale-schema guard)"
+  fi
+
+  return "$rc"
 }
 
 # Reclaim root-owned bind-mount artifacts in a worktree directory by chowning
