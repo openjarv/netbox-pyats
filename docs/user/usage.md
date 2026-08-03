@@ -35,9 +35,24 @@ The job is enqueued on the `pyats` queue. When the worker finishes, the snapshot
 
 Each snapshot also carries `parsed_os` (the pyATS os string used by the capture, e.g. `iosxe` / `iosxr` / `nxos`) so future structured compliance can pick the right Genie parser even after the device row is deleted.
 
+For recurring captures (e.g. a nightly baseline for drift detection), see [Scheduled captures](scheduled-captures.md) — you define a device filter + capture kind once and NetBox's job scheduler fires it on a cadence.
+
 <img src="../screenshots/device-pyats-tab.png" alt="A device's PyATS tab showing the capture form and recent-snapshot history with status badges" width="720">
 
-## 3 — Diff two snapshots
+## 3 — On-demand Parse
+
+The **Parse** sub-tab runs ad-hoc Genie parser commands against a device without a full capture. From the device's **PyATS** tab → **Parse** link, you get:
+
+- a checkbox list of cached parser commands for the device's resolved pyATS os (populated from the `PyatsParserCatalog` row — DB only, no Genie import in the web process), and/or
+- a free-text `manual_command` field for any CLI command string.
+
+Select commands, type a manual one, or both. The view de-duplicates (selected commands first, then the manual command) and enqueues a `parse_commands` job on the `pyats` queue. The worker runs `device.parse(cmd)` per command (raw `execute()` fallback when a command has no Genie parser — the manual text-box case), and the result lands as a `kind='parse'` `PyatsSnapshot` row in the device-page snapshot history when the worker finishes. Per-command `ParserNotFound` is recorded as a warning (graceful degradation).
+
+A **Refresh parser list** button on the sub-tab enqueues the catalog refresh job (`refresh_parser_catalog_job`) for all supported os, repopulating the `PyatsParserCatalog` rows from the worker's Genie install. Run it once after installing or upgrading `pyats[full]` on the worker.
+
+> **First time?** The checkbox list is empty until a worker has refreshed the parser catalog. Click **Refresh parser list** once (the worker needs `pyats[full]` installed), then reopen the Parse sub-tab.
+
+## 4 — Diff two snapshots
 
 From the same device's **PyATS** tab → **Diff two snapshots** picker (only offered when the device has ≥2 snapshots) → pick a **before** and an **after** snapshot → **Diff**.
 
@@ -52,7 +67,7 @@ The diff engine is pure-Python and operates on already-serialized JSONB — no p
 
 <img src="../screenshots/diff-viewer.png" alt="The snapshot diff viewer showing a side-by-side before/after diff table with summary badges" width="720">
 
-## 4 — Add a golden config
+## 5 — Add a golden config
 
 **PyATS → Golden Configs → Add** (or open the device's PyATS tab → use the "Run compliance" picker's golden link).
 
@@ -60,7 +75,7 @@ Pick the device, give the golden a name (e.g. `baseline-rtr01`), and paste the e
 
 Golden configs are fully editable via REST in v1, so you can seed goldens from an external config-management tool.
 
-## 5 — Run compliance
+## 6 — Run compliance
 
 From the device's **PyATS** tab → **Run compliance** picker (shown when the device has ≥1 golden config and ≥1 config/full snapshot) → pick a golden and a snapshot → **Run**.
 
@@ -74,7 +89,7 @@ The compliance-run viewer (`/plugins/pyats/compliance-runs/<pk>/`) reuses the di
 
 <img src="../screenshots/compliance-run-drift.png" alt="The compliance-run viewer showing a drift result with a side-by-side before/after diff table" width="720">
 
-## 6 — Browse everything
+## 7 — Browse everything
 
 **PyATS →** the relevant list:
 
@@ -83,13 +98,16 @@ The compliance-run viewer (`/plugins/pyats/compliance-runs/<pk>/`) reuses the di
 - **PyATS Snapshot Diffs** — filterable by device, status.
 - **Golden Configs** — filterable by device, source.
 - **PyATS Compliance Runs** — filterable by device, result.
-- **PyATS Jobs** (`/plugins/pyats/jobs/`) — one row per capture / diff / compliance / batch-capture job, with a `pending` → `running` → `success` / `error` / `partial` status lifecycle and typed links to the result row each job produced. Filterable by type, status, and device.
+- **PyATS Capture Schedules** — filterable by device, kind, enabled; the recurring-capture model (see [Scheduled captures](scheduled-captures.md)).
+- **PyATS Jobs** (`/plugins/pyats/jobs/`) — one row per capture / diff / compliance / batch-capture / parse / refresh-catalog job, with a `pending` → `running` → `success` / `error` / `partial` status lifecycle and typed links to the result row each job produced. Filterable by type, status, and device.
+
+> **PyATS Parser Catalog** has no UI list view — it is a worker-populated cache read by the on-device Parse tab and exposed read-only via the REST + GraphQL API (see [REST and GraphQL](#rest-and-graphql) below).
 
 Each detail view renders the JSONB payload / diff table / golden text / compliance diff and any warnings.
 
 <img src="../screenshots/jobs-view.png" alt="The unified PyATS Jobs view showing capture and batch-capture jobs with status badges including a partial row" width="720">
 
-## 7 — Build a testbed programmatically
+## 8 — Build a testbed programmatically
 
 The snapshot pipeline does this internally, but you can call it directly:
 
@@ -124,6 +142,9 @@ The supported-platforms report at **PyATS → Supported Platforms** renders the 
 | `PyatsSnapshotDiff` | read-only in v1 | yes |
 | `PyatsGoldenConfig` | fully editable | deferred |
 | `PyatsComplianceRun` | read-only in v1 | deferred |
+| `PyatsJob` | read-only in v1 | yes |
+| `PyatsParserCatalog` | read-only in v1 | yes |
+| `PyatsCaptureSchedule` | fully editable (`last_run_at` / `next_run_at` read-only) | yes |
 
 All routes are under `/plugins/pyats/`. Secrets are never returned by the REST API, GraphQL, or the detail view template.
 
@@ -132,4 +153,5 @@ All routes are under `/plugins/pyats/`. Secrets are never returned by the REST A
 - [Worker deployment](workers.md) — the dedicated `pyats` RQ queue in detail.
 - [Credential encryption](credentials.md) — how secrets are protected and rotated.
 - [Compliance engine](compliance.md) — what the golden-config check classifies and why.
+- [Scheduled captures](scheduled-captures.md) — recurring capture schedules for nightly baselines and drift detection.
 - [Troubleshooting](troubleshooting.md) — operator-facing fixes for common failure modes.
