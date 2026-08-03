@@ -100,7 +100,8 @@ The compliance-run viewer (`/plugins/pyats/compliance-runs/<pk>/`) reuses the di
 - **PyATS Compliance Runs** — filterable by device, result.
 - **PyATS Capture Schedules** — filterable by device, kind, enabled; the recurring-capture model (see [Scheduled captures](scheduled-captures.md)).
 - **PyATS Jobs** (`/plugins/pyats/jobs/`) — one row per capture / diff / compliance / batch-capture / parse / refresh-catalog job, with a `pending` → `running` → `success` / `error` / `partial` status lifecycle and typed links to the result row each job produced. Filterable by type, status, and device.
-- **PyATS Parser Catalog** (`/plugins/pyats/parser-catalog/`) — one row per Genie-supported pyATS os holding the cached command list + worker version strings; read-only (worker-populated by the refresh job).
+
+> **PyATS Parser Catalog** has no UI list view — it is a worker-populated cache read by the on-device Parse tab and exposed read-only via the REST + GraphQL API (see [REST and GraphQL](#rest-and-graphql) below).
 
 Each detail view renders the JSONB payload / diff table / golden text / compliance diff and any warnings.
 
