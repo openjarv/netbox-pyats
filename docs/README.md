@@ -14,6 +14,7 @@ You know NetBox. You want to install the plugin, capture a snapshot, diff two sn
 - [Upgrade guide](user/upgrade.md) — upgrade the plugin, upgrade NetBox with the plugin installed, and keep the pyats worker aligned.
 - [Credential encryption](user/credentials.md) — how plugin-local device credentials are encrypted and rotated.
 - [Compliance engine](user/compliance.md) — what the golden-config compliance check classifies and why.
+- [Scheduled captures](user/scheduled-captures.md) — recurring capture schedules for nightly baselines and drift detection.
 - [Troubleshooting](user/troubleshooting.md) — operator-facing fixes for the most common failure modes.
 
 ## For contributors (developing the plugin)
