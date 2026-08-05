@@ -53,6 +53,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Python 3.10, 3.11, 3.12
 - pyATS 26.x (worker only; not required for the web UI)
 
+### Changed
+
+- `next_run_at` now populated from the NetBox `Job` row's `interval` (ATW-610): both schedule dispatchers (`run_capture_schedules_job`, `run_parser_catalog_refresh_schedules_job`) set `next_run_at = last_run_at + interval` when running under a recurring `JobRunner` schedule, so the list-view "Next run" badge shows a real value. One-shot enqueues (no `interval`) leave `next_run_at` blank — no behavior change for non-recurring runs. Reconciles the model docstrings (which already said both fields are "written by the job") with the dispatcher behavior. No migration (field unchanged). Model/ADR docstrings updated to clarify `next_run_at` is conditional on the recurring interval.
+
 ### Fixed
 
 - Top-level plugin navigation (ATW-382): replaced the flat `menu_items` list (nested under the built-in Plugins dropdown) with a top-level `PluginMenu` so the PyATS plugin has its own entry in the NetBox nav bar. Items are grouped (Credentials / Snapshots & Diffs / Golden Configs & Compliance / Jobs & Platforms) with `supported_platforms` last per ADR-0001 §3. The nav uniqueness/ordering AST guard was updated to walk the `PluginMenu.groups` structure without weakening invariants.
