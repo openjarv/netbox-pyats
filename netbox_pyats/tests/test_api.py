@@ -109,3 +109,80 @@ class PyatsCredentialAPITest(APITestCase):
         response = self.client.delete(url, **self.header)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(PyatsCredential.objects.filter(pk=pk).exists())
+
+
+class PyatsCaptureScheduleAPITest(APITestCase):
+    """REST API allowlist enforcement for PyatsCaptureSchedule.device_filter (ATW-632).
+
+    The serializer's ``validate_device_filter`` reuses the shared helper so an
+    operator with API write access cannot bypass the form-layer allowlist.
+    """
+
+    user_permissions = (
+        "netbox_pyats.view_pyatscaptureschedule",
+        "netbox_pyats.add_pyatscaptureschedule",
+        "netbox_pyats.change_pyatscaptureschedule",
+        "netbox_pyats.delete_pyatscaptureschedule",
+    )
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.site = Site.objects.create(name="SCH01", slug="sch01")
+        cls.mfr = Manufacturer.objects.create(name="Cisco-SCH", slug="cisco-sch")
+        cls.device_type = DeviceType.objects.create(model="C9300-SCH", slug="c9300-sch", manufacturer=cls.mfr)
+        cls.role = DeviceRole.objects.create(name="Router-SCH", slug="router-sch")
+        cls.device = Device.objects.create(name="sch-rtr01", site=cls.site, device_type=cls.device_type, role=cls.role)
+
+    def _url(self):
+        return "/api/plugins/pyats/pyats-capture-schedules/"
+
+    def test_create_with_valid_device_filter(self):
+        response = self.client.post(
+            self._url(),
+            data={
+                "name": "valid-filter",
+                "device_filter": {"id__in": [self.device.pk]},
+                "kind": "full",
+                "enabled": True,
+            },
+            format="json",
+            **self.header,
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        from netbox_pyats.models import PyatsCaptureSchedule
+
+        sched = PyatsCaptureSchedule.objects.get(name="valid-filter")
+        self.assertEqual(sched.device_filter, {"id__in": [self.device.pk]})
+
+    def test_create_with_disallowed_device_filter_key_rejected(self):
+        response = self.client.post(
+            self._url(),
+            data={
+                "name": "bad-filter",
+                "device_filter": {"secret__icontains": "leaked"},
+                "kind": "full",
+                "enabled": True,
+            },
+            format="json",
+            **self.header,
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("device_filter", response.data)
+        self.assertIn("disallowed keys", str(response.data["device_filter"]))
+        from netbox_pyats.models import PyatsCaptureSchedule
+
+        self.assertFalse(PyatsCaptureSchedule.objects.filter(name="bad-filter").exists())
+
+    def test_create_with_empty_device_filter(self):
+        response = self.client.post(
+            self._url(),
+            data={
+                "name": "empty-filter",
+                "device_filter": {},
+                "kind": "full",
+                "enabled": True,
+            },
+            format="json",
+            **self.header,
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)

@@ -139,6 +139,59 @@ class PyatsCaptureScheduleFormTest(TestCase):
             assert "disallowed keys" in str(form.errors["device_filter"])
 
 
+class PyatsCaptureScheduleSerializerTest(TestCase):
+    """Serializer allowlist validation for device_filter (ATW-632).
+
+    Mirrors the form-level allowlist tests in :class:`PyatsCaptureScheduleFormTest`
+    so the REST API and UI enforce the same key set.
+    """
+
+    def _serializer(self, device_filter):
+        from netbox_pyats.api.serializers import PyatsCaptureScheduleSerializer
+
+        return PyatsCaptureScheduleSerializer(
+            data={
+                "name": "Serializer allowlist test",
+                "device_filter": device_filter,
+                "kind": SnapshotKindChoices.KIND_FULL,
+                "enabled": True,
+            }
+        )
+
+    def test_validate_device_filter_valid_keys(self):
+        from netbox_pyats.api.serializers import PyatsCaptureScheduleSerializer
+
+        ser = PyatsCaptureScheduleSerializer(data={"device_filter": {"id__in": [1, 2]}})
+        assert ser.validate_device_filter({"id__in": [1, 2]}) == {"id__in": [1, 2]}
+
+    def test_validate_device_filter_disallowed_key_rejected(self):
+        from rest_framework import serializers as drf_serializers
+
+        from netbox_pyats.api.serializers import PyatsCaptureScheduleSerializer
+
+        ser = PyatsCaptureScheduleSerializer()
+        with pytest.raises(drf_serializers.ValidationError) as exc:
+            ser.validate_device_filter({"secret__icontains": "leaked"})
+        assert "disallowed keys" in str(exc.value)
+
+    def test_validate_device_filter_empty_is_valid(self):
+        from netbox_pyats.api.serializers import PyatsCaptureScheduleSerializer
+
+        ser = PyatsCaptureScheduleSerializer()
+        assert ser.validate_device_filter({}) == {}
+        assert ser.validate_device_filter(None) == {}
+
+    def test_validate_device_filter_non_object_rejected(self):
+        from rest_framework import serializers as drf_serializers
+
+        from netbox_pyats.api.serializers import PyatsCaptureScheduleSerializer
+
+        ser = PyatsCaptureScheduleSerializer()
+        with pytest.raises(drf_serializers.ValidationError) as exc:
+            ser.validate_device_filter([1, 2, 3])
+        assert "JSON object" in str(exc.value)
+
+
 class PyatsCaptureScheduleModelTest(TestCase):
     """Persistence + resolve_devices for PyatsCaptureSchedule (ATW-433)."""
 

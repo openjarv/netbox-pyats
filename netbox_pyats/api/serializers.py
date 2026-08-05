@@ -12,6 +12,7 @@ from netbox_pyats.models import (
     PyatsSnapshot,
     PyatsSnapshotDiff,
 )
+from netbox_pyats.utils import validate_device_filter_spec
 
 
 class PyatsCredentialSerializer(NetBoxModelSerializer):
@@ -350,6 +351,11 @@ class PyatsCaptureScheduleSerializer(NetBoxModelSerializer):
     The ``device_filter`` JSONField is returned as-is (it is the filter spec).
     ``last_run_at`` / ``next_run_at`` are written by the dispatcher job, so
     they are read-only on the API.
+
+    ``device_filter`` is validated against the same key allowlist as the form
+    (:func:`netbox_pyats.utils.validate_device_filter_spec`) so an operator
+    with API write access cannot bypass the UI-form allowlist by POSTing
+    arbitrary ORM keys (ATW-632).
     """
 
     class Meta:
@@ -368,6 +374,18 @@ class PyatsCaptureScheduleSerializer(NetBoxModelSerializer):
             "last_updated",
         ]
         read_only_fields = ("id", "url", "last_run_at", "next_run_at", "created", "last_updated")
+
+    def validate_device_filter(self, value):
+        """Validate ``device_filter`` against the shared key allowlist.
+
+        DRF's per-field validators run before ``validate()``; ``value`` arrives
+        already deserialized from JSON by the JSONField. Reuse the same
+        helper the form uses so the UI and API enforce one allowlist.
+        """
+        try:
+            return validate_device_filter_spec(value)
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc))
 
 
 class PyatsParserCatalogRefreshScheduleSerializer(NetBoxModelSerializer):

@@ -25,6 +25,7 @@ from .models import (
     PyatsSnapshot,
     PyatsSnapshotDiff,
 )
+from .utils import DEVICE_FILTER_ALLOWED_KEYS, validate_device_filter_spec
 
 
 class PyatsCredentialForm(NetBoxModelForm):
@@ -519,63 +520,9 @@ class PyatsCaptureScheduleForm(NetBoxModelForm):
 
     # Allowed top-level and one-hop relationship keys for the device_filter JSON
     # field. Extending this set requires CTO sign-off since it broadens the
-    # ORM surface an operator can query against (ATW-578).
-    DEVICE_FILTER_ALLOWED_KEYS = frozenset(
-        {
-            # Direct device fields
-            "id",
-            "id__in",
-            "id__not_in",
-            "name",
-            "name__icontains",
-            "name__startswith",
-            "name__endswith",
-            "name__iexact",
-            "status",
-            "status__in",
-            "status__not_in",
-            "serial",
-            # Site
-            "site_id",
-            "site",
-            "site__slug",
-            "site__slug__in",
-            "site__name",
-            "site__name__icontains",
-            # Region (Device has no direct region FK in NetBox 4.6; reach via site)
-            "site__region_id",
-            "site__region",
-            "site__region__slug",
-            "site__region__slug__in",
-            "site__region__name",
-            "site__region__name__icontains",
-            # Tenant
-            "tenant_id",
-            "tenant",
-            "tenant__slug",
-            "tenant__slug__in",
-            "tenant__name",
-            "tenant__name__icontains",
-            # Device role (field is `role` on the NetBox 4.6 Device model)
-            "role_id",
-            "role",
-            "role__slug",
-            "role__slug__in",
-            "role__name",
-            "role__name__icontains",
-            # Platform
-            "platform_id",
-            "platform",
-            "platform__slug",
-            "platform__slug__in",
-            "platform__name",
-            "platform__name__icontains",
-            # Tags
-            "tags",
-            "tagged_items__tag__slug",
-            "tagged_items__tag__slug__in",
-        }
-    )
+    # ORM surface an operator can query against (ATW-578). Shared with the
+    # serializer via :mod:`netbox_pyats.utils` (ATW-632).
+    DEVICE_FILTER_ALLOWED_KEYS = DEVICE_FILTER_ALLOWED_KEYS
 
     def clean_device_filter(self):
         """Parse the ``device_filter`` textarea to a dict (empty on blank).
@@ -587,7 +534,9 @@ class PyatsCaptureScheduleForm(NetBoxModelForm):
 
         Keys are validated against an allowlist to prevent operators from
         using arbitrary relationship traversals or JSON field access
-        (ATW-578).
+        (ATW-578). The allowlist + key check live in
+        :func:`netbox_pyats.utils.validate_device_filter_spec` so the form and
+        the REST serializer enforce the same rule (ATW-632).
         """
         import json
 
@@ -598,15 +547,10 @@ class PyatsCaptureScheduleForm(NetBoxModelForm):
             parsed = json.loads(raw)
         except json.JSONDecodeError as exc:
             raise forms.ValidationError(f"device_filter must be valid JSON: {exc}")
-        if not isinstance(parsed, dict):
-            raise forms.ValidationError('device_filter must be a JSON object (e.g. {"id__in": [1, 2]}).')
-        disallowed = set(parsed.keys()) - self.DEVICE_FILTER_ALLOWED_KEYS
-        if disallowed:
-            raise forms.ValidationError(
-                f"device_filter contains disallowed keys: {sorted(disallowed)!r}. "
-                f"Allowed keys: {sorted(self.DEVICE_FILTER_ALLOWED_KEYS)!r}."
-            )
-        return parsed
+        try:
+            return validate_device_filter_spec(parsed)
+        except ValueError as exc:
+            raise forms.ValidationError(str(exc))
 
 
 class PyatsCaptureScheduleFilterForm(NetBoxModelFilterSetForm):
