@@ -7,6 +7,7 @@ from netbox_pyats.filtersets import (
     PyatsGoldenConfigFilterSet,
     PyatsJobFilterSet,
     PyatsParserCatalogFilterSet,
+    PyatsParserCatalogRefreshScheduleFilterSet,
     PyatsSnapshotDiffFilterSet,
     PyatsSnapshotFilterSet,
 )
@@ -17,6 +18,7 @@ from netbox_pyats.models import (
     PyatsGoldenConfig,
     PyatsJob,
     PyatsParserCatalog,
+    PyatsParserCatalogRefreshSchedule,
     PyatsSnapshot,
     PyatsSnapshotDiff,
 )
@@ -27,6 +29,7 @@ from .serializers import (
     PyatsCredentialSerializer,
     PyatsGoldenConfigSerializer,
     PyatsJobSerializer,
+    PyatsParserCatalogRefreshScheduleSerializer,
     PyatsParserCatalogSerializer,
     PyatsSnapshotDiffSerializer,
     PyatsSnapshotSerializer,
@@ -143,3 +146,16 @@ class PyatsCaptureScheduleViewSet(NetBoxModelViewSet):
     queryset = PyatsCaptureSchedule.objects.all()
     serializer_class = PyatsCaptureScheduleSerializer
     filterset_class = PyatsCaptureScheduleFilterSet
+
+
+class PyatsParserCatalogRefreshScheduleViewSet(NetBoxModelViewSet):
+    """API viewset for the PyatsParserCatalogRefreshSchedule model (ATW-581).
+
+    The model is a single-row intent gate; the only operator-editable field
+    is ``enabled`` (and tags). ``last_run_at`` / ``next_run_at`` are
+    read-only (written by the dispatcher job).
+    """
+
+    queryset = PyatsParserCatalogRefreshSchedule.objects.all()
+    serializer_class = PyatsParserCatalogRefreshScheduleSerializer
+    filterset_class = PyatsParserCatalogRefreshScheduleFilterSet

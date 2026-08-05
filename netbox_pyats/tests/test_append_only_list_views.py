@@ -195,3 +195,18 @@ class PyatsJobListViewRenderTest(_AppendOnlyListViewsBase):
         url = reverse("plugins:netbox_pyats:pyatsjob_list")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
+
+    def test_list_view_queryset_uses_select_related_for_result_fks(self):
+        """PyatsJobListView must select_related the result-row FKs + device.
+
+        The ``related_result`` table column dereferences one of
+        ``related_snapshot`` / ``related_diff`` / ``related_compliance`` per
+        row, and ``device`` is linkified — without ``select_related`` the list
+        view issues up to 4 extra queries per row (ATW-577). Lock the
+        optimization in so a future revert is caught.
+        """
+        from netbox_pyats.views import PyatsJobListView
+
+        queryset = PyatsJobListView.queryset
+        expected = frozenset({"device", "related_snapshot", "related_diff", "related_compliance"})
+        self.assertEqual(frozenset(queryset.query.select_related), expected)

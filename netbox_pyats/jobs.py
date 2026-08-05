@@ -1402,9 +1402,95 @@ class RunCaptureSchedulesJob(JobRunner):
         return run_capture_schedules_job(self.job, **kwargs)
 
 
+# --------------------------------------------------------------------------- #
+# Parser catalog refresh schedule dispatcher (ATW-581)
+# --------------------------------------------------------------------------- #
+
+
+def run_parser_catalog_refresh_schedules_job(job, **kwargs):
+    """RQ worker entry point — refresh the parser catalog when the schedule is enabled.
+
+    Thin module-level wrapper kept for direct enqueue (and tests). The real
+    dispatcher is :class:`RunParserCatalogRefreshSchedulesJob` (a
+    :class:`JobRunner` subclass); NetBox's scheduler calls
+    :meth:`JobRunner.handle`, which wraps this callable and provides recurring
+    re-scheduling via :meth:`Job.enqueue`'s ``interval`` parameter.
+
+    Reads the single :class:`PyatsParserCatalogRefreshSchedule` row (created
+    lazily with ``enabled=False`` if missing) and, if ``enabled=True``, calls
+    :func:`enqueue_refresh_parser_catalog` on the ``pyats`` queue. After
+    dispatch (or a skipped run) ``last_run_at`` is updated.
+
+    This callable runs on NetBox's **default** queue (the dispatcher does no
+    pyATS work — it only enqueues the refresh onto ``pyats``).
+    """
+    from django.utils import timezone
+
+    from .models import PyatsParserCatalogRefreshSchedule
+
+    schedule, _created = PyatsParserCatalogRefreshSchedule.objects.get_or_create(
+        pk=1,
+        defaults={"enabled": False},
+    )
+    now = timezone.now()
+    if not schedule.enabled:
+        logger.info("netbox_pyats: parser catalog refresh schedule is disabled, skipping")
+        schedule.last_run_at = now
+        schedule.full_clean()
+        schedule.save(update_fields=["last_run_at", "last_updated"])
+        return {"dispatched": 0, "skipped": 1}
+
+    core_job = enqueue_refresh_parser_catalog(user=None)
+    schedule.last_run_at = now
+    schedule.full_clean()
+    schedule.save(update_fields=["last_run_at", "last_updated"])
+    logger.info(
+        "netbox_pyats: parser catalog refresh schedule dispatched (core.Job #%s)",
+        core_job.pk,
+    )
+    return {"dispatched": 1, "skipped": 0}
+
+
+class RunParserCatalogRefreshSchedulesJob(JobRunner):
+    """Recurring dispatcher for the parser catalog refresh (ATW-581).
+
+    A registered NetBox :class:`~netbox.jobs.JobRunner` subclass that checks
+    the :class:`PyatsParserCatalogRefreshSchedule` enabled flag and, when
+    enabled, enqueues a :func:`refresh_parser_catalog_job` on the ``pyats``
+    queue. Subclassing :class:`JobRunner` (rather than only exposing a plain
+    function) is what makes the dispatcher **recurring**:
+    ``JobRunner.handle``'s ``finally`` block re-enqueues the next run when
+    ``Job.enqueue(..., interval=N)`` is used (mirrors
+    :class:`RunCaptureSchedulesJob` / ADR-0008).
+
+    The dispatcher itself runs on NetBox's **default** queue (the one
+    justified exception to "all plugin work on ``pyats``": it does no pyATS
+    work — it only enqueues the refresh onto ``pyats``, which runs when the
+    pyats worker comes online). The operator sets the cadence by enqueuing
+    this job with ``schedule_at`` / ``interval`` (e.g. via the NetBox shell);
+    NetBox's ``Job`` row carries the ``scheduled``/``interval`` fields and
+    ``JobRunner.handle`` drives the recurrence.
+    """
+
+    class Meta:
+        name = "Run Parser Catalog Refresh Schedules"
+
+    def run(self, *args, **kwargs):
+        """Dispatch a parser catalog refresh when the schedule is enabled.
+
+        ``JobRunner.handle`` calls ``run`` after marking the ``Job`` running;
+        the body is identical to :func:`run_parser_catalog_refresh_schedules_job`
+        so a one-shot enqueue and a recurring ``JobRunner`` schedule share one
+        code path. ``self.job`` is the NetBox :class:`core.models.Job` row
+        tracking this run.
+        """
+        return run_parser_catalog_refresh_schedules_job(self.job, **kwargs)
+
+
 __all__ = (
     "PYATS_QUEUE",
     "RunCaptureSchedulesJob",
+    "RunParserCatalogRefreshSchedulesJob",
     "batch_capture_job",
     "capture_snapshot_job",
     "enqueue_batch_capture",
@@ -1418,4 +1504,5 @@ __all__ = (
     "run_compliance_job",
     "run_diff_job",
     "run_capture_schedules_job",
+    "run_parser_catalog_refresh_schedules_job",
 )
