@@ -83,6 +83,61 @@ class PyatsCaptureScheduleFormTest(TestCase):
         assert not form.is_valid()
         assert "valid JSON" in str(form.errors["device_filter"])
 
+    def test_renamed_keys_pass_validation(self):
+        """The 12 renamed NetBox 4.6 Device lookups pass the allowlist (ATW-636).
+
+        Stale names (device_role*, region*) passed form validation but raised
+        FieldError at dispatch time because the NetBox 4.6 Device model has no
+        ``device_role`` or direct ``region`` FK — role is ``role`` and region
+        is reached via ``site__region``. This test locks in the corrected names
+        so a silent revert is caught at CI.
+        """
+        from netbox_pyats.forms import PyatsCaptureScheduleForm
+
+        renamed = (
+            '{"role_id": 1, "role__slug": "edge", "role__name__icontains": "sw",'
+            ' "site__region_id": 2, "site__region__slug": "us-east"}'
+        )
+        form = PyatsCaptureScheduleForm(
+            data={
+                "name": "Renamed keys test",
+                "device_filter": renamed,
+                "kind": SnapshotKindChoices.KIND_FULL,
+                "enabled": True,
+            }
+        )
+        assert form.is_valid(), form.errors
+
+    def test_stale_keys_rejected(self):
+        """The 12 stale names must be rejected so operators can't persist a
+        filter that will FieldError at dispatch time (ATW-636)."""
+        from netbox_pyats.forms import PyatsCaptureScheduleForm
+
+        for stale in (
+            "device_role",
+            "device_role_id",
+            "device_role__slug",
+            "device_role__slug__in",
+            "device_role__name",
+            "device_role__name__icontains",
+            "region",
+            "region_id",
+            "region__slug",
+            "region__slug__in",
+            "region__name",
+            "region__name__icontains",
+        ):
+            form = PyatsCaptureScheduleForm(
+                data={
+                    "name": f"Stale {stale}",
+                    "device_filter": '{{"{}": 1}}'.format(stale),
+                    "kind": SnapshotKindChoices.KIND_FULL,
+                    "enabled": True,
+                }
+            )
+            assert not form.is_valid(), f"stale key {stale!r} should be rejected"
+            assert "disallowed keys" in str(form.errors["device_filter"])
+
 
 class PyatsCaptureScheduleModelTest(TestCase):
     """Persistence + resolve_devices for PyatsCaptureSchedule (ATW-433)."""
