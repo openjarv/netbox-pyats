@@ -8,6 +8,7 @@ from .models import (
     PyatsCredential,
     PyatsGoldenConfig,
     PyatsJob,
+    PyatsParserCatalogRefreshSchedule,
     PyatsSnapshot,
     PyatsSnapshotDiff,
 )
@@ -335,6 +336,37 @@ class PyatsCaptureScheduleTable(NetBoxTable):
             "id",
             "name",
             "kind",
+            "enabled",
+            "last_run_at",
+            "next_run_at",
+        )
+
+
+class PyatsParserCatalogRefreshScheduleTable(NetBoxTable):
+    """Table for the PyatsParserCatalogRefreshSchedule list view (ATW-581).
+
+    The model is a single-row intent gate, so the list shows the enabled
+    flag and the display-only last/next run timestamps. The ``id`` column
+    links to the detail view.
+    """
+
+    id = tables.LinkColumn(verbose_name="ID")
+    enabled = tables.BooleanColumn(verbose_name="Enabled")
+    last_run_at = tables.DateTimeColumn(verbose_name="Last run")
+    next_run_at = tables.DateTimeColumn(verbose_name="Next run")
+    created = tables.DateTimeColumn(verbose_name="Created at")
+
+    class Meta(NetBoxTable.Meta):
+        model = PyatsParserCatalogRefreshSchedule
+        fields = (
+            "id",
+            "enabled",
+            "last_run_at",
+            "next_run_at",
+            "created",
+        )
+        default_columns = (
+            "id",
             "enabled",
             "last_run_at",
             "next_run_at",

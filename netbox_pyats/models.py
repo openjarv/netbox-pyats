@@ -1165,3 +1165,56 @@ class PyatsCaptureSchedule(NetBoxModel):
         have the model instance (tests, the dispatcher).
         """
         return _resolve_device_filter(self.device_filter)
+
+
+class PyatsParserCatalogRefreshSchedule(NetBoxModel):
+    """Opt-in intent model for recurring parser-catalog refresh (ATW-581).
+
+    A single-row (singleton) intent model that gates the
+    :class:`netbox_pyats.jobs.RunParserCatalogRefreshSchedulesJob` dispatcher:
+    when ``enabled`` is ``True`` the dispatcher enqueues a
+    :func:`netbox_pyats.jobs.enqueue_refresh_parser_catalog` on the ``pyats``
+    queue; when ``False`` the dispatcher skips. The cadence is owned by NetBox's
+    native :class:`core.models.Job` ``interval`` (auto-rescheduled by
+    ``JobRunner.handle``); the plugin owns no cron worker and adds no
+    ``rq-scheduler`` dependency (mirrors :class:`PyatsCaptureSchedule` /
+    ADR-0008).
+
+    Why a model rather than a plugin setting: the parser catalog refresh is a
+    stateful, observable operation (the operator wants to see the last-run /
+    next-run timestamps in the UI), and toggling it should be a first-class
+    CRUD action with an audit trail — a setting flag would be invisible and
+    unaudited. The model is a singleton by convention (the dispatcher reads the
+    row with ``pk=1``); the CRUD surface enforces single-row creation by
+    redirecting "add" to the existing row's edit view when one already exists
+    (see :class:`netbox_pyats.views.PyatsParserCatalogRefreshScheduleEditView`).
+
+    :attr:`last_run_at` / :attr:`next_run_at` are display-only fields written
+    by the dispatcher after each run, for the list-view badge. They are not
+    the cadence source — the NetBox ``Job`` row's ``interval`` owns that.
+    """
+
+    enabled = models.BooleanField(
+        default=False,
+        help_text="When enabled, the dispatcher fires a catalog refresh on each run.",
+    )
+    last_run_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text="When the dispatcher last ran this schedule (display-only, written by the job).",
+    )
+    next_run_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text="When the next recurring dispatch is expected (display-only, written by the job).",
+    )
+
+    class Meta:
+        verbose_name = "PyATS Parser Catalog Refresh Schedule"
+        verbose_name_plural = "PyATS Parser Catalog Refresh Schedules"
+
+    def __str__(self):
+        return "PyATS Parser Catalog Refresh Schedule"
+
+    def get_absolute_url(self):
+        return reverse("plugins:netbox_pyats:pyatsparsercatalogrefreshschedule", kwargs={"pk": self.pk})

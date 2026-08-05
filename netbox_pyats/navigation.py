@@ -58,6 +58,21 @@ menu = PluginMenu(
             ),
         ),
         (
+            _("Parser Catalog"),
+            (
+                PluginMenuItem(
+                    link="plugins:netbox_pyats:pyatsparsercatalogrefreshschedule_list",
+                    link_text=_("Catalog Refresh Schedule"),
+                    permissions=["netbox_pyats.view_pyatsparsercatalogrefreshschedule"],
+                ),
+                PluginMenuItem(
+                    link="plugins:netbox_pyats:pyatsparsercatalogrefreshschedule_add",
+                    link_text=_("Edit Refresh Schedule"),
+                    permissions=["netbox_pyats.add_pyatsparsercatalogrefreshschedule"],
+                ),
+            ),
+        ),
+        (
             _("Golden Configs & Compliance"),
             (
                 PluginMenuItem(

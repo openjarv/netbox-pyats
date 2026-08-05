@@ -21,6 +21,7 @@ from .models import (
     PyatsCredential,
     PyatsGoldenConfig,
     PyatsJob,
+    PyatsParserCatalogRefreshSchedule,
     PyatsSnapshot,
     PyatsSnapshotDiff,
 )
@@ -548,4 +549,35 @@ class PyatsCaptureScheduleFilterForm(NetBoxModelFilterSetForm):
         required=False,
         choices=[("", "---------")] + SnapshotKindChoices.choices,
     )
+    enabled = forms.NullBooleanField(required=False, label="Enabled")
+
+
+class PyatsParserCatalogRefreshScheduleForm(NetBoxModelForm):
+    """Create/edit form for the PyatsParserCatalogRefreshSchedule (ATW-581).
+
+    The model is a single-row intent gate for the recurring parser catalog
+    refresh. The only operator-editable field is ``enabled`` (and tags);
+    ``last_run_at`` / ``next_run_at`` are display-only, written by the
+    dispatcher job. The form is kept minimal — there is no cadence field here
+    because the cadence is owned by the NetBox ``Job`` row's ``interval``
+    (set when the operator enqueues ``RunParserCatalogRefreshSchedulesJob``
+    via the NetBox shell; see docs/user/scheduled-parser-catalog-refresh.md).
+    """
+
+    fieldsets = (
+        FieldSet("enabled", name="Refresh Schedule"),
+        FieldSet("tags", name="Tags"),
+    )
+
+    class Meta:
+        model = PyatsParserCatalogRefreshSchedule
+        fields = ("enabled", "tags")
+
+
+class PyatsParserCatalogRefreshScheduleFilterForm(NetBoxModelFilterSetForm):
+    """Filter form for the PyatsParserCatalogRefreshSchedule list view (ATW-581)."""
+
+    model = PyatsParserCatalogRefreshSchedule
+
+    q = forms.CharField(required=False, label="Search")
     enabled = forms.NullBooleanField(required=False, label="Enabled")
