@@ -25,6 +25,65 @@ from netbox_pyats.choices import SnapshotKindChoices
 from netbox_pyats.models import PyatsCaptureSchedule
 
 
+class PyatsCaptureScheduleFormTest(TestCase):
+    """Form validation for device_filter allowlist (ATW-578)."""
+
+    def test_clean_device_filter_valid_keys(self):
+        from netbox_pyats.forms import PyatsCaptureScheduleForm
+
+        form = PyatsCaptureScheduleForm(
+            data={
+                "name": "Valid filter test",
+                "device_filter": '{"id__in": [1, 2], "site__slug__in": ["nyc", "lax"]}',
+                "kind": SnapshotKindChoices.KIND_FULL,
+                "enabled": True,
+            }
+        )
+        assert form.is_valid(), form.errors
+
+    def test_clean_device_filter_disallowed_key_rejected(self):
+        from netbox_pyats.forms import PyatsCaptureScheduleForm
+
+        form = PyatsCaptureScheduleForm(
+            data={
+                "name": "Invalid filter test",
+                "device_filter": '{"region__name__icontains": "sensitive-region"}',
+                "kind": SnapshotKindChoices.KIND_FULL,
+                "enabled": True,
+            }
+        )
+        assert not form.is_valid()
+        assert "disallowed keys" in str(form.errors["device_filter"])
+
+    def test_clean_device_filter_empty_is_valid(self):
+        from netbox_pyats.forms import PyatsCaptureScheduleForm
+
+        form = PyatsCaptureScheduleForm(
+            data={
+                "name": "Empty filter test",
+                "device_filter": "",
+                "kind": SnapshotKindChoices.KIND_FULL,
+                "enabled": True,
+            }
+        )
+        assert form.is_valid(), form.errors
+        assert form.cleaned_data["device_filter"] == {}
+
+    def test_clean_device_filter_invalid_json_rejected(self):
+        from netbox_pyats.forms import PyatsCaptureScheduleForm
+
+        form = PyatsCaptureScheduleForm(
+            data={
+                "name": "Bad JSON test",
+                "device_filter": "not json at all",
+                "kind": SnapshotKindChoices.KIND_FULL,
+                "enabled": True,
+            }
+        )
+        assert not form.is_valid()
+        assert "valid JSON" in str(form.errors["device_filter"])
+
+
 class PyatsCaptureScheduleModelTest(TestCase):
     """Persistence + resolve_devices for PyatsCaptureSchedule (ATW-433)."""
 
