@@ -477,9 +477,9 @@ class PyatsCaptureScheduleForm(NetBoxModelForm):
     """Create/edit form for a PyATS Capture Schedule (ATW-433).
 
     The operator enters a ``device_filter`` as a JSON ORM lookup spec (e.g.
-    ``{"region_id__in": [1, 2]}`` or ``{"id__in": [10, 20]}``). The field is a
-    ``JSONField`` rendered as a textarea; the dispatcher re-resolves it to a
-    Device queryset at run time. The ``kind`` reuses
+    ``{"site__region_id__in": [1, 2]}`` or ``{"id__in": [10, 20]}``). The field
+    is a ``JSONField`` rendered as a textarea; the dispatcher re-resolves it to
+    a Device queryset at run time. The ``kind`` reuses
     :class:`SnapshotKindChoices` (no new choice values).
     """
 
@@ -487,7 +487,7 @@ class PyatsCaptureScheduleForm(NetBoxModelForm):
         required=False,
         widget=forms.Textarea(attrs={"rows": 6, "class": "font-monospace"}),
         help_text=(
-            'JSON ORM filter spec (e.g. {"region_id__in": [1, 2]} or '
+            'JSON ORM filter spec (e.g. {"site__region_id__in": [1, 2]} or '
             '{"id__in": [10, 20]}). Re-resolved to a Device queryset at run '
             "time. Leave empty to match no devices."
         ),
@@ -542,13 +542,13 @@ class PyatsCaptureScheduleForm(NetBoxModelForm):
             "site__slug__in",
             "site__name",
             "site__name__icontains",
-            # Region
-            "region_id",
-            "region",
-            "region__slug",
-            "region__slug__in",
-            "region__name",
-            "region__name__icontains",
+            # Region (Device has no direct region FK in NetBox 4.6; reach via site)
+            "site__region_id",
+            "site__region",
+            "site__region__slug",
+            "site__region__slug__in",
+            "site__region__name",
+            "site__region__name__icontains",
             # Tenant
             "tenant_id",
             "tenant",
@@ -556,13 +556,13 @@ class PyatsCaptureScheduleForm(NetBoxModelForm):
             "tenant__slug__in",
             "tenant__name",
             "tenant__name__icontains",
-            # Device role
-            "device_role_id",
-            "device_role",
-            "device_role__slug",
-            "device_role__slug__in",
-            "device_role__name",
-            "device_role__name__icontains",
+            # Device role (field is `role` on the NetBox 4.6 Device model)
+            "role_id",
+            "role",
+            "role__slug",
+            "role__slug__in",
+            "role__name",
+            "role__name__icontains",
             # Platform
             "platform_id",
             "platform",
