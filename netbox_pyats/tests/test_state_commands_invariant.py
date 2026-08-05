@@ -88,6 +88,11 @@ class TestStateCommandsInvariant:
         # expansion commands (ip route, cdp neighbors, lldp neighbors, arp)
         # must all be present. This guards both the original and the expanded
         # shape.
+        #
+        # ATW-580 expands to 13 commands: v1 set + (vlan, vrf, ospf neighbor,
+        # spanning-tree, mac-address-table). These 5 commands are Genie-parsable
+        # across the supported OS matrix and address real-world NetBox population
+        # friction.
         expected = {
             "show version",
             "show inventory",
@@ -97,6 +102,11 @@ class TestStateCommandsInvariant:
             "show cdp neighbors",
             "show lldp neighbors",
             "show arp",
+            "show vlan",
+            "show vrf",
+            "show ip ospf neighbor",
+            "show spanning-tree",
+            "show mac-address-table",
         }
         actual = set(STATE_COMMANDS)
         missing = expected - actual
@@ -104,9 +114,6 @@ class TestStateCommandsInvariant:
             f"STATE_COMMANDS is missing v1 command(s) (the ATW-248 expansion or "
             f"the original 4 must not be silently dropped): missing={sorted(missing)}"
         )
-        # No undocumented extra commands either — adding one is a commitment
-        # that Genie has a parser for every os in PLATFORM_SLUG_TO_PYATS_OS,
-        # and should be a deliberate change reflected in this guard.
         extra = actual - expected
         assert extra == set(), (
             f"STATE_COMMANDS has undocumented command(s) not in the v1 set; "

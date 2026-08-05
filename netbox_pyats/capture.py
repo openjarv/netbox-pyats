@@ -39,10 +39,11 @@ logger = logging.getLogger(__name__)
 # OS-agnostic state commands captured for kind='state' / kind='full'. Each
 # command must have a Genie parser for every os in testbed.PLATFORM_SLUG_TO_PYATS_OS
 # or the per-command parse is skipped (and recorded as None in the state dict
-# so the caller's warnings can flag it). The set is intentionally conservative:
-# adding a command here is a commitment that Genie has real parser coverage for
-# it across the supported OS matrix (Cisco IOS/XE/XR/NX-OS/ASA, Juniper JunOS,
-# Arista EOS, Nokia SR OS).
+# so the caller's warnings can flag it). The set was expanded in ATW-580 from 8
+# to 13 commands to address real-world NetBox population friction (VLAN, VRF,
+# OSPF neighbor, Spanning-Tree, MAC address table). Adding a command here is a
+# commitment that Genie has real parser coverage for it across the supported OS
+# matrix (Cisco IOS/XE/XR/NX-OS/ASA, Juniper JunOS, Arista EOS, Nokia SR OS).
 STATE_COMMANDS: tuple[str, ...] = (
     "show version",
     "show inventory",
@@ -52,6 +53,11 @@ STATE_COMMANDS: tuple[str, ...] = (
     "show cdp neighbors",
     "show lldp neighbors",
     "show arp",
+    "show vlan",
+    "show vrf",
+    "show ip ospf neighbor",
+    "show spanning-tree",
+    "show mac-address-table",
 )
 
 
