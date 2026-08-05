@@ -5,6 +5,7 @@ from netbox_pyats.models import (
     PyatsCredential,
     PyatsJob,
     PyatsParserCatalog,
+    PyatsParserCatalogRefreshSchedule,
     PyatsSnapshot,
     PyatsSnapshotDiff,
 )
@@ -165,6 +166,29 @@ class PyatsCaptureScheduleType(NetBoxObjectType):
             "name",
             "device_filter",
             "kind",
+            "enabled",
+            "last_run_at",
+            "next_run_at",
+            "tags",
+            "created",
+            "last_updated",
+        )
+
+
+class PyatsParserCatalogRefreshScheduleType(NetBoxObjectType):
+    """GraphQL type for the PyatsParserCatalogRefreshSchedule model (ATW-581).
+
+    Exposes the enabled flag and the display-only last_run_at / next_run_at
+    timestamps. Read-only by nature via GraphQL (operators toggle the
+    schedule via REST/UI; GraphQL v1 does not define mutations). The model is
+    a single-row intent gate, so the only operator-relevant field is
+    ``enabled``.
+    """
+
+    class Meta:
+        model = PyatsParserCatalogRefreshSchedule
+        fields = (
+            "id",
             "enabled",
             "last_run_at",
             "next_run_at",

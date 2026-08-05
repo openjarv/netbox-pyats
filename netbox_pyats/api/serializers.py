@@ -8,6 +8,7 @@ from netbox_pyats.models import (
     PyatsGoldenConfig,
     PyatsJob,
     PyatsParserCatalog,
+    PyatsParserCatalogRefreshSchedule,
     PyatsSnapshot,
     PyatsSnapshotDiff,
 )
@@ -359,6 +360,29 @@ class PyatsCaptureScheduleSerializer(NetBoxModelSerializer):
             "name",
             "device_filter",
             "kind",
+            "enabled",
+            "last_run_at",
+            "next_run_at",
+            "tags",
+            "created",
+            "last_updated",
+        ]
+        read_only_fields = ("id", "url", "last_run_at", "next_run_at", "created", "last_updated")
+
+
+class PyatsParserCatalogRefreshScheduleSerializer(NetBoxModelSerializer):
+    """Serializer for the PyatsParserCatalogRefreshSchedule model (ATW-581).
+
+    The model is a single-row intent gate; the only operator-editable field
+    is ``enabled`` (and tags). ``last_run_at`` / ``next_run_at`` are written
+    by the dispatcher job, so they are read-only on the API.
+    """
+
+    class Meta:
+        model = PyatsParserCatalogRefreshSchedule
+        fields = [
+            "id",
+            "url",
             "enabled",
             "last_run_at",
             "next_run_at",

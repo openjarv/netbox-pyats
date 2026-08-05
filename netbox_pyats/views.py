@@ -65,6 +65,7 @@ from .models import (
     PyatsGoldenConfig,
     PyatsJob,
     PyatsParserCatalog,
+    PyatsParserCatalogRefreshSchedule,
     PyatsSnapshot,
     PyatsSnapshotDiff,
 )
@@ -556,7 +557,12 @@ class PyatsJobListView(generic.ObjectListView):
     retention. Filterable by ``job_type``, ``status``, and ``device``.
     """
 
-    queryset = PyatsJob.objects.all()
+    queryset = PyatsJob.objects.select_related(
+        "device",
+        "related_snapshot",
+        "related_diff",
+        "related_compliance",
+    )
     table = tables.PyatsJobTable
     filterset = filtersets.PyatsJobFilterSet
     filterset_form = forms.PyatsJobFilterForm
@@ -969,3 +975,66 @@ class PyatsCaptureScheduleBulkDeleteView(generic.BulkDeleteView):
 
     queryset = PyatsCaptureSchedule.objects.all()
     table = tables.PyatsCaptureScheduleTable
+
+
+# --------------------------------------------------------------------------- #
+# Parser catalog refresh schedule views (ATW-581)
+# --------------------------------------------------------------------------- #
+
+
+class PyatsParserCatalogRefreshScheduleListView(generic.ObjectListView):
+    """List view for the PyatsParserCatalogRefreshSchedule (ATW-581).
+
+    The model is a single-row intent gate, so the list always shows at most
+    one row. The operator toggles ``enabled`` via the edit view and enqueues
+    ``RunParserCatalogRefreshSchedulesJob`` with an ``interval`` to run it on
+    a recurring cadence (mirrors the capture schedule flow / ADR-0008).
+    """
+
+    queryset = PyatsParserCatalogRefreshSchedule.objects.all()
+    table = tables.PyatsParserCatalogRefreshScheduleTable
+    filterset = filtersets.PyatsParserCatalogRefreshScheduleFilterSet
+    filterset_form = forms.PyatsParserCatalogRefreshScheduleFilterForm
+
+
+@register_model_view(PyatsParserCatalogRefreshSchedule)
+class PyatsParserCatalogRefreshScheduleView(generic.ObjectView):
+    """Detail view for the PyatsParserCatalogRefreshSchedule (ATW-581)."""
+
+    queryset = PyatsParserCatalogRefreshSchedule.objects.all()
+
+
+@register_model_view(PyatsParserCatalogRefreshSchedule, "edit")
+class PyatsParserCatalogRefreshScheduleEditView(generic.ObjectEditView):
+    """Create/edit view for the PyatsParserCatalogRefreshSchedule (ATW-581).
+
+    The model is a singleton by convention: the dispatcher reads the row with
+    ``pk=1``. To keep the operator from creating a second row via the "Add"
+    button, ``get_object`` redirects an empty ``pk`` to the existing row when
+    one exists (the singleton is created lazily by the dispatcher on first
+    run, but the operator can also create it here).
+    """
+
+    queryset = PyatsParserCatalogRefreshSchedule.objects.all()
+    form = forms.PyatsParserCatalogRefreshScheduleForm
+
+    def get_object(self, kwargs):
+        if not kwargs.get("pk"):
+            existing = PyatsParserCatalogRefreshSchedule.objects.first()
+            if existing is not None:
+                return existing
+        return super().get_object(kwargs)
+
+
+@register_model_view(PyatsParserCatalogRefreshSchedule, "delete")
+class PyatsParserCatalogRefreshScheduleDeleteView(generic.ObjectDeleteView):
+    """Standard delete view for a PyatsParserCatalogRefreshSchedule row (ATW-581)."""
+
+    queryset = PyatsParserCatalogRefreshSchedule.objects.all()
+
+
+class PyatsParserCatalogRefreshScheduleBulkDeleteView(generic.BulkDeleteView):
+    """Bulk delete for PyatsParserCatalogRefreshSchedule rows (ATW-581)."""
+
+    queryset = PyatsParserCatalogRefreshSchedule.objects.all()
+    table = tables.PyatsParserCatalogRefreshScheduleTable

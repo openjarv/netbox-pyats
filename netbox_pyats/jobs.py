@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import logging
 import traceback
+from datetime import timedelta
 
 from django.utils import timezone
 
@@ -1285,6 +1286,30 @@ def refresh_parser_catalog_job(job, pyats_job_id: int | None = None, **kwargs):
 # --------------------------------------------------------------------------- #
 
 
+def _next_run_at(job, now):
+    """Compute the ``next_run_at`` timestamp for a recurring schedule (ATW-610).
+
+    The cadence is owned by the NetBox ``core.models.Job`` row's ``interval``
+    field (a positive integer in minutes). When the dispatcher runs under a
+    recurring ``JobRunner`` schedule, ``job`` is that ``Job`` row and
+    ``job.interval`` is set; we return ``now + interval`` so the list-view
+    "Next run" badge shows a real value. When the dispatcher runs as a one-shot
+    enqueue (or in tests via ``mock.Mock()``) there is no interval, so we
+    return ``None`` and leave ``next_run_at`` untouched (display-only, no
+    behavior change for non-recurring runs).
+
+    ``getattr`` guards the plain-function / mock path where ``job`` may not
+    carry an ``interval`` attribute. The ``isinstance`` check rejects the
+    ``mock.Mock()`` case (Mock auto-creates any attribute access, returning a
+    Mock rather than ``None``) so one-shot enqueues and mock-based tests stay
+    on the blank ``next_run_at`` path.
+    """
+    interval = getattr(job, "interval", None)
+    if not isinstance(interval, int):
+        return None
+    return now + timedelta(minutes=interval)
+
+
 def run_capture_schedules_job(job, **kwargs):
     """RQ worker entry point — dispatch captures for all enabled schedules.
 
@@ -1302,7 +1327,9 @@ def run_capture_schedules_job(job, **kwargs):
     calls :func:`enqueue_batch_capture` per schedule on the ``pyats`` queue
     (one ``enqueue_batch_capture`` per schedule → one traceable
     ``PyatsJob(job_type=batch_capture)`` per schedule). After dispatch, each
-    schedule's ``last_run_at`` is updated.
+    schedule's ``last_run_at`` is updated and, when the dispatcher runs under
+    a recurring ``JobRunner`` schedule, ``next_run_at`` is set from the
+    NetBox ``Job`` row's ``interval`` (ATW-610).
 
     This callable runs on NetBox's **default** queue (the one justified
     exception to "all plugin work on ``pyats``": the dispatcher does no pyATS
@@ -1331,8 +1358,9 @@ def run_capture_schedules_job(job, **kwargs):
                 )
                 skipped += 1
                 schedule.last_run_at = now
+                schedule.next_run_at = _next_run_at(job, now)
                 schedule.full_clean()
-                schedule.save(update_fields=["last_run_at", "last_updated"])
+                schedule.save(update_fields=["last_run_at", "next_run_at", "last_updated"])
                 continue
 
             core_job = enqueue_batch_capture(
@@ -1342,8 +1370,9 @@ def run_capture_schedules_job(job, **kwargs):
             )
             dispatched += 1
             schedule.last_run_at = now
+            schedule.next_run_at = _next_run_at(job, now)
             schedule.full_clean()
-            schedule.save(update_fields=["last_run_at", "last_updated"])
+            schedule.save(update_fields=["last_run_at", "next_run_at", "last_updated"])
             logger.info(
                 "netbox_pyats: schedule %s dispatched %d device(s) (core.Job #%s)",
                 schedule.name,
@@ -1402,9 +1431,99 @@ class RunCaptureSchedulesJob(JobRunner):
         return run_capture_schedules_job(self.job, **kwargs)
 
 
+# --------------------------------------------------------------------------- #
+# Parser catalog refresh schedule dispatcher (ATW-581)
+# --------------------------------------------------------------------------- #
+
+
+def run_parser_catalog_refresh_schedules_job(job, **kwargs):
+    """RQ worker entry point — refresh the parser catalog when the schedule is enabled.
+
+    Thin module-level wrapper kept for direct enqueue (and tests). The real
+    dispatcher is :class:`RunParserCatalogRefreshSchedulesJob` (a
+    :class:`JobRunner` subclass); NetBox's scheduler calls
+    :meth:`JobRunner.handle`, which wraps this callable and provides recurring
+    re-scheduling via :meth:`Job.enqueue`'s ``interval`` parameter.
+
+    Reads the single :class:`PyatsParserCatalogRefreshSchedule` row (created
+    lazily with ``enabled=False`` if missing) and, if ``enabled=True``, calls
+    :func:`enqueue_refresh_parser_catalog` on the ``pyats`` queue. After
+    dispatch (or a skipped run) ``last_run_at`` is updated and, when the
+    dispatcher runs under a recurring ``JobRunner`` schedule, ``next_run_at``
+    is set from the NetBox ``Job`` row's ``interval`` (ATW-610).
+
+    This callable runs on NetBox's **default** queue (the dispatcher does no
+    pyATS work — it only enqueues the refresh onto ``pyats``).
+    """
+    from django.utils import timezone
+
+    from .models import PyatsParserCatalogRefreshSchedule
+
+    schedule, _created = PyatsParserCatalogRefreshSchedule.objects.get_or_create(
+        pk=1,
+        defaults={"enabled": False},
+    )
+    now = timezone.now()
+    if not schedule.enabled:
+        logger.info("netbox_pyats: parser catalog refresh schedule is disabled, skipping")
+        schedule.last_run_at = now
+        schedule.next_run_at = _next_run_at(job, now)
+        schedule.full_clean()
+        schedule.save(update_fields=["last_run_at", "next_run_at", "last_updated"])
+        return {"dispatched": 0, "skipped": 1}
+
+    core_job = enqueue_refresh_parser_catalog(user=None)
+    schedule.last_run_at = now
+    schedule.next_run_at = _next_run_at(job, now)
+    schedule.full_clean()
+    schedule.save(update_fields=["last_run_at", "next_run_at", "last_updated"])
+    logger.info(
+        "netbox_pyats: parser catalog refresh schedule dispatched (core.Job #%s)",
+        core_job.pk,
+    )
+    return {"dispatched": 1, "skipped": 0}
+
+
+class RunParserCatalogRefreshSchedulesJob(JobRunner):
+    """Recurring dispatcher for the parser catalog refresh (ATW-581).
+
+    A registered NetBox :class:`~netbox.jobs.JobRunner` subclass that checks
+    the :class:`PyatsParserCatalogRefreshSchedule` enabled flag and, when
+    enabled, enqueues a :func:`refresh_parser_catalog_job` on the ``pyats``
+    queue. Subclassing :class:`JobRunner` (rather than only exposing a plain
+    function) is what makes the dispatcher **recurring**:
+    ``JobRunner.handle``'s ``finally`` block re-enqueues the next run when
+    ``Job.enqueue(..., interval=N)`` is used (mirrors
+    :class:`RunCaptureSchedulesJob` / ADR-0008).
+
+    The dispatcher itself runs on NetBox's **default** queue (the one
+    justified exception to "all plugin work on ``pyats``": it does no pyATS
+    work — it only enqueues the refresh onto ``pyats``, which runs when the
+    pyats worker comes online). The operator sets the cadence by enqueuing
+    this job with ``schedule_at`` / ``interval`` (e.g. via the NetBox shell);
+    NetBox's ``Job`` row carries the ``scheduled``/``interval`` fields and
+    ``JobRunner.handle`` drives the recurrence.
+    """
+
+    class Meta:
+        name = "Run Parser Catalog Refresh Schedules"
+
+    def run(self, *args, **kwargs):
+        """Dispatch a parser catalog refresh when the schedule is enabled.
+
+        ``JobRunner.handle`` calls ``run`` after marking the ``Job`` running;
+        the body is identical to :func:`run_parser_catalog_refresh_schedules_job`
+        so a one-shot enqueue and a recurring ``JobRunner`` schedule share one
+        code path. ``self.job`` is the NetBox :class:`core.models.Job` row
+        tracking this run.
+        """
+        return run_parser_catalog_refresh_schedules_job(self.job, **kwargs)
+
+
 __all__ = (
     "PYATS_QUEUE",
     "RunCaptureSchedulesJob",
+    "RunParserCatalogRefreshSchedulesJob",
     "batch_capture_job",
     "capture_snapshot_job",
     "enqueue_batch_capture",
@@ -1418,4 +1537,5 @@ __all__ = (
     "run_compliance_job",
     "run_diff_job",
     "run_capture_schedules_job",
+    "run_parser_catalog_refresh_schedules_job",
 )
