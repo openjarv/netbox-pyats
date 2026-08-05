@@ -63,8 +63,10 @@ dependency, no plugin-side cron worker.
   (JSONField — a serialized ORM filter spec, re-resolved at run time, NOT a
   M2M to Device because devices drift), `kind` (reuse
   `SnapshotKindChoices`), `enabled` (BooleanField), `last_run_at` /
-  `next_run_at` (nullable DateTimeField, display-only, written by the
-  dispatcher). Full CRUD + REST + GraphQL + search index.
+  `next_run_at` (nullable DateTimeField, display-only; `last_run_at` written
+  by the dispatcher every run, `next_run_at` set from the NetBox `Job`
+  row's `interval` for recurring runs — ATW-610). Full CRUD + REST + GraphQL
+  + search index.
 - `run_capture_schedules_job` (plain function callable in `jobs.py`) plus
   `RunCaptureSchedulesJob` (a `netbox.jobs.JobRunner` subclass wrapping it):
   reads `PyatsCaptureSchedule(enabled=True)`, re-resolves each schedule's
