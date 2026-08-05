@@ -15,7 +15,9 @@
 #       main), write .env with a unique port, and print path + port + base SHA.
 #       Refuses to run when the trunk worktree is not on main (or a branch
 #       tracking origin/main) so worktrees never branch from a stale feature
-#       branch. (ATW-208)
+#       branch. (ATW-208). Also refuses when the trunk is on main BUT has a
+#       dirty working tree, so worktrees never branch from contaminated
+#       state. (ATW-595 rec B / ATW-599)
 #
 #   dev-worktree.sh up
 #       Run `docker compose -f docker-compose.dev.yml up -d` in the current
@@ -342,6 +344,37 @@ Then re-run: $0 add $issue_id $type $slug
 If you genuinely need to base this work on a different branch, record the
 alternate base and the reason on the originating issue, then run git
 worktree add by hand.
+EOF
+    exit 1
+  fi
+
+  # --- Dirty-trunk refusal (ATW-595 rec B / ATW-599) -----------------------
+  # The trunk worktree must be clean before we branch a worktree from it.
+  # A dirty trunk means someone edited files in the trunk before creating
+  # a worktree — the anti-pattern this guard catches at the script level.
+  # The base-branch check above passes (branch IS main), but the working
+  # tree is contaminated. Refuse here, before the fetch, so the operator
+  # recovers the work into a proper worktree instead of branching a copy
+  # of the dirty state.
+  local trunk_dirty
+  trunk_dirty="$(git -C "$TRUNK_ROOT" status --porcelain 2>/dev/null)"
+  if [ -n "$trunk_dirty" ]; then
+    cat >&2 <<EOF
+error: trunk worktree has uncommitted changes — refusing to add a worktree.
+  trunk root: $TRUNK_ROOT
+
+The trunk must stay clean (on main, no feature work). You likely edited
+files in the trunk before creating a worktree. Recover by either:
+
+  1. If the changes belong in a worktree, stash + create + pop:
+       git -C "$TRUNK_ROOT" stash push -u
+       $0 add $issue_id $type $slug
+       cd $WT_ROOT/$issue_id && git stash pop  # then resolve into the branch
+
+  2. If the changes are accidental, discard them:
+       git -C "$TRUNK_ROOT" restore . && git -C "$TRUNK_ROOT" clean -fd
+
+Then re-run: $0 add $issue_id $type $slug
 EOF
     exit 1
   fi
