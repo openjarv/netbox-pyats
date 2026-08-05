@@ -19,7 +19,6 @@ import pytest
 pytest.importorskip("netbox")
 
 from dcim.models import Device, DeviceRole, DeviceType, Manufacturer, Site
-from django.utils import timezone
 from utilities.testing import TestCase
 
 from netbox_pyats.choices import SnapshotKindChoices
