@@ -556,7 +556,12 @@ class PyatsJobListView(generic.ObjectListView):
     retention. Filterable by ``job_type``, ``status``, and ``device``.
     """
 
-    queryset = PyatsJob.objects.all()
+    queryset = PyatsJob.objects.select_related(
+        "device",
+        "related_snapshot",
+        "related_diff",
+        "related_compliance",
+    )
     table = tables.PyatsJobTable
     filterset = filtersets.PyatsJobFilterSet
     filterset_form = forms.PyatsJobFilterForm
