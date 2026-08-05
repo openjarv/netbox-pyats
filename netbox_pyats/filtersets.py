@@ -7,6 +7,7 @@ from .models import (
     PyatsGoldenConfig,
     PyatsJob,
     PyatsParserCatalog,
+    PyatsParserCatalogRefreshSchedule,
     PyatsSnapshot,
     PyatsSnapshotDiff,
 )
@@ -161,6 +162,22 @@ class PyatsCaptureScheduleFilterSet(NetBoxModelFilterSet):
             "id",
             "name",
             "kind",
+            "enabled",
+            "created",
+        ]
+
+
+class PyatsParserCatalogRefreshScheduleFilterSet(NetBoxModelFilterSet):
+    """FilterSet for the PyatsParserCatalogRefreshSchedule model (ATW-581).
+
+    Lets the refresh schedule list view be filtered by ``enabled`` — the
+    only operator-relevant axis on a single-row intent model.
+    """
+
+    class Meta:
+        model = PyatsParserCatalogRefreshSchedule
+        fields = [
+            "id",
             "enabled",
             "created",
         ]

@@ -112,4 +112,28 @@ urlpatterns = [
         "capture-schedules/<int:pk>/",
         include(get_model_urls("netbox_pyats", "pyatscaptureschedule")),
     ),
+    # Parser catalog refresh schedule (ATW-581) — single-row intent gate for
+    # the recurring parser catalog refresh. Same CRUD shape as capture
+    # schedules; the cadence is owned by NetBox's native Job interval
+    # (RunParserCatalogRefreshSchedulesJob, a JobRunner subclass),
+    # auto-rescheduled by JobRunner.handle.
+    path(
+        "parser-catalog-refresh-schedules/",
+        views.PyatsParserCatalogRefreshScheduleListView.as_view(),
+        name="pyatsparsercatalogrefreshschedule_list",
+    ),
+    path(
+        "parser-catalog-refresh-schedules/add/",
+        views.PyatsParserCatalogRefreshScheduleEditView.as_view(),
+        name="pyatsparsercatalogrefreshschedule_add",
+    ),
+    path(
+        "parser-catalog-refresh-schedules/delete/",
+        views.PyatsParserCatalogRefreshScheduleBulkDeleteView.as_view(),
+        name="pyatsparsercatalogrefreshschedule_bulk_delete",
+    ),
+    path(
+        "parser-catalog-refresh-schedules/<int:pk>/",
+        include(get_model_urls("netbox_pyats", "pyatsparsercatalogrefreshschedule")),
+    ),
 ]
