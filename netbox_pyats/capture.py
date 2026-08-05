@@ -254,16 +254,21 @@ def _capture_state(pyats_device, commands: tuple[str, ...] = STATE_COMMANDS) -> 
         except Exception as exc:  # noqa: BLE001 - per-command parser miss is a warning, not fatal
             # Duck-type ParserNotFound by class name so we don't import genie
             # (which is only present on the worker) just to check the type.
-            if type(exc).__name__ == "ParserNotFound":
-                logger.debug("netbox_pyats: no parser for %r on %s, skipping", command, pyats_device.name)
-                # Record the skip in the state dict so the caller's warnings
-                # list can surface it; the per-command key is set to None to
-                # signal "no parser" distinctly from "parsed but empty".
-                state[command] = None
-                continue
-            # Any other exception is a real failure for this command — re-raise
-            # so the caller's try/except records it as a state-capture warning.
-            raise
+            # Branch direction mirrors _capture_parse (below): the non-
+            # ParserNotFound case is the explicit failure path, so a false-
+            # positive name match can never silently swallow a genuine failure
+            # as a benign "no parser" skip (CR-3).
+            if type(exc).__name__ != "ParserNotFound":
+                # Any other exception is a real failure for this command —
+                # re-raise so the caller's try/except records it as a
+                # state-capture warning.
+                raise
+            logger.debug("netbox_pyats: no parser for %r on %s, skipping", command, pyats_device.name)
+            # Record the skip in the state dict so the caller's warnings
+            # list can surface it; the per-command key is set to None to
+            # signal "no parser" distinctly from "parsed but empty".
+            state[command] = None
+            continue
         state[command] = output if isinstance(output, dict) else {"raw": str(output)}
     return state
 
