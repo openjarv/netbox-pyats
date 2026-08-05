@@ -517,6 +517,66 @@ class PyatsCaptureScheduleForm(NetBoxModelForm):
 
             self.fields["device_filter"].initial = json.dumps(self.instance.device_filter, indent=2)
 
+    # Allowed top-level and one-hop relationship keys for the device_filter JSON
+    # field. Extending this set requires CTO sign-off since it broadens the
+    # ORM surface an operator can query against (ATW-578).
+    DEVICE_FILTER_ALLOWED_KEYS = frozenset(
+        {
+            # Direct device fields
+            "id",
+            "id__in",
+            "id__not_in",
+            "name",
+            "name__icontains",
+            "name__startswith",
+            "name__endswith",
+            "name__iexact",
+            "status",
+            "status__in",
+            "status__not_in",
+            "serial",
+            # Site
+            "site_id",
+            "site",
+            "site__slug",
+            "site__slug__in",
+            "site__name",
+            "site__name__icontains",
+            # Region
+            "region_id",
+            "region",
+            "region__slug",
+            "region__slug__in",
+            "region__name",
+            "region__name__icontains",
+            # Tenant
+            "tenant_id",
+            "tenant",
+            "tenant__slug",
+            "tenant__slug__in",
+            "tenant__name",
+            "tenant__name__icontains",
+            # Device role
+            "device_role_id",
+            "device_role",
+            "device_role__slug",
+            "device_role__slug__in",
+            "device_role__name",
+            "device_role__name__icontains",
+            # Platform
+            "platform_id",
+            "platform",
+            "platform__slug",
+            "platform__slug__in",
+            "platform__name",
+            "platform__name__icontains",
+            # Tags
+            "tags",
+            "tagged_items__tag__slug",
+            "tagged_items__tag__slug__in",
+        }
+    )
+
     def clean_device_filter(self):
         """Parse the ``device_filter`` textarea to a dict (empty on blank).
 
@@ -524,6 +584,10 @@ class PyatsCaptureScheduleForm(NetBoxModelForm):
         the model stores a ``JSONField``. A blank submission yields an empty
         dict (matches the model default). An invalid JSON string raises a
         validation error so the form re-renders rather than crashing at save.
+
+        Keys are validated against an allowlist to prevent operators from
+        using arbitrary relationship traversals or JSON field access
+        (ATW-578).
         """
         import json
 
@@ -536,6 +600,12 @@ class PyatsCaptureScheduleForm(NetBoxModelForm):
             raise forms.ValidationError(f"device_filter must be valid JSON: {exc}")
         if not isinstance(parsed, dict):
             raise forms.ValidationError('device_filter must be a JSON object (e.g. {"id__in": [1, 2]}).')
+        disallowed = set(parsed.keys()) - self.DEVICE_FILTER_ALLOWED_KEYS
+        if disallowed:
+            raise forms.ValidationError(
+                f"device_filter contains disallowed keys: {sorted(disallowed)!r}. "
+                f"Allowed keys: {sorted(self.DEVICE_FILTER_ALLOWED_KEYS)!r}."
+            )
         return parsed
 
 
