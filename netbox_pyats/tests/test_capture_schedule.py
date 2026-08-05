@@ -47,7 +47,7 @@ class PyatsCaptureScheduleFormTest(TestCase):
         form = PyatsCaptureScheduleForm(
             data={
                 "name": "Invalid filter test",
-                "device_filter": '{"region__name__icontains": "sensitive-region"}',
+                "device_filter": '{"secret__icontains": "sensitive-region"}',
                 "kind": SnapshotKindChoices.KIND_FULL,
                 "enabled": True,
             }
