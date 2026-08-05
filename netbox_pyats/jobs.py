@@ -1299,10 +1299,13 @@ def _next_run_at(job, now):
     behavior change for non-recurring runs).
 
     ``getattr`` guards the plain-function / mock path where ``job`` may not
-    carry an ``interval`` attribute.
+    carry an ``interval`` attribute. The ``isinstance`` check rejects the
+    ``mock.Mock()`` case (Mock auto-creates any attribute access, returning a
+    Mock rather than ``None``) so one-shot enqueues and mock-based tests stay
+    on the blank ``next_run_at`` path.
     """
     interval = getattr(job, "interval", None)
-    if not interval:
+    if not isinstance(interval, int):
         return None
     return now + timedelta(minutes=interval)
 
