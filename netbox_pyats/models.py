@@ -1093,9 +1093,11 @@ class PyatsCaptureSchedule(NetBoxModel):
     jobs.py:804-828). A device deleted between dispatch and run is silently
     dropped by the batch job's existing iteration.
 
-    :attr:`last_run_at` / :attr:`next_run_at` are display-only fields written
-    by the dispatcher after each run, for the list-view badge. They are not
-    the cadence source — the NetBox ``Job`` row's ``interval`` owns that.
+    :attr:`last_run_at` is a display-only timestamp written by the dispatcher
+    after each run. :attr:`next_run_at` is set from the NetBox ``Job`` row's
+    ``interval`` (minutes) when the dispatcher runs under a recurring
+    ``JobRunner`` schedule, and left blank for one-shot runs. Neither is the
+    cadence source — the NetBox ``Job`` row's ``interval`` owns that.
 
     Full CRUD (add/edit/delete) — this is operator-authored config, not
     append-only history. REST + GraphQL are generated from the model via the
@@ -1135,7 +1137,7 @@ class PyatsCaptureSchedule(NetBoxModel):
     next_run_at = models.DateTimeField(
         blank=True,
         null=True,
-        help_text="When the next recurring dispatch is expected (display-only, written by the job).",
+        help_text="When the next recurring dispatch is expected (display-only, set from the NetBox Job row's interval by the dispatcher; blank for one-shot runs).",
     )
 
     clone_fields = ("kind", "device_filter", "enabled")
@@ -1189,9 +1191,11 @@ class PyatsParserCatalogRefreshSchedule(NetBoxModel):
     redirecting "add" to the existing row's edit view when one already exists
     (see :class:`netbox_pyats.views.PyatsParserCatalogRefreshScheduleEditView`).
 
-    :attr:`last_run_at` / :attr:`next_run_at` are display-only fields written
-    by the dispatcher after each run, for the list-view badge. They are not
-    the cadence source — the NetBox ``Job`` row's ``interval`` owns that.
+    :attr:`last_run_at` is a display-only timestamp written by the dispatcher
+    after each run. :attr:`next_run_at` is set from the NetBox ``Job`` row's
+    ``interval`` (minutes) when the dispatcher runs under a recurring
+    ``JobRunner`` schedule, and left blank for one-shot runs. Neither is the
+    cadence source — the NetBox ``Job`` row's ``interval`` owns that.
     """
 
     enabled = models.BooleanField(
@@ -1206,7 +1210,7 @@ class PyatsParserCatalogRefreshSchedule(NetBoxModel):
     next_run_at = models.DateTimeField(
         blank=True,
         null=True,
-        help_text="When the next recurring dispatch is expected (display-only, written by the job).",
+        help_text="When the next recurring dispatch is expected (display-only, set from the NetBox Job row's interval by the dispatcher; blank for one-shot runs).",
     )
 
     class Meta:

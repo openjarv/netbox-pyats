@@ -7,8 +7,11 @@ importable. Covers:
 - run_capture_schedules_job dispatches one enqueue_batch_capture per enabled
   schedule, skips disabled schedules, updates last_run_at, and handles the
   "device_filter matches zero devices" case.
+- next_run_at is populated from the NetBox Job row's interval for recurring
+  runs and left blank for one-shot runs (ATW-610).
 """
 
+from datetime import timedelta
 from unittest import mock
 
 import pytest
@@ -16,6 +19,7 @@ import pytest
 pytest.importorskip("netbox")
 
 from dcim.models import Device, DeviceRole, DeviceType, Manufacturer, Site
+from django.utils import timezone
 from utilities.testing import TestCase
 
 from netbox_pyats.choices import SnapshotKindChoices
@@ -153,6 +157,8 @@ class RunCaptureSchedulesJobTest(TestCase):
         mock_enqueue.assert_called_once()
         reloaded = PyatsCaptureSchedule.objects.get(pk=sched.pk)
         assert reloaded.last_run_at is not None
+        # mock.Mock() has no interval attr → one-shot run, next_run_at stays blank.
+        assert reloaded.next_run_at is None
         assert result["dispatched"] == 1
         assert result["skipped"] == 0
 
@@ -175,6 +181,8 @@ class RunCaptureSchedulesJobTest(TestCase):
         mock_enqueue.assert_not_called()
         reloaded = PyatsCaptureSchedule.objects.get(pk=sched.pk)
         assert reloaded.last_run_at is not None
+        # mock.Mock() has no interval attr → one-shot run, next_run_at stays blank.
+        assert reloaded.next_run_at is None
         assert result["dispatched"] == 0
         assert result["skipped"] == 1
 
@@ -194,3 +202,31 @@ class RunCaptureSchedulesJobTest(TestCase):
         assert mock_enqueue.call_count == 2
         assert result["dispatched"] == 2
         assert result["skipped"] == 0
+
+    def test_next_run_at_set_from_job_interval(self):
+        """Recurring run (Job.interval set) → next_run_at = last_run_at + interval (ATW-610)."""
+        sched = self._make_schedule("Recurring", {"id__in": [self.device.pk]})
+        with mock.patch("netbox_pyats.jobs.enqueue_batch_capture") as mock_enqueue:
+            mock_enqueue.return_value = mock.Mock(pk=42)
+            from netbox_pyats.jobs import run_capture_schedules_job
+
+            result = run_capture_schedules_job(job=mock.Mock(interval=30))
+        reloaded = PyatsCaptureSchedule.objects.get(pk=sched.pk)
+        assert reloaded.last_run_at is not None
+        assert reloaded.next_run_at is not None
+        # next_run_at == last_run_at + 30 minutes (interval is in minutes).
+        assert reloaded.next_run_at == reloaded.last_run_at + timedelta(minutes=30)
+        assert result["dispatched"] == 1
+
+    def test_next_run_at_blank_for_zero_device_skip_with_interval(self):
+        """Zero-device skip still sets next_run_at when Job.interval is set (ATW-610)."""
+        sched = self._make_schedule("Zero recurring", {"id__in": [999999]})
+        with mock.patch("netbox_pyats.jobs.enqueue_batch_capture") as mock_enqueue:
+            from netbox_pyats.jobs import run_capture_schedules_job
+
+            result = run_capture_schedules_job(job=mock.Mock(interval=60))
+        mock_enqueue.assert_not_called()
+        reloaded = PyatsCaptureSchedule.objects.get(pk=sched.pk)
+        assert reloaded.last_run_at is not None
+        assert reloaded.next_run_at == reloaded.last_run_at + timedelta(minutes=60)
+        assert result["skipped"] == 1
