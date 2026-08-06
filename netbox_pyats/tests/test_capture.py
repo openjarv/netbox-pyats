@@ -288,6 +288,25 @@ class TestStateCapture:
             assert any(skipped in w for w in result.warnings)
         assert any("no Genie parser" in w for w in result.warnings)
 
+    def test_state_capture_non_parser_exception_is_not_swallowed(self):
+        """CR-3: a non-ParserNotFound parse exception is a real failure, not a
+        benign skip. It must re-raise to the caller's try/except (recorded as
+        "state capture failed") — never silently swallowed as "no parser".
+        Guards the duck-type branch direction: the non-ParserNotFound path is
+        the explicit failure path, mirroring _capture_parse.
+        """
+        d = FakePyatsDevice(
+            os="iosxe",
+            parse_exc=RuntimeError("device disconnected"),
+        )
+        result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_STATE)
+        # The real failure aborted state capture → error status, empty state,
+        # and the failure is visible in warnings (not silently skipped).
+        assert result.status == SnapshotStatusChoices.STATUS_ERROR
+        assert result.data == {"state": {}}
+        assert any("state capture failed" in w for w in result.warnings)
+        assert not any("no Genie parser" in w for w in result.warnings)
+
 
 class TestFullCapture:
     def test_full_capture_has_both_halves(self):
