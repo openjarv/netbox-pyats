@@ -5,7 +5,7 @@
 
 An [Atw](https://github.com/openjarv) [NetBox](https://netbox.dev) plugin that brings [Cisco PyATS / Genie](https://developer.cisco.com/pyats/) into the NetBox UI — dynamic testbed building from the NetBox ORM, plugin-local encrypted credentials, device snapshots stored as JSONB, structured snapshot diffs, and config compliance (golden config vs. snapshot) from the device page.
 
-> **v0.1** ships capture, diff, and compliance against real devices, with a unified jobs view and batch capture. See the [changelog](CHANGELOG.md) for the full per-phase feature history.
+> The plugin ships capture, diff, and compliance against real devices, with a unified jobs view and batch capture. See the [changelog](CHANGELOG.md) for the per-feature history.
 
 ## At a glance
 
@@ -29,7 +29,7 @@ The diff and compliance views render the same side-by-side before/after diff tab
 
 **netbox-pyats** turns your NetBox device inventory into a live PyATS testbed — no static YAML testbed to maintain. From each device's page you can capture running-config and state snapshots, diff any two snapshots, and check a captured config against a golden config for compliance. Every snapshot, diff, and compliance run is stored inside NetBox as a first-class record, so you get a permanent, queryable history for pre/post-change checks and config-compliance audits.
 
-v0.1 ships three feature groups — see the [usage guide](docs/user/usage.md) for the full workflow and exact UI paths:
+Three feature groups ship today — see the [usage guide](docs/user/usage.md) for the full workflow and exact UI paths:
 
 ### Capture
 
@@ -62,7 +62,7 @@ v0.1 ships three feature groups — see the [usage guide](docs/user/usage.md) fo
 
 | netbox-pyats | NetBox | Python | PostgreSQL | Redis / Valkey | pyATS |
 |-------------|--------|--------|------------|----------------|-------|
-| 0.1.x (Phases 1–5) | 4.6.x  | 3.10, 3.11, 3.12 | 15, 16, 17, 18 | Redis 6, Redis 7, Valkey 9.1 | 26.x (worker only) |
+| 0.1.0 (Unreleased, dev) | 4.6.x  | 3.10, 3.11, 3.12 | 15, 16, 17, 18 | Redis 6, Redis 7, Valkey 9.1 | 26.x (worker only) |
 
 The plugin targets NetBox 4.6+ (current: 4.6.5). `pyats[full]` is **not** an install-time dependency — install it on the worker that runs snapshots only (see `pip install netbox-pyats[pyats]` or the [worker docs](docs/user/workers.md)). The NetBox web process imports the plugin without pyats installed; the diff and compliance engines are pure-Python and need no pyATS.
 
