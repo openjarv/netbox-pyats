@@ -96,6 +96,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Dev
 
 - `dev/Dockerfile.pyats-worker`: install `python3.14-dev` + `gcc` before `uv pip install pyats[full]` so `ruamel-yaml-clib`'s C extension can build on NetBox 4.6's Python 3.14 slim image. Dev-only build-dep install; the supported runtime matrix (Python 3.10–3.12) is unchanged (cp312 wheel exists for production). See ATW-25 and [ADR-0003](docs/adr/0003-netbox46-migration-and-worker-toolchain.md).
+- `PyatsCaptureSchedule.device_filter` allowlist (ATW-578, ATW-636): the form/serializer now reject `device_filter` keys that are not in the 45-key allowlist derived from NetBox 4.6's `Device` lookups. Twelve stale keys carried over from older NetBox lookups were renamed to their current NetBox 4.6 equivalents (`region_id`→`site__region_id`, `region__slug`→`site__region__slug`, `region__name`→`site__region__name`, `device_role_id`→`role_id`, `device_role__slug`→`role__slug`, `device_role__name`→`role__name`, plus 6 related `*__in`/`*__icontains` variants). New keys added: `name__startswith`, `name__endswith`, `name__iexact`, `status__in`, `status__not_in`, `site`, `site__slug__in`, `site__name__icontains`, `site__region`, `site__region__slug__in`, `site__region__name__icontains`, `tenant`, `tenant__slug__in`, `tenant__name__icontains`, `role`, `role__slug__in`, `role__name__icontains`, `platform`, `platform__slug__in`, `platform__name__icontains`, `tagged_items__tag__slug__in`. See ATW-578 and ATW-636.
 
 ### Docs
 
