@@ -297,9 +297,15 @@ def build_testbed(
         # already-present edge case (re-iteration, name collision) is caught.
         try:
             tb.add_device(d)
-        except Exception:
-            # If the device is already on the testbed (e.g. re-iteration, or a
-            # duplicate name), skip rather than crash the whole build.
+        except Exception as exc:  # noqa: BLE001 - duck-typed below (ATW-673)
+            # Narrow to pyATS ``DuplicateDeviceError`` by class name so we don't
+            # import the pyATS testbed module just to check the type — same
+            # pattern as the ``ParserNotFound`` duck-type in capture.py. A non-
+            # DuplicateDeviceError (e.g. TypeError from a malformed device entry,
+            # or a pyATS internal error) is a real failure and must propagate
+            # rather than be misclassified as "duplicate" (ATW-34 class bug).
+            if type(exc).__name__ != "DuplicateDeviceError":
+                raise
             logger.warning("netbox_pyats: device %s already on testbed, skipping", d.name)
             report.add_unsupported(netbox_device, reason="duplicate device name on testbed")
             continue
