@@ -18,6 +18,7 @@ import pytest
 pytest.importorskip("pyats")
 
 import unittest
+from unittest import mock
 
 from netbox_pyats.choices import CredentialProtocolChoices
 from netbox_pyats.testbed import UNSUPPORTED_OS, build_testbed, is_supported_os, platform_to_pyats_os
@@ -249,3 +250,64 @@ class TestBuildTestbed(unittest.TestCase):
         cred = FakeCredential(pk=1, ssh_port=2222)
         tb, report = build_testbed([dev], credential_resolver=_cred_resolver_factory(cred))
         self.assertEqual(tb.devices["rtr01"].connections["a"]["port"], 2222)
+
+
+# --------------------------------------------------------------------------- #
+# build_testbed: DuplicateDeviceError narrowing (ATW-673)
+# --------------------------------------------------------------------------- #
+
+
+class DuplicateDeviceError(Exception):
+    """Duck-type stand-in for ``pyats.topology.testbed.DuplicateDeviceError``.
+
+    The narrowing in :func:`build_testbed` duck-types the exception by class name
+    (same pattern as ``ParserNotFound`` in capture.py), so this class must be named
+    exactly ``DuplicateDeviceError`` for ``type(exc).__name__`` to match.
+    """
+
+
+def _fake_testbed_factory(exc):
+    """Return a ``_pyats_testbed_cls`` callable: a function returning a raising class.
+
+    ``build_testbed`` calls ``_pyats_testbed_cls()`` to get the Testbed class, then
+    ``Testbed(name=name)``. So the patch value must be a *function* that returns a
+    class whose ``add_device`` raises ``exc`` — matching the real lazy-import shape.
+    """
+
+    class _RaisingTestbed:
+        def __init__(self, name):
+            self.name = name
+            self.devices = {}
+
+        def add_device(self, d):
+            raise exc
+
+    return lambda: _RaisingTestbed
+
+
+class TestBuildTestbedDuplicateNarrowing(unittest.TestCase):
+    """ATW-673: ``build_testbed`` must only swallow ``DuplicateDeviceError``.
+
+    A bare ``except Exception`` misclassified any error (e.g. a TypeError from a
+    malformed device entry) as "duplicate device name", silently skipping it.
+    The narrowed handler re-raises anything that is not a DuplicateDeviceError.
+    """
+
+    def test_duplicate_device_error_is_skipped_as_unsupported(self):
+        import netbox_pyats.testbed as tbed
+
+        dev = FakeDevice(pk=1, name="rtr01", platform_slug="iosxe")
+        with mock.patch.object(
+            tbed, "_pyats_testbed_cls", _fake_testbed_factory(DuplicateDeviceError("already present"))
+        ):
+            tb, report = build_testbed([dev], credential_resolver=_cred_resolver_factory(None))
+        self.assertEqual(len(report.unsupported), 1)
+        self.assertIn("duplicate", report.unsupported[0]["reason"])
+
+    def test_non_duplicate_error_is_raised_not_swallowed(self):
+        import netbox_pyats.testbed as tbed
+
+        dev = FakeDevice(pk=1, name="rtr01", platform_slug="iosxe")
+        with mock.patch.object(tbed, "_pyats_testbed_cls", _fake_testbed_factory(TypeError("malformed device entry"))):
+            with self.assertRaises(TypeError):
+                build_testbed([dev], credential_resolver=_cred_resolver_factory(None))
