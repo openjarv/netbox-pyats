@@ -28,6 +28,8 @@ class PyatsCredentialTable(NetBoxTable):
     ssh_port = tables.Column()
     created = tables.DateTimeColumn()
 
+    actions = ActionsColumn()
+
     class Meta(NetBoxTable.Meta):
         model = PyatsCredential
         fields = (
@@ -171,6 +173,8 @@ class PyatsGoldenConfigTable(NetBoxTable):
     source = tables.Column(verbose_name="Source")
     source_snapshot = tables.Column(linkify=True, verbose_name="Promoted from")
     created = tables.DateTimeColumn(verbose_name="Created at")
+
+    actions = ActionsColumn()
 
     class Meta(NetBoxTable.Meta):
         model = PyatsGoldenConfig
@@ -321,6 +325,8 @@ class PyatsCaptureScheduleTable(NetBoxTable):
     next_run_at = tables.DateTimeColumn(verbose_name="Next run")
     created = tables.DateTimeColumn(verbose_name="Created at")
 
+    actions = ActionsColumn()
+
     class Meta(NetBoxTable.Meta):
         model = PyatsCaptureSchedule
         fields = (
@@ -355,6 +361,8 @@ class PyatsParserCatalogRefreshScheduleTable(NetBoxTable):
     last_run_at = tables.DateTimeColumn(verbose_name="Last run")
     next_run_at = tables.DateTimeColumn(verbose_name="Next run")
     created = tables.DateTimeColumn(verbose_name="Created at")
+
+    actions = ActionsColumn()
 
     class Meta(NetBoxTable.Meta):
         model = PyatsParserCatalogRefreshSchedule

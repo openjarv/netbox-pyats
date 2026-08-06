@@ -18,7 +18,7 @@
 # to BOTH this script and the CI `unit` lane so the split stays in sync.
 #
 # Usage:
-#   scripts/test-unit.sh           # run all 103 unit tests
+#   scripts/test-unit.sh           # run all unit tests
 #   scripts/test-unit.sh -v        # verbose
 #   scripts/test-unit.sh -k crypto # pass-through extra pytest flags
 #
@@ -29,9 +29,10 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # The pure-Python unit set (keep in sync with CI .github/workflows/ci.yml).
-# test_navmenu_uniqueness_guard (ATW-183) and test_panel (ATW-184) are AST /
-# fake-object suites with no NetBox/Genie import; they belong in the fast
-# lane alongside test_supported_platforms / test_template_extension. (ATW-435.)
+# test_navmenu_uniqueness_guard (ATW-183), test_table_actions_column_guard
+# (ATW-582), and test_panel (ATW-184) are AST / fake-object suites with no
+# NetBox/Genie import; they belong in the fast lane alongside
+# test_supported_platforms / test_template_extension. (ATW-435.)
 unit_tests=(
   "${repo_root}/netbox_pyats/tests/test_diff.py"
   "${repo_root}/netbox_pyats/tests/test_testbed.py"
@@ -42,6 +43,7 @@ unit_tests=(
   "${repo_root}/netbox_pyats/tests/test_crypto.py"
   "${repo_root}/netbox_pyats/tests/test_template_extension.py"
   "${repo_root}/netbox_pyats/tests/test_navmenu_uniqueness_guard.py"
+  "${repo_root}/netbox_pyats/tests/test_table_actions_column_guard.py"
   "${repo_root}/netbox_pyats/tests/test_panel.py"
 )
 
