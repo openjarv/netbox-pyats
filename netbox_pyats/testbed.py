@@ -170,7 +170,7 @@ def _build_device_entry(netbox_device, *, credential: Optional["PyatsCredential"
     if not supported and on_unsupported == "skip":
         return None, status
 
-    name = netbox_device.name or f"netbox-device-{netbox_device.pk}"
+    name = _device_display_name(netbox_device)
     mgmt_ip = _mgmt_address(netbox_device)
     protocol = _protocol_for(os_value, credential)
 
@@ -328,6 +328,19 @@ def _iter_devices(device_qs) -> Iterable:
         yield d
 
 
+def _device_display_name(netbox_device) -> str:
+    """Return a human-readable name for a NetBox Device.
+
+    NetBox permits ``Device.name`` to be None (a real mid-population state).
+    The testbed keys a None-named device by ``f"netbox-device-{pk}"`` so pyATS
+    has a unique, non-None key. The build report's ``name`` field uses the same
+    fallback so the report row and the testbed key agree for a None-named
+    device — without this, ``report.unsupported[0]["name"]`` would be None
+    while the testbed device is keyed as ``netbox-device-7`` (ATW-689).
+    """
+    return netbox_device.name or f"netbox-device-{netbox_device.pk}"
+
+
 class TestbedBuildReport:
     """Summary of a :func:`build_testbed` run.
 
@@ -341,10 +354,13 @@ class TestbedBuildReport:
         self.unsupported: list[dict] = []
 
     def add_supported(self, netbox_device, pyats_device) -> None:
+        # ``name`` uses the same fallback the testbed key uses
+        # (``_device_display_name``) so the report and the testbed agree for a
+        # None-named device (ATW-689).
         self.supported.append(
             {
                 "netbox_device_id": netbox_device.pk,
-                "name": netbox_device.name,
+                "name": _device_display_name(netbox_device),
                 "pyats_device_name": pyats_device.name,
                 "os": pyats_device.os,
                 "mgmt_ip": pyats_device.custom["netbox_pyats"]["mgmt_ip"],
@@ -352,10 +368,11 @@ class TestbedBuildReport:
         )
 
     def add_unsupported(self, netbox_device, *, reason: str) -> None:
+        # Same fallback as ``add_supported`` / the testbed key (ATW-689).
         self.unsupported.append(
             {
                 "netbox_device_id": netbox_device.pk,
-                "name": netbox_device.name,
+                "name": _device_display_name(netbox_device),
                 "reason": reason,
             }
         )

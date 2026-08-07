@@ -270,23 +270,25 @@ class TestBuildTestbed(unittest.TestCase):
         self.assertIsNone(pyats_d.custom["netbox_pyats"]["netbox_device_name"])
         self.assertEqual(pyats_d.custom["netbox_pyats"]["netbox_device_id"], 42)
         self.assertTrue(report.ok)
+        # ATW-689: the report entry's ``name`` must carry the same fallback the
+        # testbed key uses, so the report and the testbed agree for a None-named
+        # device (previously ``name`` was the raw None).
+        self.assertEqual(report.supported[0]["name"], fallback_name)
+        self.assertEqual(report.supported[0]["pyats_device_name"], fallback_name)
 
-    def test_none_name_unsupported_report_entry_records_pk_not_fallback(self):
-        # ATW-674: a None-named device that is also unsupported still produces
-        # a report entry, but the entry's ``name`` is the raw
-        # ``netbox_device.name`` (None), NOT the f"netbox-device-{pk}" fallback
-        # the testbed device is keyed by — ``add_unsupported`` reads
-        # ``netbox_device.name`` directly (testbed.py add_unsupported). The pk
-        # is preserved in ``netbox_device_id`` so the row stays traceable. This
-        # test locks in the current behavior as a regression guard; the
-        # inconsistency between the testbed key (fallback) and the report name
-        # (raw None) is flagged as a follow-up finding for the Senior Dev (the
-        # report would be more useful if it carried the fallback name).
+    def test_none_name_unsupported_report_entry_uses_fallback_name(self):
+        # ATW-689 (was ATW-674 guard): a None-named device that is also
+        # unsupported produces a report entry whose ``name`` now carries the
+        # ``f"netbox-device-{pk}"`` fallback the testbed key uses — NOT the raw
+        # ``netbox_device.name`` (None) it previously carried. ``add_unsupported``
+        # uses the same fallback expression as the testbed key (testbed.py), so
+        # the report and the testbed agree. The pk is also preserved in
+        # ``netbox_device_id`` so the row stays traceable.
         dev = FakeDevice(pk=7, name=None, platform_slug="acme-switchos")
         tb, report = build_testbed([dev], credential_resolver=_cred_resolver_factory(None))
         self.assertEqual(len(report.unsupported), 1)
         entry = report.unsupported[0]
-        self.assertIsNone(entry["name"])
+        self.assertEqual(entry["name"], "netbox-device-7")
         self.assertEqual(entry["netbox_device_id"], 7)
         self.assertIn("unsupported", entry["reason"])
         self.assertFalse(report.ok)
