@@ -167,7 +167,7 @@ def _worker_versions() -> tuple[str, str]:
     return genie_version, pyats_version
 
 
-def _capture_config(pyats_device) -> tuple[dict, str]:
+def _capture_config(pyats_device) -> tuple[dict, str, list]:
     """Run parser-based config capture on a connected pyATS Device.
 
     Uses ``pyats.utils.parser`` to parse ``show running-config`` into a
