@@ -41,7 +41,11 @@ logger = logging.getLogger(__name__)
 # or the per-command parse is skipped (and recorded as None in the state dict
 # so the caller's warnings can flag it). The set was expanded in ATW-580 from 8
 # to 13 commands to address real-world NetBox population friction (VLAN, VRF,
-# OSPF neighbor, Spanning-Tree, MAC address table). Adding a command here is a
+# OSPF neighbor, Spanning-Tree, MAC address table). ATW-671 added BGP and MPLS
+# LDP neighbor state (top-3 population-friction adjacencies; `show bgp summary`
+# has Genie parser coverage across the full supported OS matrix, `show mpls ldp
+# neighbor` covers iosxe/iosxr/nxos/junos and degrades gracefully on the rest
+# via the per-command ParserNotFound skip). Adding a command here is a
 # commitment that Genie has real parser coverage for it across the supported OS
 # matrix (Cisco IOS/XE/XR/NX-OS/ASA, Juniper JunOS, Arista EOS, Nokia SR OS).
 STATE_COMMANDS: tuple[str, ...] = (
@@ -58,6 +62,8 @@ STATE_COMMANDS: tuple[str, ...] = (
     "show ip ospf neighbor",
     "show spanning-tree",
     "show mac-address-table",
+    "show bgp summary",
+    "show mpls ldp neighbor",
 )
 
 
@@ -217,7 +223,15 @@ def _capture_config(pyats_device) -> tuple[dict, str]:
             try:
                 raw_text = str(pyats_device.execute("show running-config"))
             except Exception as exc2:  # noqa: BLE001 - both parser and execute failed
-                raise RuntimeError(f"config capture failed: parser={exc}; execute={exc2}") from exc
+                # Aligned with _capture_parse's warn-and-continue pattern
+                # (ATW-672): record a warning and return an empty config
+                # rather than raising RuntimeError, so a transient Genie
+                # parser bug produces a warning row instead of aborting the
+                # whole capture. The caller's status logic still flags the
+                # row as error (empty config), but the failure is visible
+                # via the warning instead of a raised exception.
+                warnings.append(f"config capture failed: parser={exc}; execute={exc2}")
+                return {}, raw_text, warnings
         config = {"raw": raw_text, "_parser_error": str(exc)}
     return config, raw_text, warnings
 
