@@ -122,10 +122,6 @@ class PyatsJobType(NetBoxObjectType):
         )
 
 
-class Query:
-    pass
-
-
 class PyatsParserCatalogType(NetBoxObjectType):
     """GraphQL type for the PyatsParserCatalog model (ATW-241 child 1).
 
