@@ -415,7 +415,7 @@ def capture_snapshot(
                 # compliance time.
                 warnings.extend(config_warnings)
             except Exception as exc:  # noqa: BLE001 - config capture failure is a warning, not fatal
-                warnings.append(f"config capture failed: {exc}")
+                warnings.append(f"config capture failed: [{type(exc).__name__}] {exc}")
                 data["config"] = {}
                 data["config_raw"] = ""
         if kind in (SnapshotKindChoices.KIND_STATE, SnapshotKindChoices.KIND_FULL):
@@ -429,7 +429,7 @@ def capture_snapshot(
                         warnings.append(f"no Genie parser for {cmd!r} on os={os_value!r}; skipped")
                 data["state"] = state
             except Exception as exc:  # noqa: BLE001 - state capture failure is a warning, not fatal
-                warnings.append(f"state capture failed: {exc}")
+                warnings.append(f"state capture failed: [{type(exc).__name__}] {exc}")
                 data["state"] = {}
         if kind == SnapshotKindChoices.KIND_PARSE:
             try:
@@ -437,7 +437,7 @@ def capture_snapshot(
                 data["state"] = state
                 warnings.extend(parse_warnings)
             except Exception as exc:  # noqa: BLE001 - parse capture failure is a warning, not fatal
-                warnings.append(f"parse capture failed: {exc}")
+                warnings.append(f"parse capture failed: [{type(exc).__name__}] {exc}")
                 data["state"] = {}
     except Exception as exc:  # noqa: BLE001 - any uncaught error → error status with traceback
         return CaptureResult(
