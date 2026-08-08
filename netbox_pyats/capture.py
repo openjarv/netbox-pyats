@@ -264,6 +264,15 @@ def _capture_state(pyats_device, commands: tuple[str, ...] = STATE_COMMANDS) -> 
             # ParserNotFound case is the explicit failure path, so a false-
             # positive name match can never silently swallow a genuine failure
             # as a benign "no parser" skip (CR-3).
+            #
+            # Asymmetry vs _capture_parse (CR-5): _capture_state *re-raises*
+            # non-ParserNotFound exceptions (aborting state capture), while
+            # _capture_parse *catches and warns* (one bad command doesn't
+            # abort the batch). This is deliberate: state commands are the
+            # curated set where a real failure should surface; parse commands
+            # are operator-supplied where one bad command shouldn't kill the
+            # run. Do not homogenise these two paths without a deliberate
+            # decision — the different behaviour is load-bearing.
             if type(exc).__name__ != "ParserNotFound":
                 # Any other exception is a real failure for this command —
                 # re-raise so the caller's try/except records it as a
@@ -326,6 +335,13 @@ def _capture_parse(pyats_device, commands) -> tuple[dict, list]:
             # (worker-only) just to check the type. Any other exception is a
             # real failure for this command — fall through to the same
             # warning path so one bad command does not abort the capture.
+            #
+            # Asymmetry vs _capture_state (CR-5): _capture_parse *catches and
+            # warns* on non-ParserNotFound (one bad command doesn't kill the
+            # batch), while _capture_state *re-raises* (a real failure in the
+            # curated state set should surface). This is deliberate — see the
+            # matching comment in _capture_state. Do not homogenise without a
+            # deliberate decision; the different behaviour is load-bearing.
             if type(exc).__name__ != "ParserNotFound":
                 warnings.append(f"parse failed for {command!r}: {exc}")
                 logger.warning("netbox_pyats: parse(%r) failed on %s: %s", command, pyats_device.name, exc)
