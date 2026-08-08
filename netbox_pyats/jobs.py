@@ -263,6 +263,43 @@ def _persist_input_error_row(row, *, job, pyats_job_id, finish_kwarg, label, rai
     raise raise_exc
 
 
+def _persist_snapshot(device, kind, triggered_by, result):
+    """Persist a successful-path :class:`PyatsSnapshot` row from a capture result.
+
+    Unifies the row-write shared by :func:`capture_snapshot_job` (single) and
+    :func:`batch_capture_job` (per-device) (CR-3). Both construct a
+    :class:`PyatsSnapshot` from the same 7 :class:`~netbox_pyats.capture.CaptureResult`
+    fields (``status``, ``data``, ``warnings``, ``genie_version``,
+    ``pyats_version``, ``parsed_os``, ``size_bytes``) then ``full_clean()`` +
+    ``save()``. The only call-site variation is ``triggered_by`` (the single
+    path passes the operator's trigger; the batch path always uses
+    ``TRIGGER_JOB``), so it stays a parameter.
+
+    Unlike :func:`_persist_error_row` this is the **success** path — a
+    ``full_clean``/``save`` failure propagates (the caller's ``try/finally``
+    records the :class:`PyatsJob` error). Returns the saved row with ``pk``
+    set so the caller can log it and link the :class:`PyatsJob` via
+    :func:`_finish_success`.
+    """
+    from .models import PyatsSnapshot
+
+    snapshot = PyatsSnapshot(
+        device=device,
+        kind=kind,
+        status=result.status,
+        triggered_by=triggered_by,
+        data=result.data,
+        parser_warnings=result.warnings,
+        genie_version=result.genie_version,
+        pyats_version=result.pyats_version,
+        parsed_os=result.parsed_os,
+        size_bytes=result.size_bytes,
+    )
+    snapshot.full_clean()
+    snapshot.save()
+    return snapshot
+
+
 def extract_snapshot_raw_config(snapshot_data: dict | None) -> str:
     """Extract the snapshot's raw running-config text (the compliance "actual").
 
@@ -417,20 +454,7 @@ def capture_snapshot_job(
                 _finish_success(job, pyats_job_id, related_snapshot=snapshot)
             raise
 
-        snapshot = PyatsSnapshot(
-            device=device,
-            kind=kind,
-            status=result.status,
-            triggered_by=triggered_by,
-            data=result.data,
-            parser_warnings=result.warnings,
-            genie_version=result.genie_version,
-            pyats_version=result.pyats_version,
-            parsed_os=result.parsed_os,
-            size_bytes=result.size_bytes,
-        )
-        snapshot.full_clean()
-        snapshot.save()
+        snapshot = _persist_snapshot(device, kind, triggered_by, result)
 
         logger.info(
             "Snapshot %s stored (status=%s, %d bytes)",
@@ -977,7 +1001,6 @@ def batch_capture_job(
     from dcim.models import Device
 
     from .capture import capture_snapshot_for_netbox_device
-    from .models import PyatsSnapshot
 
     if pyats_job_id is not None:
         _mark_running(job, pyats_job_id)
@@ -1007,22 +1030,9 @@ def batch_capture_job(
                 continue
             # Persist the snapshot row (the successful path). capture_snapshot_for_netbox_device
             # returns a CaptureResult; the per-device capture job's row-write
-            # logic is duplicated here because the batch path does not enqueue
-            # a per-device job (one batch → N snapshots, not N jobs).
-            snapshot = PyatsSnapshot(
-                device=device,
-                kind=kind,
-                status=result.status,
-                triggered_by=SnapshotTriggerChoices.TRIGGER_JOB,
-                data=result.data,
-                parser_warnings=result.warnings,
-                genie_version=result.genie_version,
-                pyats_version=result.pyats_version,
-                parsed_os=result.parsed_os,
-                size_bytes=result.size_bytes,
-            )
-            snapshot.full_clean()
-            snapshot.save()
+            # logic is shared via _persist_snapshot (one batch → N snapshots,
+            # not N jobs — the batch path does not enqueue per-device jobs).
+            snapshot = _persist_snapshot(device, kind, SnapshotTriggerChoices.TRIGGER_JOB, result)
             counts["supported"] += 1
             logger.info(
                 "Batch capture: snapshot %s stored for device %s (status=%s, %d bytes)",
