@@ -220,6 +220,86 @@ def _persist_error_row(row, *, label: str):
         return None
 
 
+def _persist_input_error_row(row, *, job, pyats_job_id, finish_kwarg, label, raise_exc):
+    """Persist a pre-built input-validation error row, finish the job, and re-raise.
+
+    Unifies the missing-FK and device-mismatch error-row blocks shared by
+    ``run_diff_job`` and ``run_compliance_job`` (CR-4). Each job had a
+    structurally identical block: build an error row (FKs null or loaded
+    per the nullable-FK contract), ``full_clean()`` + ``save()``, call
+    ``_finish_success`` with the appropriate ``related_<X>`` kwarg when a
+    ``pyats_job_id`` is present (ADR-0002: an error result row is a
+    successful job), then re-raise. Only the model class, the FK field
+    names, the finish kwarg name, and the warning text differ — those stay
+    at the call site; this helper owns the shared persist/finish/raise tail.
+
+    Args:
+        row: an unsaved model instance already populated with the error
+            fields (status/result, parser_warnings, diff/data, summary,
+            size_bytes, and the relevant FKs).
+        job: the NetBox ``core.models.Job`` row (passed to
+            ``_finish_success`` for status linkage).
+        pyats_job_id: the plugin :class:`PyatsJob` pk, or ``None`` when
+            the job is invoked without a tracking row (unit-test path).
+        finish_kwarg: the ``_finish_success`` keyword to carry the row —
+            ``"related_diff"`` for diff, ``"related_compliance"`` for
+            compliance.
+        label: a short human label for the log message (e.g.
+            ``"diff missing-FK"``) so the exception log identifies which
+            job type failed to persist.
+        raise_exc: the exception instance to re-raise after the row is
+            persisted (the original ``DoesNotExist`` or a new
+            ``ValueError`` for device-mismatch). Re-raising preserves the
+            caller's top-level ``try/finally`` contract (ADR-0005 §3).
+
+    The row is persisted best-effort via :func:`_persist_error_row`; if the
+    persist itself fails, ``pyats_job_id`` is skipped (no dangling FK link)
+    and the exception is still re-raised so the outer ``try/finally``
+    records the :class:`PyatsJob` error.
+    """
+    saved = _persist_error_row(row, label=label)
+    if saved is not None and pyats_job_id is not None:
+        _finish_success(job, pyats_job_id, **{finish_kwarg: saved})
+    raise raise_exc
+
+
+def _persist_snapshot(device, kind, triggered_by, result):
+    """Persist a successful-path :class:`PyatsSnapshot` row from a capture result.
+
+    Unifies the row-write shared by :func:`capture_snapshot_job` (single) and
+    :func:`batch_capture_job` (per-device) (CR-3). Both construct a
+    :class:`PyatsSnapshot` from the same 7 :class:`~netbox_pyats.capture.CaptureResult`
+    fields (``status``, ``data``, ``warnings``, ``genie_version``,
+    ``pyats_version``, ``parsed_os``, ``size_bytes``) then ``full_clean()`` +
+    ``save()``. The only call-site variation is ``triggered_by`` (the single
+    path passes the operator's trigger; the batch path always uses
+    ``TRIGGER_JOB``), so it stays a parameter.
+
+    Unlike :func:`_persist_error_row` this is the **success** path — a
+    ``full_clean``/``save`` failure propagates (the caller's ``try/finally``
+    records the :class:`PyatsJob` error). Returns the saved row with ``pk``
+    set so the caller can log it and link the :class:`PyatsJob` via
+    :func:`_finish_success`.
+    """
+    from .models import PyatsSnapshot
+
+    snapshot = PyatsSnapshot(
+        device=device,
+        kind=kind,
+        status=result.status,
+        triggered_by=triggered_by,
+        data=result.data,
+        parser_warnings=result.warnings,
+        genie_version=result.genie_version,
+        pyats_version=result.pyats_version,
+        parsed_os=result.parsed_os,
+        size_bytes=result.size_bytes,
+    )
+    snapshot.full_clean()
+    snapshot.save()
+    return snapshot
+
+
 def extract_snapshot_raw_config(snapshot_data: dict | None) -> str:
     """Extract the snapshot's raw running-config text (the compliance "actual").
 
@@ -374,20 +454,7 @@ def capture_snapshot_job(
                 _finish_success(job, pyats_job_id, related_snapshot=snapshot)
             raise
 
-        snapshot = PyatsSnapshot(
-            device=device,
-            kind=kind,
-            status=result.status,
-            triggered_by=triggered_by,
-            data=result.data,
-            parser_warnings=result.warnings,
-            genie_version=result.genie_version,
-            pyats_version=result.pyats_version,
-            parsed_os=result.parsed_os,
-            size_bytes=result.size_bytes,
-        )
-        snapshot.full_clean()
-        snapshot.save()
+        snapshot = _persist_snapshot(device, kind, triggered_by, result)
 
         logger.info(
             "Snapshot %s stored (status=%s, %d bytes)",
@@ -522,15 +589,14 @@ def run_diff_job(job, before_id: int, after_id: int, pyats_job_id: int | None = 
                 ],
                 size_bytes=0,
             )
-            diff_row.full_clean()
-            diff_row.save()
-            if pyats_job_id is not None:
-                # The error-row write succeeded → success at the *job* level
-                # (ADR-0002: an error result row is a successful job). The
-                # caller then re-raises so core.Job is marked failed, but the
-                # PyatsJob is success because the result row exists.
-                _finish_success(job, pyats_job_id, related_diff=diff_row)
-            raise
+            _persist_input_error_row(
+                diff_row,
+                job=job,
+                pyats_job_id=pyats_job_id,
+                finish_kwarg="related_diff",
+                label="diff missing-FK",
+                raise_exc=exc,
+            )
 
         # Enforce same-device invariant: a diff across two different devices is a
         # programmer error (the picker only offers snapshots of one device), but
@@ -549,11 +615,14 @@ def run_diff_job(job, before_id: int, after_id: int, pyats_job_id: int | None = 
                 ],
                 size_bytes=0,
             )
-            diff_row.full_clean()
-            diff_row.save()
-            if pyats_job_id is not None:
-                _finish_success(job, pyats_job_id, related_diff=diff_row)
-            raise ValueError("diff inputs belong to different devices")
+            _persist_input_error_row(
+                diff_row,
+                job=job,
+                pyats_job_id=pyats_job_id,
+                finish_kwarg="related_diff",
+                label="diff device-mismatch",
+                raise_exc=ValueError("diff inputs belong to different devices"),
+            )
 
         try:
             result = diff_snapshots(before_snap.data, after_snap.data, name=str(device))
@@ -730,11 +799,14 @@ def run_compliance_job(
                 ],
                 size_bytes=0,
             )
-            run_row.full_clean()
-            run_row.save()
-            if pyats_job_id is not None:
-                _finish_success(job, pyats_job_id, related_compliance=run_row)
-            raise
+            _persist_input_error_row(
+                run_row,
+                job=job,
+                pyats_job_id=pyats_job_id,
+                finish_kwarg="related_compliance",
+                label="compliance missing-FK",
+                raise_exc=exc,
+            )
 
         # Enforce same-device invariant: a compliance run across golden + snapshot
         # of different devices is a programmer error (the picker only offers
@@ -754,11 +826,14 @@ def run_compliance_job(
                 ],
                 size_bytes=0,
             )
-            run_row.full_clean()
-            run_row.save()
-            if pyats_job_id is not None:
-                _finish_success(job, pyats_job_id, related_compliance=run_row)
-            raise ValueError("compliance inputs belong to different devices")
+            _persist_input_error_row(
+                run_row,
+                job=job,
+                pyats_job_id=pyats_job_id,
+                finish_kwarg="related_compliance",
+                label="compliance device-mismatch",
+                raise_exc=ValueError("compliance inputs belong to different devices"),
+            )
 
         # Extract the snapshot's raw running-config text (the "actual" config)
         # via the tested pure helper (ATW-437). v1 compliance is line-oriented
@@ -926,7 +1001,6 @@ def batch_capture_job(
     from dcim.models import Device
 
     from .capture import capture_snapshot_for_netbox_device
-    from .models import PyatsSnapshot
 
     if pyats_job_id is not None:
         _mark_running(job, pyats_job_id)
@@ -956,22 +1030,9 @@ def batch_capture_job(
                 continue
             # Persist the snapshot row (the successful path). capture_snapshot_for_netbox_device
             # returns a CaptureResult; the per-device capture job's row-write
-            # logic is duplicated here because the batch path does not enqueue
-            # a per-device job (one batch → N snapshots, not N jobs).
-            snapshot = PyatsSnapshot(
-                device=device,
-                kind=kind,
-                status=result.status,
-                triggered_by=SnapshotTriggerChoices.TRIGGER_JOB,
-                data=result.data,
-                parser_warnings=result.warnings,
-                genie_version=result.genie_version,
-                pyats_version=result.pyats_version,
-                parsed_os=result.parsed_os,
-                size_bytes=result.size_bytes,
-            )
-            snapshot.full_clean()
-            snapshot.save()
+            # logic is shared via _persist_snapshot (one batch → N snapshots,
+            # not N jobs — the batch path does not enqueue per-device jobs).
+            snapshot = _persist_snapshot(device, kind, SnapshotTriggerChoices.TRIGGER_JOB, result)
             counts["supported"] += 1
             logger.info(
                 "Batch capture: snapshot %s stored for device %s (status=%s, %d bytes)",
