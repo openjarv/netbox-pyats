@@ -1058,14 +1058,15 @@ class GenieParseLandingView(PermissionRequiredMixin, View):
 
     The parse entry point is inherently per-device (the operator parses the
     CLI output of a specific device), so the top-level menu item lands on a
-    device picker: a plain ``dcim.Device`` dropdown that GETs
-    ``/plugins/pyats/genie/parse/`` with a ``device`` id and redirects to
-    that device's parse page (``device_parse``). Keeps the navigation promise
-    of "a Parse page" without duplicating the device-parse form here.
+    device picker: a plain ``dcim.Device`` dropdown that POSTs the chosen
+    device id back to this view, which redirects to that device's parse page
+    (``device_parse``). Keeps the navigation promise of "a Parse page"
+    without duplicating the device-parse form here. Server-side redirect —
+    no client-side JS (ADR-0001 §4).
 
-    Web-process-safe: no Genie import (ADR-0001 §6). Read-only; the only
-    action is a redirect to the existing per-device parse view, which holds
-    the real permission gate (``add_pyatssnapshot``).
+    Web-process-safe: no Genie import (ADR-0001 §6). Read-only on GET; the
+    POST action is a redirect to the existing per-device parse view, which
+    holds the real permission gate (``add_pyatssnapshot``).
     """
 
     permission_required = "netbox_pyats.add_pyatssnapshot"
@@ -1079,6 +1080,15 @@ class GenieParseLandingView(PermissionRequiredMixin, View):
             self.template_name,
             {"devices": Device.objects.select_related("platform").order_by("name")},
         )
+
+    def post(self, request):
+        # Server-side redirect into the per-device parse page. Keeps the
+        # template server-rendered with no client-side JS (ADR-0001 §4); the
+        # prior GET-with-query-param + JS replace pattern violated the locked
+        # convention. The device_pk POST field is the picker's <select> value.
+        device_id = request.POST.get("device")
+        device = get_object_or_404(Device, pk=device_id)
+        return redirect("plugins:netbox_pyats:device_parse", device_id=device.pk)
 
 
 class GenieLearnLandingView(PermissionRequiredMixin, View):

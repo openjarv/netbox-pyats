@@ -15,10 +15,11 @@
           The result lands as a <code>kind=parse</code> snapshot in the device's
           PyATS tab history.
         </p>
-        <form method="get" onsubmit="return genieParseGo(this);">
+        <form method="post">
+          {% csrf_token %}
           <div class="mb-3">
             <label for="genie-parse-device" class="form-label">Device</label>
-            <select id="genie-parse-device" class="form-select" required>
+            <select id="genie-parse-device" name="device" class="form-select" required>
               <option value="" disabled selected>Select a device&hellip;</option>
               {% for device in devices %}
                 <option value="{{ device.pk }}">{{ device }}</option>
@@ -33,16 +34,4 @@
     </div>
   </div>
 </div>
-<script>
-  // Redirect the picker GET to the per-device parse page. Done client-side so
-  // the landing view stays read-only (no Genie import, ADR-0001 §6) and holds
-  // no device state.
-  function genieParseGo(form) {
-    var pk = form.querySelector('#genie-parse-device').value;
-    if (pk) {
-      window.location.href = "{% url 'plugins:netbox_pyats:device_parse' device_id=0 %}".replace('/0/parse/', '/' + pk + '/parse/');
-    }
-    return false;
-  }
-</script>
 {% endblock content %}
