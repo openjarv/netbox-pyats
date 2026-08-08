@@ -191,9 +191,17 @@ class TestConfigCapture:
         # Both halves failed → error status, empty config, warning recorded.
         # config_raw is "" (execute failed) — compliance against this snapshot
         # classifies as error with "snapshot raw config is empty".
+        # ATW-672: _capture_config no longer raises RuntimeError when both
+        # parser and execute fail; it returns ({}, "", warnings) aligned with
+        # _capture_parse's warn-and-continue pattern. The row is still flagged
+        # error (empty config) but the failure surfaces via the warning
+        # instead of an exception, so a transient Genie parser bug produces a
+        # warning row rather than aborting the capture.
         assert result.status == SnapshotStatusChoices.STATUS_ERROR
         assert result.data == {"config": {}, "config_raw": ""}
         assert any("config capture failed" in w for w in result.warnings)
+        assert any("parser boom" in w for w in result.warnings)
+        assert any("execute boom" in w for w in result.warnings)
 
     def test_silent_raw_execute_failure_surfaces_as_warning(self):
         # ATW-430: when the first execute('show running-config') fails but the

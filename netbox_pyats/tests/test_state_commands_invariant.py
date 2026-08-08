@@ -93,6 +93,12 @@ class TestStateCommandsInvariant:
         # spanning-tree, mac-address-table). These 5 commands are Genie-parsable
         # across the supported OS matrix and address real-world NetBox population
         # friction.
+        #
+        # ATW-671 adds (bgp summary, mpls ldp neighbor): BGP neighbor state is a
+        # top-3 population-friction adjacency; `show bgp summary` has Genie
+        # parser coverage across the full supported OS matrix. `show mpls ldp
+        # neighbor` covers iosxe/iosxr/nxos/junos and degrades gracefully on
+        # the rest via the per-command ParserNotFound skip.
         expected = {
             "show version",
             "show inventory",
@@ -107,6 +113,8 @@ class TestStateCommandsInvariant:
             "show ip ospf neighbor",
             "show spanning-tree",
             "show mac-address-table",
+            "show bgp summary",
+            "show mpls ldp neighbor",
         }
         actual = set(STATE_COMMANDS)
         missing = expected - actual
