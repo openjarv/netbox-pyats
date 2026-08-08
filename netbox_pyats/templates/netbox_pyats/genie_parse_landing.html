@@ -1,0 +1,48 @@
+{% extends 'base/layout.html' %}
+
+{% block title %}Genie Parse{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col col-md-6 offset-md-3">
+    <div class="card">
+      <h5 class="card-header">Genie Parse</h5>
+      <div class="card-body">
+        <p class="text-muted">
+          Run Genie parsers on demand against a device. Parsing is per-device —
+          pick the device below to open its Parse page, where you can select
+          commands from the cached parser catalog and/or type a manual command.
+          The result lands as a <code>kind=parse</code> snapshot in the device's
+          PyATS tab history.
+        </p>
+        <form method="get" onsubmit="return genieParseGo(this);">
+          <div class="mb-3">
+            <label for="genie-parse-device" class="form-label">Device</label>
+            <select id="genie-parse-device" class="form-select" required>
+              <option value="" disabled selected>Select a device&hellip;</option>
+              {% for device in devices %}
+                <option value="{{ device.pk }}">{{ device }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="text-end">
+            <button type="submit" class="btn btn-primary">Open Parse page</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  // Redirect the picker GET to the per-device parse page. Done client-side so
+  // the landing view stays read-only (no Genie import, ADR-0001 §6) and holds
+  // no device state.
+  function genieParseGo(form) {
+    var pk = form.querySelector('#genie-parse-device').value;
+    if (pk) {
+      window.location.href = "{% url 'plugins:netbox_pyats:device_parse' device_id=0 %}".replace('/0/parse/', '/' + pk + '/parse/');
+    }
+    return false;
+  }
+</script>
+{% endblock content %}
