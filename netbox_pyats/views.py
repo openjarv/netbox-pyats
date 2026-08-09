@@ -1068,7 +1068,7 @@ class GenieLearnView(PermissionRequiredMixin, View):
        GET (``?device=<pk>``) that reloads the page with the selected device
        highlighted, plus a POST form that enqueues a Genie Ops Learn job via
        :func:`jobs.enqueue_learn`. The Learn job drives the Genie Ops
-       framework (``Lookup.from_device(device).ops.<feature>(device).learn()``)
+       framework (per-feature Ops ``.learn()``)
        on the worker and stores a ``kind='learn'`` snapshot. No client-side
        JS (ADR-0001 §4).
     3. Recent learn results — the latest ``kind='learn'`` :class:`PyatsSnapshot`

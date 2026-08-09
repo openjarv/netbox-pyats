@@ -1120,7 +1120,7 @@ def enqueue_learn(device, *, user=None):
     :class:`PyatsJob` row with ``job_type=learn``, a NetBox :class:`core.models.Job`
     row, and enqueues the :func:`learn_snapshot_job` callable on the ``pyats``
     queue. The job builds a one-device testbed, connects, drives the Genie Ops
-    framework (``Lookup.from_device(device).ops.<feature>(device).learn()``),
+    framework (the Genie Ops framework (per-feature Ops ``.learn()``)),
     and persists a ``kind='learn'`` :class:`PyatsSnapshot` row.
 
     Args:
@@ -1307,7 +1307,7 @@ def learn_snapshot_job(job, pyats_job_id: int | None = None, **kwargs):
 
     The Learn logic lives in :func:`netbox_pyats.capture.capture_snapshot`
     (``kind='learn'`` → :func:`capture._capture_learn`, which drives the Genie
-    Ops framework via ``Lookup.from_device(device).ops.<feature>(device).learn()``);
+    Ops framework via the Genie Ops framework (per-feature Ops ``.learn()``));
     this function only handles the NetBox-side plumbing (load the Device, run
     the capture, write the :class:`PyatsSnapshot` row, log to the Job).
     Multi-vendor graceful degradation is enforced in

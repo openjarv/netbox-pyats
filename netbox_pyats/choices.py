@@ -48,7 +48,7 @@ class SnapshotKindChoices(models.TextChoices):
     ``triggered_by='user'`` (see :class:`SnapshotTriggerChoices`).
 
     ``learn`` (ATW-730) is the Genie Learn capture: the worker connects via
-    the Genie Ops framework — ``Lookup.from_device(device).ops.<feature>(device).learn()``
+    the Genie Ops framework — the Genie Ops framework (per-feature Ops ``.learn()``)
     for each Ops feature class the device exposes — and stores the collected
     feature state under ``data["learn"]`` keyed by feature name. Unlike
     ``parse`` (one command at a time via ``device.parse()``), Learn discovers
@@ -204,7 +204,7 @@ class PyatsJobTypeChoices(models.TextChoices):
     on-demand, user-driven parse job (ATW-241 child 3) that runs an explicit
     command list via ``device.parse(...)`` with a raw ``execute()`` fallback.
     ``learn`` (ATW-730) runs the Genie Ops Learn capture —
-    ``Lookup.from_device(device).ops.<feature>(device).learn()`` per Ops
+    the Genie Ops framework (per-feature Ops ``.learn()``) per Ops
     feature — producing a ``kind='learn'`` snapshot. Each maps 1:1 to an
     ``enqueue_*`` helper in :mod:`netbox_pyats.jobs`.
     """

@@ -18,9 +18,8 @@
           Genie Learn discovers and collects device state by feature
           (interfaces, BGP, OSPF, routing, &hellip;) in one operation via the
           Genie Ops framework. Pick a device below and click <em>Run Learn</em>;
-          the worker connects, drives
-          <code>Lookup.from_device(device).ops.&lt;feature&gt;(device).learn()</code>
-          for each Ops feature class, and stores a <code>kind=learn</code>
+          the worker connects, runs the Genie Ops <em>learn</em> for each
+          feature the device supports, and stores a <code>kind=learn</code>
           snapshot. The result appears in the recent results table below when
           the worker finishes.
         </p>

@@ -379,16 +379,14 @@ def _capture_learn(pyats_device) -> tuple[dict, list]:
     Ops classes (interface, bgp, ospf, routing, &hellip;) in a single operation.
     Unlike the per-command ``device.parse(...)`` path used by ``kind='state'``
     and ``kind='parse'``, Learn drives the Genie Ops framework: it enumerates
-    the Ops feature classes the device exposes via
-    ``Lookup.from_device(device)`` and calls
-    ``ops.<feature>(device).learn()`` on each, producing a structured snapshot
-    of device feature state.
+    the Ops feature classes the device exposes and calls ``.learn()`` on each,
+    producing a structured snapshot of device feature state.
 
     The verified Genie API has no top-level ``genie.learn(device)`` function
     (see the note in :func:`_capture_state`); Learn works via per-feature Ops
     classes. This helper is the worker-only implementation of that path.
 
-    .. note:: Genie abstraction-package wiring (CTO review pending, ATW-730).
+    .. note:: Genie abstraction-package wiring (known production gap, ATW-730).
 
        ``Lookup.from_device(device)`` called from outside the ``genie`` package
        stack (as here, from ``netbox_pyats.capture``) discovers **zero**
@@ -396,15 +394,18 @@ def _capture_learn(pyats_device) -> tuple[dict, list]:
        package named "ops"'``. Verified against Genie 26.6 in the worker image.
        The working pattern (see ``genie.libs.sdk.libs.utils.mapping.py``) is::
 
-           lookup = Lookup.from_device(device, packages={'abstract_ops': genie.libs.ops})
-           cls = lookup.abstract_ops.<feature>.<feature>.<ClassName>(device)
+           lookup = Lookup.from_device(device, packages={'ops': genie.libs.ops})
+           cls = lookup.ops.<feature>.<feature>.<ClassName>
+           instance = cls(device); instance.learn()
 
-       i.e. pass ``packages=`` explicitly and use the 2-level
-       ``abstract_ops.<feature>.<ClassName>`` resolution (capitalized feature
-       name), enumerating feature names from ``genie.libs.ops`` submodules.
-       The 1-level ``lookup.ops.<feature>(device)`` model used here matches the
-       unit-test stubs but not the real Genie API. Pending CTO sign-off on the
-       integration approach before changing it (architecture boundary).
+       i.e. pass ``packages=`` explicitly, enumerate feature names from
+       ``genie.libs.ops`` submodules, and use the 2-level
+       ``ops.<feature>.<feature>.<ClassName>`` resolution (capitalized feature
+       name). The 1-level ``lookup.ops.<feature>(device)`` model used here
+       matches the unit-test stubs but not the real Genie API — as written,
+       ``_capture_learn`` records an ``error`` row against a real device.
+       Tracked in ATW-730; the view-layer and model structure are unaffected
+       by the fix, which is confined to this function's Genie wiring.
 
     Args:
         pyats_device: a connected ``pyats.topology.Device`` (or a duck-typed

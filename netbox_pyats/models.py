@@ -224,7 +224,8 @@ class PyatsSnapshot(NetBoxModel):
     - ``full``:   ``{"config": {...}, "config_raw": "...", "state": {...}}``
     - ``learn``:  ``{"learn": {<feature: <Ops learn output>, ...>}}` — one entry
       per Genie Ops feature class the device exposed (ATW-730). Each value is
-      the structured dict returned by ``Lookup.from_device(device).ops.<feature>(device).learn()``.
+      the structured dict returned by the Genie Ops ``.learn()`` call for that
+      feature (see :func:`netbox_pyats.capture._capture_learn`).
 
     ``data["config"]`` is the Genie abstract-config structured dict (used by
     the Phase 3 snapshot-vs-snapshot diff). ``data["config_raw"]`` is the raw
