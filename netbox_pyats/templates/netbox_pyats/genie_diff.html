@@ -1,0 +1,166 @@
+{% extends 'base/layout.html' %}
+{% load helpers %}
+{% load form_helpers %}
+{% load django_tables2 %}
+
+{% block title %}Genie Diff{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col col-md-10 offset-md-1">
+    <div class="card">
+      <h5 class="card-header">
+        Genie Diff
+        <span class="badge bg-secondary ms-2">{{ mode }}</span>
+      </h5>
+      <div class="card-body">
+        <p class="text-muted">
+          Compare two snapshots to see what changed. Pick a mode, select
+          devices and snapshots, then click Diff. The result lands as a
+          <code>PyatsSnapshotDiff</code> row and appears in the recent diffs
+          table below when the worker finishes.
+        </p>
+
+        {# ── Mode picker (GET form — reloads with ?mode=) ── #}
+        <form method="get" action="{% url 'plugins:netbox_pyats:genie_diff' %}" class="mb-3">
+          <div class="row">
+            <div class="col col-md-4">
+              <label for="genie-diff-mode" class="form-label">Diff mode</label>
+              <select id="genie-diff-mode" name="mode" class="form-select">
+                <option value="same" {% if mode == 'same' %}selected{% endif %}>Same device</option>
+                <option value="cross" {% if mode == 'cross' %}selected{% endif %}>Cross-device</option>
+              </select>
+            </div>
+            <div class="col col-md-8 d-flex align-items-end">
+              <button type="submit" class="btn btn-outline-primary">
+                <i class="mdi mdi-refresh"></i> Switch mode
+              </button>
+            </div>
+          </div>
+        </form>
+
+        <hr>
+
+        {# ── Device pickers (GET form — reloads with ?before_device=&after_device=) ── #}
+        <form method="get" action="{% url 'plugins:netbox_pyats:genie_diff' %}" class="mb-3">
+          <input type="hidden" name="mode" value="{{ mode }}">
+          <div class="row">
+            <div class="col col-md-5">
+              <label for="genie-diff-before-device" class="form-label">Before device</label>
+              <select id="genie-diff-before-device" name="before_device" class="form-select">
+                <option value="" {% if not before_device %}selected{% endif %}>Select a device&hellip;</option>
+                {% for device in devices %}
+                  <option value="{{ device.pk }}" {% if before_device and before_device.pk == device.pk %}selected{% endif %}>{{ device }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col col-md-5">
+              <label for="genie-diff-after-device" class="form-label">
+                After device
+                {% if mode == 'same' %}<span class="text-muted small">(same as before)</span>{% endif %}
+              </label>
+              <select id="genie-diff-after-device" name="after_device" class="form-select" {% if mode == 'same' %}disabled{% endif %}>
+                {% if mode == 'cross' %}
+                  <option value="" {% if not after_device %}selected{% endif %}>Select a device&hellip;</option>
+                  {% for device in devices %}
+                    <option value="{{ device.pk }}" {% if after_device and after_device.pk == device.pk %}selected{% endif %}>{{ device }}</option>
+                  {% endfor %}
+                {% else %}
+                  {# Same-device mode: after device is always the before device #}
+                  {% if before_device %}<option value="{{ before_device.pk }}" selected>{{ before_device }}</option>{% endif %}
+                {% endif %}
+              </select>
+            </div>
+            <div class="col col-md-2 d-flex align-items-end">
+              <button type="submit" class="btn btn-outline-primary w-100">
+                <i class="mdi mdi-refresh"></i> Load
+              </button>
+            </div>
+          </div>
+        </form>
+
+        {# ── Snapshot pickers + Diff form (POST — only when devices selected) ── #}
+        {% if before_device and after_device %}
+          {% if before_snapshots|length >= 1 and after_snapshots|length >= 1 %}
+            <form method="post" action="{{ diff_url }}">
+              {% csrf_token %}
+              <div class="row mb-3">
+                <div class="col col-md-5">
+                  <label for="id_before_id" class="form-label">
+                    Before snapshot
+                    <span class="text-muted small">({{ before_device }})</span>
+                  </label>
+                  <select name="before_id" id="id_before_id" class="form-select">
+                    {% for snap in before_snapshots %}
+                      <option value="{{ snap.pk }}">{{ snap.captured_at|date:'Y-m-d H:i:s' }} · {{ snap.get_kind_display }} · #{{ snap.pk }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col col-md-5">
+                  <label for="id_after_id" class="form-label">
+                    After snapshot
+                    <span class="text-muted small">({{ after_device }})</span>
+                  </label>
+                  <select name="after_id" id="id_after_id" class="form-select">
+                    {% for snap in after_snapshots %}
+                      <option value="{{ snap.pk }}">{{ snap.captured_at|date:'Y-m-d H:i:s' }} · {{ snap.get_kind_display }} · #{{ snap.pk }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col col-md-2 d-flex align-items-end">
+                  <button type="submit" class="btn btn-primary w-100">
+                    <i class="mdi mdi-compare"></i> Diff
+                  </button>
+                </div>
+              </div>
+              {# Carry the mode through the POST so the view knows whether to allow cross-device #}
+              <input type="hidden" name="mode" value="{{ mode }}">
+              <p class="text-muted small mb-0">
+                Queues a structured diff on the dedicated <code>pyats</code> RQ worker.
+                {% if mode == 'cross' and before_device.pk != after_device.pk %}
+                  <strong>Cross-device:</strong> comparing snapshots from two different devices — the diff engine operates on the JSONB payloads, so the structure must match for a meaningful comparison.
+                {% else %}
+                  Same-device: both snapshots belong to <strong>{{ before_device }}</strong>.
+                {% endif %}
+                The result appears in the recent diffs table when the worker finishes.
+              </p>
+            </form>
+          {% else %}
+            <div class="alert alert-warning">
+              {% if before_snapshots|length < 1 and after_snapshots|length < 1 %}
+                Neither device has snapshots yet. Capture at least one snapshot for each device before diffing.
+              {% elif before_snapshots|length < 1 %}
+                <strong>{{ before_device }}</strong> has no snapshots yet. Capture at least one snapshot before diffing.
+              {% else %}
+                <strong>{{ after_device }}</strong> has no snapshots yet. Capture at least one snapshot before diffing.
+              {% endif %}
+            </div>
+          {% endif %}
+        {% else %}
+          <div class="alert alert-info">
+            Select a device above to load its snapshots and run a diff.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {# ── Recent diffs (all devices) ── #}
+    <div class="card mt-3">
+      <h5 class="card-header">
+        Recent Diffs
+        {% if recent_count %}<span class="badge bg-secondary ms-2">{{ recent_count }}</span>{% endif %}
+        <a href="{{ diff_list_url }}" class="btn btn-outline-secondary btn-sm float-end">View all</a>
+      </h5>
+      <div class="card-body">
+        {% if recent_count %}
+          {% render_table recent_table %}
+        {% else %}
+          <p class="text-muted mb-0">
+            No diffs yet. Run a diff above to see results here.
+          </p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

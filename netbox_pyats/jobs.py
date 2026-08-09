@@ -481,7 +481,7 @@ def capture_snapshot_job(
 # --------------------------------------------------------------------------- #
 
 
-def enqueue_diff(device, *, before_id, after_id, user=None):
+def enqueue_diff(device, *, before_id, after_id, user=None, cross_device=False):
     """Enqueue a snapshot diff job on the dedicated ``pyats`` RQ queue.
 
     This is the entry point the device-page PyATS panel calls when the operator
@@ -493,10 +493,17 @@ def enqueue_diff(device, *, before_id, after_id, user=None):
     Args:
         device: the NetBox ``dcim.Device`` the two snapshots belong to. Used as
             the :class:`Job` instance for status linkage; the job re-loads the
-            snapshots by id.
+            snapshots by id. For a cross-device diff (ATW-731) this is the
+            before snapshot's device — the :class:`PyatsSnapshotDiff` row's
+            ``device`` FK is required (CASCADE), so the before side owns the row.
         before_id: primary key of the earlier :class:`PyatsSnapshot`.
         after_id: primary key of the later :class:`PyatsSnapshot`.
         user: the NetBox user initiating the diff (for the Job row).
+        cross_device: when ``True``, the two snapshots may belong to different
+            devices (ATW-731 cross-device diff). The worker skips the
+            same-device guard and records the before snapshot's device on the
+            diff row. Defaults to ``False`` so the device-page diff form
+            (same-device) is unchanged.
 
     Returns:
         The NetBox :class:`core.models.Job` row tracking this diff.
@@ -514,6 +521,7 @@ def enqueue_diff(device, *, before_id, after_id, user=None):
         before_id=before_id,
         after_id=after_id,
         pyats_job_id=pyats_job.pk,
+        cross_device=cross_device,
     )
     pyats_job.core_job = core_job
     pyats_job.rq_job_id = getattr(core_job, "job_id", "") or ""
@@ -522,7 +530,9 @@ def enqueue_diff(device, *, before_id, after_id, user=None):
     return core_job
 
 
-def run_diff_job(job, before_id: int, after_id: int, pyats_job_id: int | None = None, **kwargs):
+def run_diff_job(
+    job, before_id: int, after_id: int, pyats_job_id: int | None = None, cross_device: bool = False, **kwargs
+):
     """RQ worker entry point — diff two snapshots and persist the result.
 
     NetBox's :class:`core.models.Job.enqueue` calls this with ``job`` (the
@@ -553,6 +563,14 @@ def run_diff_job(job, before_id: int, after_id: int, pyats_job_id: int | None = 
     FK. This matches the Phase 4 compliance job's error-row contract
     (``PyatsComplianceRun.golden`` / ``.snapshot`` are also nullable — see
     migration ``0006_compliance_run_nullable_fks``). See ATW-68.
+
+    Cross-device diff (ATW-731): when ``cross_device`` is ``True`` the
+    same-device guard is skipped and the two snapshots may belong to different
+    devices. The diff row's ``device`` FK is the before snapshot's device
+    (the required ``device`` column can only point to one device; the before
+    side is the natural owner). The after snapshot's device is recorded in
+    ``parser_warnings`` as ``"cross-device diff: after device=<name>"`` so the
+    operator can see the second device in the diff detail view.
     """
     from dcim.models import Device
 
@@ -601,7 +619,17 @@ def run_diff_job(job, before_id: int, after_id: int, pyats_job_id: int | None = 
         # Enforce same-device invariant: a diff across two different devices is a
         # programmer error (the picker only offers snapshots of one device), but
         # the worker must still produce a row rather than crash silently.
-        if before_snap.device_id != device.pk or after_snap.device_id != device.pk:
+        # Cross-device diff (ATW-731) is explicitly opted into via
+        # ``cross_device=True`` (the dedicated Genie Diff page), so the guard
+        # is skipped in that case and the after device is recorded in warnings.
+        if cross_device:
+            if before_snap.device_id != after_snap.device_id:
+                logger.info(
+                    "Cross-device diff (before device=%s, after device=%s)",
+                    before_snap.device_id,
+                    after_snap.device_id,
+                )
+        elif before_snap.device_id != device.pk or after_snap.device_id != device.pk:
             diff_row = PyatsSnapshotDiff(
                 device=device,
                 before=before_snap,
@@ -644,6 +672,14 @@ def run_diff_job(job, before_id: int, after_id: int, pyats_job_id: int | None = 
                 _finish_success(job, pyats_job_id, related_diff=diff_row)
             raise
 
+        # Cross-device diff (ATW-731): record the after device so the operator
+        # can identify the second device in the diff detail view. The diff
+        # engine is device-agnostic (operates on JSONB), so the diff tree itself
+        # is unchanged; this is metadata for the viewer.
+        warnings = list(result.warnings)
+        if cross_device and before_snap.device_id != after_snap.device_id:
+            warnings.insert(0, f"cross-device diff: after device={after_snap.device}")
+
         diff_row = PyatsSnapshotDiff(
             device=device,
             before=before_snap,
@@ -651,7 +687,7 @@ def run_diff_job(job, before_id: int, after_id: int, pyats_job_id: int | None = 
             status=result.status,
             diff=result.diff,
             summary=result.summary,
-            parser_warnings=result.warnings,
+            parser_warnings=warnings,
             size_bytes=result.size_bytes,
         )
         diff_row.full_clean()

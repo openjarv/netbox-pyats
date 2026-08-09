@@ -1297,3 +1297,161 @@ class GenieParseView(PermissionRequiredMixin, View):
                 "recent_count": len(recent),
             },
         )
+
+
+class GenieDiffView(PermissionRequiredMixin, View):
+    """Dedicated Genie Diff page (ATW-731).
+
+    Promotes snapshot diff from the device-page PyATS tab + the
+    ``pyatssnapshotdiff_list`` view to a first-class plugin page directly
+    accessible from the Genie menu. The page combines three surfaces on one
+    URL (``/genie/diff/``):
+
+    1. **Same-device diff** — pick a device, then two snapshots of that device.
+       Reuses the existing :func:`jobs.enqueue_diff` path with
+       ``cross_device=False`` (same semantics as the device-page diff form).
+    2. **Cross-device diff** (new) — pick a before device + before snapshot
+       and an after device + after snapshot, comparing the same feature across
+       two different devices (e.g. BGP state on rtr01 vs rtr02). Enqueues with
+       ``cross_device=True`` so the worker skips the same-device guard.
+    3. **Recent diffs** — the latest :class:`PyatsSnapshotDiff` rows across
+       all devices, rendered via :class:`tables.PyatsSnapshotDiffTable` so the
+       operator sees diff activity at a glance. The full history remains on
+       the ``pyatssnapshotdiff_list`` view (linked from this page).
+
+    The device-page diff form (:class:`DeviceDiffView`) stays as a convenience
+    link; this page is the primary surface. No new models, no migrations —
+    the diff engine (``diff.py:diff_snapshots``) is device-agnostic and
+    operates on the JSONB payloads unchanged. No Genie import in the web
+    process (ADR-0001 §6).
+
+    The page is GET-driven (no JS): the operator picks a device (or two for
+    cross-device) via ``<select>`` elements submitted via GET
+    (``?before_device=<pk>&after_device=<pk>``), which reloads the page with
+    the snapshot pickers populated for the selected device(s). The diff form
+    POSTs the snapshot IDs + mode, the view validates and enqueues.
+
+    Requires ``netbox_pyats.add_pyatssnapshotdiff`` (to enqueue the diff) and
+    ``netbox_pyats.view_pyatssnapshotdiff`` (to read the recent-diffs table).
+    """
+
+    permission_required = ("netbox_pyats.add_pyatssnapshotdiff", "netbox_pyats.view_pyatssnapshotdiff")
+    template_name = "netbox_pyats/genie_diff.html"
+
+    #: How many recent diffs to show on the page.
+    RECENT_LIMIT = 15
+    #: How many snapshots to offer per device in the picker.
+    SNAPSHOT_LIMIT = 50
+
+    def get(self, request):
+        from django.shortcuts import render
+
+        before_device_id = request.GET.get("before_device")
+        after_device_id = request.GET.get("after_device") or before_device_id
+        mode = request.GET.get("mode", "same")
+
+        before_device = None
+        after_device = None
+        if before_device_id:
+            before_device = get_object_or_404(Device, pk=before_device_id)
+        if after_device_id:
+            after_device = get_object_or_404(Device, pk=after_device_id)
+
+        before_snapshots = self._snapshots_for_device(before_device)
+        after_snapshots = self._snapshots_for_device(after_device)
+
+        recent = list(
+            PyatsSnapshotDiff.objects.select_related("device", "before", "after").order_by("-created")[
+                : self.RECENT_LIMIT
+            ]
+        )
+        recent_table = tables.PyatsSnapshotDiffTable(recent)
+
+        return render(
+            request,
+            self.template_name,
+            {
+                "devices": Device.objects.select_related("platform").order_by("name"),
+                "mode": mode,
+                "before_device": before_device,
+                "after_device": after_device,
+                "before_snapshots": before_snapshots,
+                "after_snapshots": after_snapshots,
+                "diff_url": _genie_diff_post_url(),
+                "diff_list_url": _diff_list_url(),
+                "recent_table": recent_table,
+                "recent_count": len(recent),
+            },
+        )
+
+    def post(self, request):
+        form = forms.GenieDiffForm(request.POST)
+        if not form.is_valid():
+            messages.error(request, f"Invalid diff request: {form.errors}")
+            return redirect("plugins:netbox_pyats:genie_diff")
+
+        before_id = form.cleaned_data["before_id"]
+        after_id = form.cleaned_data["after_id"]
+        mode = form.cleaned_data["mode"]
+
+        before = PyatsSnapshot.objects.filter(pk=before_id).select_related("device").first()
+        after = PyatsSnapshot.objects.filter(pk=after_id).select_related("device").first()
+        if before is None or after is None:
+            messages.error(
+                request,
+                f"Both snapshots must exist. (before_id={before_id}, after_id={after_id})",
+            )
+            return redirect("plugins:netbox_pyats:genie_diff")
+        if before_id == after_id:
+            messages.error(request, "Cannot diff a snapshot against itself.")
+            return redirect("plugins:netbox_pyats:genie_diff")
+
+        cross_device = mode == "cross" and before.device_id != after.device_id
+        # The before snapshot's device owns the PyatsSnapshotDiff row (the
+        # ``device`` FK is required + CASCADE; the before side is the natural
+        # owner). For same-device diff this matches the device-page form.
+        device = before.device
+
+        if mode == "same" and before.device_id != after.device_id:
+            messages.error(
+                request,
+                "Same-device mode requires both snapshots to belong to the same device. "
+                f"(before device={before.device}, after device={after.device})",
+            )
+            return redirect("plugins:netbox_pyats:genie_diff")
+
+        core_job = jobs.enqueue_diff(
+            device,
+            before_id=before_id,
+            after_id=after_id,
+            user=request.user,
+            cross_device=cross_device,
+        )
+        label = "cross-device" if cross_device else "same-device"
+        messages.success(
+            request,
+            f"PyATS {label} diff queued (#{before_id}→#{after_id}); "
+            f"core.Job #{core_job.pk}. The result will appear in the recent "
+            "diffs table when the worker finishes.",
+        )
+        return redirect("plugins:netbox_pyats:genie_diff")
+
+    def _snapshots_for_device(self, device):
+        """Return the most recent snapshots for a device (or empty list)."""
+        if device is None:
+            return []
+        return list(PyatsSnapshot.objects.filter(device=device).order_by("-captured_at")[: self.SNAPSHOT_LIMIT])
+
+
+def _genie_diff_post_url():
+    """Return the POST URL for the Genie Diff page diff form."""
+    from django.urls import reverse
+
+    return reverse("plugins:netbox_pyats:genie_diff")
+
+
+def _diff_list_url():
+    """Return the full diff history list URL (pyatssnapshotdiff_list)."""
+    from django.urls import reverse
+
+    return reverse("plugins:netbox_pyats:pyatssnapshotdiff_list")

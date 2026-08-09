@@ -23,8 +23,10 @@ from netbox.plugins import PluginMenu, PluginMenuItem
 #     ``kind='learn'`` PyatsSnapshot row. Permissions reuse
 #     ``add_pyatssnapshot`` (the learn result lands as a snapshot) +
 #     ``view_pyatssnapshot`` (the catalog + recent-results table read rows).
-#   * Genie Diff → the snapshot-diff list (ATW-243). Diff already has a
-#     full list view; ATW-731 promotes it to a dedicated page.
+#   * Genie Diff → the dedicated Genie Diff page (``genie_diff``, ATW-731) —
+#     the primary surface for all diff operations: same-device snapshot diff,
+#     cross-device diff, and recent diffs. The full diff history remains on
+#     ``pyatssnapshotdiff_list`` (linked from the Diff page).
 #
 # Ordering convention (ADR-0001 §3 / ATW-83): the static ``supported_platforms``
 # report (the only non-model menu entry) is last overall — it closes the
@@ -46,7 +48,7 @@ genie_menu = PluginMenu(
                     permissions=["netbox_pyats.add_pyatssnapshot", "netbox_pyats.view_pyatssnapshot"],
                 ),
                 PluginMenuItem(
-                    link="plugins:netbox_pyats:pyatssnapshotdiff_list",
+                    link="plugins:netbox_pyats:genie_diff",
                     link_text=_("Genie Diff"),
                     permissions=["netbox_pyats.view_pyatssnapshotdiff"],
                 ),
