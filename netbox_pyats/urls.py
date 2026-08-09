@@ -6,10 +6,12 @@ from netbox_pyats import views
 app_name = "netbox_pyats"
 
 urlpatterns = [
-    # Genie landing pages (ATW-728 — navigation restructure). Interim
-    # operator-facing surface for the Genie menu's Parse/Learn entries; the
-    # full dedicated pages ship in ATW-729/730. Diff reuses pyatssnapshotdiff_list.
-    path("genie/parse/", views.GenieParseLandingView.as_view(), name="genie_parse"),
+    # Genie dedicated pages (ATW-728 nav restructure → ATW-729 dedicated
+    # Parse page). Parse now has a full first-class page (device picker +
+    # parse form + recent results) superseding the interim redirect landing.
+    # Learn remains on the interim landing page until ATW-730. Diff reuses
+    # pyatssnapshotdiff_list.
+    path("genie/parse/", views.GenieParseView.as_view(), name="genie_parse"),
     path("genie/learn/", views.GenieLearnLandingView.as_view(), name="genie_learn"),
     # PyATS Credentials (standard NetBox CRUD). Detail/Edit/Delete/Changelog/
     # Journal are auto-registered via register_model_view on the view classes
