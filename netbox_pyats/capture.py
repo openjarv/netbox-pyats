@@ -386,7 +386,7 @@ def _capture_learn(pyats_device) -> tuple[dict, list]:
     (see the note in :func:`_capture_state`); Learn works via per-feature Ops
     classes. This helper is the worker-only implementation of that path.
 
-    .. note:: Genie abstraction-package wiring (known production gap, ATW-730).
+    .. note:: Genie abstraction-package wiring (ATW-754).
 
        ``Lookup.from_device(device)`` called from outside the ``genie`` package
        stack (as here, from ``netbox_pyats.capture``) discovers **zero**
@@ -401,11 +401,7 @@ def _capture_learn(pyats_device) -> tuple[dict, list]:
        i.e. pass ``packages=`` explicitly, enumerate feature names from
        ``genie.libs.ops`` submodules, and use the 2-level
        ``ops.<feature>.<feature>.<ClassName>`` resolution (capitalized feature
-       name). The 1-level ``lookup.ops.<feature>(device)`` model used here
-       matches the unit-test stubs but not the real Genie API — as written,
-       ``_capture_learn`` records an ``error`` row against a real device.
-       Tracked in ATW-730; the view-layer and model structure are unaffected
-       by the fix, which is confined to this function's Genie wiring.
+       name). ``_capture_learn`` implements exactly that pattern.
 
     Args:
         pyats_device: a connected ``pyats.topology.Device`` (or a duck-typed
@@ -426,16 +422,17 @@ def _capture_learn(pyats_device) -> tuple[dict, list]:
     learn: dict[str, Any] = {}
     warnings: list[str] = []
     try:
+        import genie.libs.ops
         from genie.ops.utils import Lookup
     except Exception as exc:  # noqa: BLE001 - genie import is worker-only
         return learn, [f"genie.ops.utils import failed: {exc}"]
 
     try:
-        lookup = Lookup.from_device(pyats_device)
+        lookup = Lookup.from_device(pyats_device, packages={"ops": genie.libs.ops})
     except Exception as exc:  # noqa: BLE001 - Lookup discovery failure
         return learn, [f"Lookup.from_device failed for {pyats_device.name}: {exc}"]
 
-    ops_attrs = _discover_ops_features(lookup)
+    ops_attrs = _discover_ops_features(lookup, genie.libs.ops)
     if not ops_attrs:
         warnings.append(
             f"no Ops feature classes discovered for {pyats_device.name} (os={getattr(pyats_device, 'os', '?')})"
@@ -466,47 +463,59 @@ def _capture_learn(pyats_device) -> tuple[dict, list]:
     return learn, warnings
 
 
-def _discover_ops_features(lookup) -> list[tuple[str, Any]]:
+def _discover_ops_features(lookup, ops_package) -> list[tuple[str, Any]]:
     """Return ``[(feature_name, ops_factory), ...]`` from a Genie Ops Lookup.
 
-    The Genie Ops ``Lookup`` object exposes the per-feature Ops class factories
-    via attributes on its ``ops`` namespace. Because the real Genie
-    ``Lookup.ops`` resolves feature names dynamically through ``__getattr__``
-    (they are not listed by ``dir()``), this helper first tries iteration over
-    the namespace (the path used by the Genie abstraction layer and by the
-    test stubs) and falls back to ``dir()`` for any namespace that exposes
-    features as real attributes. Each candidate is resolved with
-    ``getattr`` and kept only if it is callable.
+    Feature names come from the ``genie.libs.ops`` package's submodule list
+    (``pkgutil.iter_modules``), which is the authoritative enumeration of Ops
+    features for the installed Genie release. The ``lookup.ops`` namespace
+    itself is not iterable and ``dir()`` does not list the dynamic feature
+    attributes, so the package listing is the only reliable discovery source.
+
+    Each feature name is resolved through the 2-level Genie abstraction::
+
+        lookup.ops.<feature>            -> AbstractedModule (feature level)
+        lookup.ops.<feature>.<feature>  -> AbstractedModule (class level)
+        lookup.ops.<feature>.<feature>.<ClassName> -> concrete Ops class
+
+    where ``<ClassName>`` is the capitalized feature name (e.g. ``Interface``
+    for ``interface``, ``Bgp`` for ``bgp``). A factory closure is returned for
+    each successfully resolved feature; features that fail to resolve (the
+    device's os has no implementation for that feature) are skipped silently
+    — graceful degradation, one bad feature does not abort the Learn.
 
     Returns an empty list when no Ops features are discovered (the caller
-    records a warning). Order follows the namespace iteration order
+    records a warning). Order follows ``pkgutil.iter_modules`` order
     (deterministic per Genie release).
     """
+    import pkgutil
+
     features: list[tuple[str, Any]] = []
     ops_namespace = getattr(lookup, "ops", None)
     if ops_namespace is None:
         return features
 
-    # Primary path: iterate the namespace (real Genie resolves features via
-    # __getattr__; dir() does not list them). Duck-typed stubs expose features
-    # the same way.
-    names: list[str] = []
-    try:
-        names = list(ops_namespace)
-    except TypeError:
-        # Not iterable — fall back to dir()-based discovery for namespaces
-        # that expose features as real attributes.
-        names = [n for n in dir(ops_namespace) if not n.startswith("_")]
+    feature_names = sorted(
+        m.name
+        for m in pkgutil.iter_modules(ops_package.__path__)
+        if not m.name.startswith("_") and m.name not in ("tests", "utils")
+    )
 
-    for name in names:
-        if name.startswith("_"):
-            continue
+    for name in feature_names:
         try:
-            factory = getattr(ops_namespace, name)
-        except AttributeError:
+            feature_module = getattr(ops_namespace, name)
+            class_module = getattr(feature_module, name)
+            class_name = name.capitalize()
+            ops_class = getattr(class_module, class_name)
+        except Exception:  # noqa: BLE001 - resolution failure = feature not applicable to this os
+            # The Genie abstraction layer raises AttributeError (missing attr),
+            # LookupError (no token combination for this os), or ImportError
+            # (feature module absent for this os) — all mean "this feature is
+            # not implemented for the device's os". Skip silently; one
+            # unresolved feature does not abort the Learn.
             continue
-        if callable(factory):
-            features.append((name, factory))
+        if callable(ops_class):
+            features.append((name, ops_class))
     return features
 
 
