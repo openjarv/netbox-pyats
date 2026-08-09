@@ -388,6 +388,24 @@ def _capture_learn(pyats_device) -> tuple[dict, list]:
     (see the note in :func:`_capture_state`); Learn works via per-feature Ops
     classes. This helper is the worker-only implementation of that path.
 
+    .. note:: Genie abstraction-package wiring (CTO review pending, ATW-730).
+
+       ``Lookup.from_device(device)`` called from outside the ``genie`` package
+       stack (as here, from ``netbox_pyats.capture``) discovers **zero**
+       abstraction packages — ``lookup.ops`` raises ``KeyError: 'No abstract
+       package named "ops"'``. Verified against Genie 26.6 in the worker image.
+       The working pattern (see ``genie.libs.sdk.libs.utils.mapping.py``) is::
+
+           lookup = Lookup.from_device(device, packages={'abstract_ops': genie.libs.ops})
+           cls = lookup.abstract_ops.<feature>.<feature>.<ClassName>(device)
+
+       i.e. pass ``packages=`` explicitly and use the 2-level
+       ``abstract_ops.<feature>.<ClassName>`` resolution (capitalized feature
+       name), enumerating feature names from ``genie.libs.ops`` submodules.
+       The 1-level ``lookup.ops.<feature>(device)`` model used here matches the
+       unit-test stubs but not the real Genie API. Pending CTO sign-off on the
+       integration approach before changing it (architecture boundary).
+
     Args:
         pyats_device: a connected ``pyats.topology.Device`` (or a duck-typed
             object with ``name``, ``os``, and a ``learn()``-compatible Ops
