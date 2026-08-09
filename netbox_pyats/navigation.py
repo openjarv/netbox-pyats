@@ -9,18 +9,20 @@ from netbox.plugins import PluginMenu, PluginMenuItem
 # ``(group_label, [PluginMenuItem, ...])`` tuples. Each group renders as a
 # labelled section inside the top-level nav entry.
 #
-# Interim routing (ATW-728 — navigation restructure; the dedicated Genie
-# pages ship in the ATW-729/730/731 child issues):
+# Routing (post ATW-728/729/730):
 #   * Genie Parse → the dedicated Genie Parse page (``genie_parse``,
 #     ATW-729) — a device picker + on-demand parse form + recent parse
 #     results, all on one first-class page. Permissions reuse
 #     ``add_pyatssnapshot`` — the parse result lands as a
 #     ``kind='parse'`` PyatsSnapshot row, so that is the gate the
 #     underlying view enforces (no separate parse model).
-#   * Genie Learn → a landing page (``genie_learn``) rendering the parser
-#     catalog — the learned capability state the refresh job stores as
-#     PyatsParserCatalog rows (ATW-581). The dedicated Learn page replaces
-#     this entry in ATW-730.
+#   * Genie Learn → the dedicated Genie Learn page (``genie_learn``,
+#     ATW-730) — the parser catalog (learned capability state) + a device
+#     picker + Run Learn action + recent learn results. The Learn job
+#     drives the Genie Ops framework on the worker and stores a
+#     ``kind='learn'`` PyatsSnapshot row. Permissions reuse
+#     ``add_pyatssnapshot`` (the learn result lands as a snapshot) +
+#     ``view_pyatssnapshot`` (the catalog + recent-results table read rows).
 #   * Genie Diff → the snapshot-diff list (ATW-243). Diff already has a
 #     full list view; ATW-731 promotes it to a dedicated page.
 #
@@ -41,7 +43,7 @@ genie_menu = PluginMenu(
                 PluginMenuItem(
                     link="plugins:netbox_pyats:genie_learn",
                     link_text=_("Genie Learn"),
-                    permissions=["netbox_pyats.view_pyatssnapshot"],
+                    permissions=["netbox_pyats.add_pyatssnapshot", "netbox_pyats.view_pyatssnapshot"],
                 ),
                 PluginMenuItem(
                     link="plugins:netbox_pyats:pyatssnapshotdiff_list",

@@ -1,0 +1,139 @@
+{% extends 'base/layout.html' %}
+{% load helpers %}
+{% load django_tables2 %}
+
+{% block title %}Genie Learn{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col col-md-10 offset-md-1">
+    {# ── Run Learn (device picker + action) ── #}
+    <div class="card">
+      <h5 class="card-header">
+        Genie Learn
+        {% if selected_device and platform_supported %}<span class="badge bg-success ms-2">{{ pyats_os }}</span>{% elif selected_device %}<span class="badge bg-warning ms-2">unsupported platform</span>{% endif %}
+      </h5>
+      <div class="card-body">
+        <p class="text-muted">
+          Genie Learn discovers and collects device state by feature
+          (interfaces, BGP, OSPF, routing, &hellip;) in one operation via the
+          Genie Ops framework. Pick a device below and click <em>Run Learn</em>;
+          the worker connects, drives
+          <code>Lookup.from_device(device).ops.&lt;feature&gt;(device).learn()</code>
+          for each Ops feature class, and stores a <code>kind=learn</code>
+          snapshot. The result appears in the recent results table below when
+          the worker finishes.
+        </p>
+
+        {# Device picker (GET form — reloads the page with ?device=<pk>) #}
+        <form method="get" action="{% url 'plugins:netbox_pyats:genie_learn' %}" class="mb-3">
+          <div class="row">
+            <div class="col col-md-8">
+              <label for="genie-learn-device" class="form-label">Device</label>
+              <select id="genie-learn-device" name="device" class="form-select">
+                <option value="" {% if not selected_device %}selected{% endif %}>Select a device&hellip;</option>
+                {% for device in devices %}
+                  <option value="{{ device.pk }}" {% if selected_device and selected_device.pk == device.pk %}selected{% endif %}>{{ device }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col col-md-4 d-flex align-items-end">
+              <button type="submit" class="btn btn-outline-primary">
+                <i class="mdi mdi-refresh"></i> Load
+              </button>
+            </div>
+          </div>
+        </form>
+
+        {# Run Learn action (only when a device is selected) #}
+        {% if selected_device %}
+          {% if not platform_supported %}
+            <div class="alert alert-warning">
+              <strong>{{ selected_device }}</strong>'s platform maps to
+              <code>{{ pyats_os }}</code> — no Genie parser. A Learn will be
+              recorded as <strong>unsupported</strong> (no data).
+            </div>
+          {% endif %}
+          <form method="post" action="{% url 'plugins:netbox_pyats:genie_learn' %}">
+            {% csrf_token %}
+            <input type="hidden" name="device" value="{{ selected_device.pk }}">
+            <div class="text-end">
+              <button type="submit" class="btn btn-primary">
+                <i class="mdi mdi-school"></i> Run Learn
+              </button>
+            </div>
+          </form>
+        {% else %}
+          <div class="alert alert-info">
+            Select a device above to run a Genie Learn.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {# ── Parser catalog (learned capability state) ── #}
+    <div class="card mt-3">
+      <h5 class="card-header">
+        Parser Catalog
+        {% if catalog_rows|length %}<span class="badge bg-secondary ms-2">{{ catalog_rows|length }}</span>{% endif %}
+      </h5>
+      <div class="card-body">
+        <p class="text-muted small">
+          The cached set of CLI commands Genie can parse per pyATS os &mdash;
+          the learned capability surface the worker's
+          <code>genie.libs</code> has populated. Refresh the catalog from a
+          device's Parse tab or the Parser Catalog refresh schedule.
+        </p>
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>pyATS os</th>
+                <th class="text-end">Parseable commands</th>
+                <th>genie</th>
+                <th>pyats</th>
+                <th>Last refreshed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in catalog_rows %}
+                <tr>
+                  <td><code>{{ row.pyats_os }}</code></td>
+                  <td class="text-end">{{ row.commands|length }}</td>
+                  <td>{{ row.genie_version|default:"&mdash;" }}</td>
+                  <td>{{ row.pyats_version|default:"&mdash;" }}</td>
+                  <td>{{ row.refreshed_at|default:"&mdash;" }}</td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="5" class="text-muted text-center">
+                    No parser catalog rows yet. Run a refresh from a device's
+                    Parse tab or enable the Parser Catalog refresh schedule.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    {# ── Recent learn results (kind=learn, all devices) ── #}
+    <div class="card mt-3">
+      <h5 class="card-header">
+        Recent Learn Results
+        {% if recent_count %}<span class="badge bg-secondary ms-2">{{ recent_count }}</span>{% endif %}
+      </h5>
+      <div class="card-body">
+        {% if recent_count %}
+          {% render_table recent_table %}
+        {% else %}
+          <p class="text-muted mb-0">
+            No learn snapshots yet. Run a Learn above to see results here.
+          </p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

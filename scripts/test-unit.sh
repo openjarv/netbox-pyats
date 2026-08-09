@@ -36,6 +36,7 @@ unit_tests=(
   "${repo_root}/netbox_pyats/tests/test_diff.py"
   "${repo_root}/netbox_pyats/tests/test_testbed.py"
   "${repo_root}/netbox_pyats/tests/test_capture.py"
+  "${repo_root}/netbox_pyats/tests/test_capture_learn.py"
   "${repo_root}/netbox_pyats/tests/test_compliance.py"
   "${repo_root}/netbox_pyats/tests/test_compliance_job_legacy.py"
   "${repo_root}/netbox_pyats/tests/test_state_commands_invariant.py"
