@@ -9,14 +9,14 @@ from netbox.plugins import PluginMenu, PluginMenuItem
 # ``(group_label, [PluginMenuItem, ...])`` tuples. Each group renders as a
 # labelled section inside the top-level nav entry.
 #
-# Interim routing (ATW-728 — navigation restructure; the full dedicated
-# Genie pages ship in the ATW-729/730/731 child issues):
-#   * Genie Parse → a device-picker landing page (``genie_parse``) that
-#     redirects into the per-device parse sub-tab (ATW-241/250). Parse is
-#     inherently per-device, so the top-level entry resolves the device first.
-#     Permissions reuse ``add_pyatssnapshot`` — the parse result lands as a
-#     ``kind='parse'`` PyatsSnapshot row, so that is the gate the underlying
-#     per-device view enforces (no separate parse model).
+# Interim routing (ATW-728 — navigation restructure; the dedicated Genie
+# pages ship in the ATW-729/730/731 child issues):
+#   * Genie Parse → the dedicated Genie Parse page (``genie_parse``,
+#     ATW-729) — a device picker + on-demand parse form + recent parse
+#     results, all on one first-class page. Permissions reuse
+#     ``add_pyatssnapshot`` — the parse result lands as a
+#     ``kind='parse'`` PyatsSnapshot row, so that is the gate the
+#     underlying view enforces (no separate parse model).
 #   * Genie Learn → a landing page (``genie_learn``) rendering the parser
 #     catalog — the learned capability state the refresh job stores as
 #     PyatsParserCatalog rows (ATW-581). The dedicated Learn page replaces

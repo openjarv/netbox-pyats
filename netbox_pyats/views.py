@@ -1041,54 +1041,161 @@ class PyatsParserCatalogRefreshScheduleBulkDeleteView(generic.BulkDeleteView):
 
 
 # --------------------------------------------------------------------------- #
-# Genie landing pages (ATW-728 — navigation restructure)
+# Genie dedicated pages (ATW-728 nav restructure → ATW-729 dedicated Parse)
 # --------------------------------------------------------------------------- #
 # The Genie top-level menu (ATW-727) leads with the three primary Genie
-# tools: Parse, Learn, Diff. Diff already has a full list view
-# (``pyatssnapshotdiff_list``); Parse and Learn only existed as a device
-# sub-tab and the worker-side catalog machinery respectively. These two
-# landing views are the interim operator-facing surface so the menu entries
-# resolve to a real page. The full dedicated pages (rich on-demand parse
-# form, dedicated learn view) ship in the ATW-729 / ATW-730 child issues and
-# replace these.
+# tools: Parse, Learn, Diff. Diff reuses the snapshot-diff list view; Parse
+# now has a full dedicated page (ATW-729) that supersedes the interim
+# device-picker-redirect landing shipped in ATW-728. Learn remains on the
+# interim landing page until the dedicated Learn page ships in ATW-730.
 
 
-class GenieParseLandingView(PermissionRequiredMixin, View):
-    """Genie Parse landing page — device picker into the parse sub-tab.
+class GenieParseView(PermissionRequiredMixin, View):
+    """Dedicated Genie Parse page (ATW-729).
 
-    The parse entry point is inherently per-device (the operator parses the
-    CLI output of a specific device), so the top-level menu item lands on a
-    device picker: a plain ``dcim.Device`` dropdown that POSTs the chosen
-    device id back to this view, which redirects to that device's parse page
-    (``device_parse``). Keeps the navigation promise of "a Parse page"
-    without duplicating the device-parse form here. Server-side redirect —
-    no client-side JS (ADR-0001 §4).
+    Promotes Parse from a device-page sub-tab to a first-class plugin page
+    directly accessible from the Genie menu. The page combines three
+    surfaces on one URL (``/genie/parse/``):
 
-    Web-process-safe: no Genie import (ADR-0001 §6). Read-only on GET; the
-    POST action is a redirect to the existing per-device parse view, which
-    holds the real permission gate (``add_pyatssnapshot``).
+    1. A device picker — a ``<select>`` submitted via GET (``?device=<pk>``)
+       that reloads the page with the selected device's parse form. No
+       client-side JS (ADR-0001 §4).
+    2. The parse form — the same :class:`forms.DeviceParseForm` the device
+       sub-tab uses, populated from the selected device's
+       :class:`PyatsParserCatalog` row via :func:`_resolve_parse_context`.
+       Renders only when a device is picked. POST enqueues the parse job via
+       :func:`jobs.enqueue_parse` (same path as the device sub-tab) and
+       redirects back to this page with ``?device=<pk>`` so the operator can
+       run another parse immediately.
+    3. Recent parse results — the latest ``kind='parse'``
+       :class:`PyatsSnapshot` rows across *all* devices (not just the
+       selected one), rendered via :class:`tables.PyatsSnapshotTable` so the
+       operator sees parse activity at a glance.
+
+    The device-page Parse sub-tab (:class:`DeviceParseView`) stays as a
+    convenience link; this page is the primary surface. No new models, no
+    new forms, no Genie import in the web process (ADR-0001 §6) —
+    :func:`_resolve_parse_context` reads the catalog from the DB only.
+
+    Requires ``netbox_pyats.add_pyatssnapshot`` (the parse result lands as a
+    ``kind='parse'`` snapshot, same gate as the device sub-tab) and
+    ``netbox_pyats.view_pyatssnapshot`` (the recent-results table reads
+    snapshots).
     """
 
-    permission_required = "netbox_pyats.add_pyatssnapshot"
-    template_name = "netbox_pyats/genie_parse_landing.html"
+    permission_required = ("netbox_pyats.add_pyatssnapshot", "netbox_pyats.view_pyatssnapshot")
+    template_name = "netbox_pyats/genie_parse.html"
+
+    #: How many recent parse snapshots to show on the page.
+    RECENT_LIMIT = 15
 
     def get(self, request):
         from django.shortcuts import render
 
+        device = None
+        form = None
+        ctx = None
+        device_id = request.GET.get("device")
+        if device_id:
+            device = get_object_or_404(Device, pk=device_id)
+            ctx = _resolve_parse_context(device)
+            form = forms.DeviceParseForm(command_choices=ctx["command_choices"])
+
+        recent = list(
+            PyatsSnapshot.objects.filter(kind=SnapshotKindChoices.KIND_PARSE)
+            .select_related("device")
+            .order_by("-captured_at")[: self.RECENT_LIMIT]
+        )
+        recent_table = tables.PyatsSnapshotTable(recent)
+
         return render(
             request,
             self.template_name,
-            {"devices": Device.objects.select_related("platform").order_by("name")},
+            {
+                "devices": Device.objects.select_related("platform").order_by("name"),
+                "selected_device": device,
+                "form": form,
+                "pyats_os": ctx["pyats_os"] if ctx else None,
+                "platform_supported": ctx["platform_supported"] if ctx else False,
+                "catalog_row": ctx["catalog_row"] if ctx else None,
+                "catalog_present": ctx["catalog_present"] if ctx else False,
+                "command_count": len(ctx["command_choices"]) if ctx else 0,
+                "refresh_url": _refresh_parser_catalog_url_for_device(device) if device else None,
+                "recent_table": recent_table,
+                "recent_count": len(recent),
+            },
         )
 
     def post(self, request):
-        # Server-side redirect into the per-device parse page. Keeps the
-        # template server-rendered with no client-side JS (ADR-0001 §4); the
-        # prior GET-with-query-param + JS replace pattern violated the locked
-        # convention. The device_pk POST field is the picker's <select> value.
+        # The parse form POSTs back to this page with ``device`` (the
+        # picker's <select> value) plus the DeviceParseForm fields
+        # (commands / manual_command). The device must be selected — a POST
+        # without one re-renders the picker with an error.
         device_id = request.POST.get("device")
+        if not device_id:
+            messages.error(request, "Select a device first.")
+            return redirect("plugins:netbox_pyats:genie_parse")
+
         device = get_object_or_404(Device, pk=device_id)
-        return redirect("plugins:netbox_pyats:device_parse", device_id=device.pk)
+        ctx = _resolve_parse_context(device)
+        form = forms.DeviceParseForm(request.POST, command_choices=ctx["command_choices"])
+        if not form.is_valid():
+            return self._render_form(request, device, form, ctx)
+
+        # Build the command list: selected checkbox commands first (in the
+        # catalog's order), then the manual command (if any). De-duplicate
+        # while preserving order so a manual command that matches a checked
+        # box does not run twice. Same logic as DeviceParseView.post.
+        commands: list[str] = []
+        seen: set[str] = set()
+        for cmd in form.cleaned_data.get("commands") or []:
+            if cmd and cmd not in seen:
+                commands.append(cmd)
+                seen.add(cmd)
+        manual = (form.cleaned_data.get("manual_command") or "").strip()
+        if manual and manual not in seen:
+            commands.append(manual)
+
+        if not commands:
+            form.add_error(None, "Select at least one parser command or type a manual command.")
+            return self._render_form(request, device, form, ctx)
+
+        core_job = jobs.enqueue_parse(device, commands=commands, user=request.user)
+        messages.success(
+            request,
+            f"PyATS parse queued for {device} ({len(commands)} command(s)); "
+            f"core.Job #{core_job.pk}. The result will appear in the recent "
+            "parse results below when the worker finishes.",
+        )
+        from django.urls import reverse
+
+        return redirect(f"{reverse('plugins:netbox_pyats:genie_parse')}?device={device.pk}")
+
+    def _render_form(self, request, device, form, ctx):
+        from django.shortcuts import render
+
+        recent = list(
+            PyatsSnapshot.objects.filter(kind=SnapshotKindChoices.KIND_PARSE)
+            .select_related("device")
+            .order_by("-captured_at")[: self.RECENT_LIMIT]
+        )
+        return render(
+            request,
+            self.template_name,
+            {
+                "devices": Device.objects.select_related("platform").order_by("name"),
+                "selected_device": device,
+                "form": form,
+                "pyats_os": ctx["pyats_os"],
+                "platform_supported": ctx["platform_supported"],
+                "catalog_row": ctx["catalog_row"],
+                "catalog_present": ctx["catalog_present"],
+                "command_count": len(ctx["command_choices"]),
+                "refresh_url": _refresh_parser_catalog_url_for_device(device),
+                "recent_table": tables.PyatsSnapshotTable(recent),
+                "recent_count": len(recent),
+            },
+        )
 
 
 class GenieLearnLandingView(PermissionRequiredMixin, View):

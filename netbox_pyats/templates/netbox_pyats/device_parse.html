@@ -11,6 +11,9 @@
       <h5 class="card-header">
         PyATS Parse
         {% if platform_supported %}<span class="badge bg-success ms-2">{{ pyats_os }}</span>{% else %}<span class="badge bg-warning ms-2">unsupported platform</span>{% endif %}
+        <a href="{% url 'plugins:netbox_pyats:genie_parse' %}" class="btn btn-outline-secondary btn-sm float-end">
+          <i class="mdi mdi-open-in-new"></i> Genie Parse page
+        </a>
       </h5>
       <div class="card-body">
         <p class="text-muted">
