@@ -451,24 +451,43 @@ def _discover_ops_features(lookup) -> list[tuple[str, Any]]:
     """Return ``[(feature_name, ops_factory), ...]`` from a Genie Ops Lookup.
 
     The Genie Ops ``Lookup`` object exposes the per-feature Ops class factories
-    via attributes on its ``ops`` namespace. This helper walks that namespace
-    and collects the callable Ops class factories, so :func:`_capture_learn`
-    can iterate them and call ``factory(device).learn()``.
+    via attributes on its ``ops`` namespace. Because the real Genie
+    ``Lookup.ops`` resolves feature names dynamically through ``__getattr__``
+    (they are not listed by ``dir()``), this helper first tries iteration over
+    the namespace (the path used by the Genie abstraction layer and by the
+    test stubs) and falls back to ``dir()`` for any namespace that exposes
+    features as real attributes. Each candidate is resolved with
+    ``getattr`` and kept only if it is callable.
 
     Returns an empty list when no Ops features are discovered (the caller
-    records a warning). Order follows the ``Lookup.ops`` attribute order
+    records a warning). Order follows the namespace iteration order
     (deterministic per Genie release).
     """
     features: list[tuple[str, Any]] = []
     ops_namespace = getattr(lookup, "ops", None)
     if ops_namespace is None:
         return features
-    for attr in dir(ops_namespace):
-        if attr.startswith("_"):
+
+    # Primary path: iterate the namespace (real Genie resolves features via
+    # __getattr__; dir() does not list them). Duck-typed stubs expose features
+    # the same way.
+    names: list[str] = []
+    try:
+        names = list(ops_namespace)
+    except TypeError:
+        # Not iterable — fall back to dir()-based discovery for namespaces
+        # that expose features as real attributes.
+        names = [n for n in dir(ops_namespace) if not n.startswith("_")]
+
+    for name in names:
+        if name.startswith("_"):
             continue
-        factory = getattr(ops_namespace, attr, None)
+        try:
+            factory = getattr(ops_namespace, name)
+        except AttributeError:
+            continue
         if callable(factory):
-            features.append((attr, factory))
+            features.append((name, factory))
     return features
 
 
