@@ -1038,3 +1038,81 @@ class PyatsParserCatalogRefreshScheduleBulkDeleteView(generic.BulkDeleteView):
 
     queryset = PyatsParserCatalogRefreshSchedule.objects.all()
     table = tables.PyatsParserCatalogRefreshScheduleTable
+
+
+# --------------------------------------------------------------------------- #
+# Genie landing pages (ATW-728 — navigation restructure)
+# --------------------------------------------------------------------------- #
+# The Genie top-level menu (ATW-727) leads with the three primary Genie
+# tools: Parse, Learn, Diff. Diff already has a full list view
+# (``pyatssnapshotdiff_list``); Parse and Learn only existed as a device
+# sub-tab and the worker-side catalog machinery respectively. These two
+# landing views are the interim operator-facing surface so the menu entries
+# resolve to a real page. The full dedicated pages (rich on-demand parse
+# form, dedicated learn view) ship in the ATW-729 / ATW-730 child issues and
+# replace these.
+
+
+class GenieParseLandingView(PermissionRequiredMixin, View):
+    """Genie Parse landing page — device picker into the parse sub-tab.
+
+    The parse entry point is inherently per-device (the operator parses the
+    CLI output of a specific device), so the top-level menu item lands on a
+    device picker: a plain ``dcim.Device`` dropdown that POSTs the chosen
+    device id back to this view, which redirects to that device's parse page
+    (``device_parse``). Keeps the navigation promise of "a Parse page"
+    without duplicating the device-parse form here. Server-side redirect —
+    no client-side JS (ADR-0001 §4).
+
+    Web-process-safe: no Genie import (ADR-0001 §6). Read-only on GET; the
+    POST action is a redirect to the existing per-device parse view, which
+    holds the real permission gate (``add_pyatssnapshot``).
+    """
+
+    permission_required = "netbox_pyats.add_pyatssnapshot"
+    template_name = "netbox_pyats/genie_parse_landing.html"
+
+    def get(self, request):
+        from django.shortcuts import render
+
+        return render(
+            request,
+            self.template_name,
+            {"devices": Device.objects.select_related("platform").order_by("name")},
+        )
+
+    def post(self, request):
+        # Server-side redirect into the per-device parse page. Keeps the
+        # template server-rendered with no client-side JS (ADR-0001 §4); the
+        # prior GET-with-query-param + JS replace pattern violated the locked
+        # convention. The device_pk POST field is the picker's <select> value.
+        device_id = request.POST.get("device")
+        device = get_object_or_404(Device, pk=device_id)
+        return redirect("plugins:netbox_pyats:device_parse", device_id=device.pk)
+
+
+class GenieLearnLandingView(PermissionRequiredMixin, View):
+    """Genie Learn landing page — parser catalog (learned capability state).
+
+    Genie Learn populates the parser catalog (the set of CLI commands Genie
+    can parse per pyATS os), which the worker-only ``refresh_parser_catalog``
+    job stores as :class:`PyatsParserCatalog` rows. Until the dedicated Learn
+    page (ATW-730) ships, this view renders that catalog — the operator-
+    facing evidence of what Learn has captured — so the menu item resolves to
+    a real page rather than a dead link.
+
+    Web-process-safe: reads :class:`PyatsParserCatalog` rows from the DB only
+    (no Genie import, ADR-0001 §6). Read-only.
+    """
+
+    permission_required = "netbox_pyats.view_pyatssnapshot"
+    template_name = "netbox_pyats/genie_learn_landing.html"
+
+    def get(self, request):
+        from django.shortcuts import render
+
+        return render(
+            request,
+            self.template_name,
+            {"catalog_rows": PyatsParserCatalog.objects.order_by("pyats_os")},
+        )

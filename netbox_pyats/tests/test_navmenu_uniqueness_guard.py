@@ -49,10 +49,25 @@ def _extract_menu_item_kwargs(call_node) -> tuple[str, str]:
     return _str_kw(kw.get("link")), _str_kw(kw.get("link_text"))
 
 
-def _extract_menu_links() -> list[tuple[str, str]]:
-    """Return ``[(link, link_text), ...]`` parsed from the top-level ``menu``.
+# Names of the top-level PluginMenu variables the plugin registers. NetBox
+# calls ``register_menu(menu)`` once per variable via ``PluginConfig.menu``
+# pointing at a module path; multiple top-level PluginMenus in one module are
+# supported (see ``navigation.py`` — ATW-728 split ``menu`` into
+# ``genie_menu`` + ``jobs_menu``). The guard walks every top-level assignment
+# whose target name ends in ``_menu`` (or is exactly ``menu``) so a future
+# restructure does not silently drop a menu from the uniqueness/ordering
+# invariants.
+_MENU_VAR_SUFFIXES = ("menu",)
 
-    Walks the AST of ``navigation.py`` and flattens the ``PluginMenu.groups``
+
+def _is_menu_var(name: str) -> bool:
+    return name == "menu" or name.endswith("_menu")
+
+
+def _extract_menu_links() -> list[tuple[str, str]]:
+    """Return ``[(link, link_text), ...]`` parsed from every top-level menu.
+
+    Walks the AST of ``navigation.py`` and flattens each ``PluginMenu.groups``
     structure — a tuple of ``(group_label, (PluginMenuItem(...), ...))``
     pairs — into an ordered list of ``(link, link_text)`` tuples. The order
     is the in-source declaration order, so the "ends with supported_platforms"
@@ -66,11 +81,11 @@ def _extract_menu_links() -> list[tuple[str, str]]:
         if not isinstance(node, ast.Assign):
             continue
         for target in node.targets:
-            if not (isinstance(target, ast.Name) and target.id == "menu"):
+            if not (isinstance(target, ast.Name) and _is_menu_var(target.id)):
                 continue
             call = node.value
             if not isinstance(call, ast.Call):
-                raise AssertionError("navigation.menu must be a PluginMenu(...) call")
+                raise AssertionError("navigation menu must be a PluginMenu(...) call")
             # PluginMenu(label=..., groups=..., icon_class=...) — find groups.
             kw = {k.arg: k.value for k in call.keywords}
             groups_node = kw.get("groups")
@@ -88,7 +103,7 @@ def _extract_menu_links() -> list[tuple[str, str]]:
                     link, text = _extract_menu_item_kwargs(elt)
                     links.append((link, text))
     if not links:
-        raise AssertionError("no menu PluginMenu assignment found in navigation.py")
+        raise AssertionError("no PluginMenu assignment found in navigation.py")
     return links
 
 

@@ -48,7 +48,7 @@ python manage.py migrate
 sudo systemctl restart netbox netbox-rq
 ```
 
-After restart, **PyATS** appears in the NetBox navigation menu.
+After restart, **Genie** (the primary menu — Parse / Learn / Diff plus the supporting groups) and **PyATS Jobs & Platforms** appear in the NetBox navigation menu.
 
 <img src="../screenshots/nav-pyats-menu.png" alt="NetBox navigation menu with the top-level PyATS menu expanded" width="720">
 

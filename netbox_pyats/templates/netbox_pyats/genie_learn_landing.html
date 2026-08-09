@@ -1,0 +1,55 @@
+{% extends 'base/layout.html' %}
+{% load helpers %}
+
+{% block title %}Genie Learn{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col col-md-10 offset-md-1">
+    <div class="card">
+      <h5 class="card-header">Genie Learn</h5>
+      <div class="card-body">
+        <p class="text-muted">
+          Genie Learn discovers device state by feature (interfaces, BGP, OSPF,
+          routing, &hellip;) in one operation. The cached parser catalog below is
+          the learned capability surface Genie has populated for each supported
+          pyATS os &mdash; the set of CLI commands Genie can parse. Refresh the
+          catalog from the device-page Parse tab or the Parser Catalog refresh
+          schedule; the dedicated Genie Learn page ships in ATW-730.
+        </p>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>pyATS os</th>
+              <th class="text-end">Parseable commands</th>
+              <th>genie</th>
+              <th>pyats</th>
+              <th>Last refreshed</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in catalog_rows %}
+              <tr>
+                <td><code>{{ row.pyats_os }}</code></td>
+                <td class="text-end">{{ row.commands|length }}</td>
+                <td>{{ row.genie_version|default:"&mdash;" }}</td>
+                <td>{{ row.pyats_version|default:"&mdash;" }}</td>
+                <td>{{ row.refreshed_at|default:"&mdash;" }}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="5" class="text-muted text-center">
+                  No parser catalog rows yet. Run a refresh from a device's
+                  Parse tab or enable the Parser Catalog refresh schedule.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
