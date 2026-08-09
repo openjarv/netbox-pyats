@@ -3,6 +3,7 @@ from netbox.forms import NetBoxModelFilterSetForm, NetBoxModelForm
 from utilities.forms.rendering import FieldSet
 
 from .choices import (
+    CAPTURE_KIND_CHOICES,
     ComplianceModeChoices,
     ComplianceResultChoices,
     CredentialProtocolChoices,
@@ -152,7 +153,7 @@ class DeviceCaptureForm(forms.Form):
     """
 
     kind = forms.ChoiceField(
-        choices=SnapshotKindChoices.choices,
+        choices=CAPTURE_KIND_CHOICES,
         initial=SnapshotKindChoices.KIND_FULL,
         required=True,
         label="Capture kind",
@@ -385,7 +386,7 @@ class DeviceBulkCaptureForm(forms.Form):
     """
 
     kind = forms.ChoiceField(
-        choices=SnapshotKindChoices.choices,
+        choices=CAPTURE_KIND_CHOICES,
         initial=SnapshotKindChoices.KIND_FULL,
         required=True,
         label="Capture kind",

@@ -7,12 +7,11 @@ app_name = "netbox_pyats"
 
 urlpatterns = [
     # Genie dedicated pages (ATW-728 nav restructure → ATW-729 dedicated
-    # Parse page). Parse now has a full first-class page (device picker +
-    # parse form + recent results) superseding the interim redirect landing.
-    # Learn remains on the interim landing page until ATW-730. Diff reuses
-    # pyatssnapshotdiff_list.
+    # Parse page, ATW-730 dedicated Learn page). Parse and Learn now have full
+    # first-class pages (device picker + action + recent results) superseding
+    # the interim landings. Diff reuses pyatssnapshotdiff_list.
     path("genie/parse/", views.GenieParseView.as_view(), name="genie_parse"),
-    path("genie/learn/", views.GenieLearnLandingView.as_view(), name="genie_learn"),
+    path("genie/learn/", views.GenieLearnView.as_view(), name="genie_learn"),
     # PyATS Credentials (standard NetBox CRUD). Detail/Edit/Delete/Changelog/
     # Journal are auto-registered via register_model_view on the view classes
     # and wired in by get_model_urls. The list/add/bulk-delete paths are not

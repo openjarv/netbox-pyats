@@ -46,12 +46,37 @@ class SnapshotKindChoices(models.TextChoices):
     CLI behavior); if that also fails, the command is recorded in
     ``parser_warnings``. ``parse`` captures are always
     ``triggered_by='user'`` (see :class:`SnapshotTriggerChoices`).
+
+    ``learn`` (ATW-730) is the Genie Learn capture: the worker connects via
+    the Genie Ops framework — the Genie Ops framework (per-feature Ops ``.learn()``)
+    for each Ops feature class the device exposes — and stores the collected
+    feature state under ``data["learn"]`` keyed by feature name. Unlike
+    ``parse`` (one command at a time via ``device.parse()``), Learn discovers
+    and collects all features a device supports in one operation, producing a
+    structured snapshot of device feature state. ``learn`` snapshots are
+    diffable against other ``learn`` snapshots (the diff picker groups by kind,
+    and the diff engine is a pure-Python recursive JSONB diff). Learn captures
+    are ``triggered_by='user'`` when run from the Genie Learn page.
     """
 
     KIND_CONFIG = "config", "Config"
     KIND_STATE = "state", "State"
     KIND_FULL = "full", "Full (config + state)"
     KIND_PARSE = "parse", "Parse (on-demand commands)"
+    KIND_LEARN = "learn", "Learn (Genie Ops feature state)"
+
+
+# Kinds selectable from the device-page "Capture snapshot" button and the
+# bulk-capture action. ``parse`` (on-demand) and ``learn`` (Genie Ops) are
+# separate first-class actions on the Genie Parse / Genie Learn pages, not
+# device-page capture options, so they are excluded from the capture form
+# choices. Kept as a plain tuple of ``(value, label)`` pairs so it can be
+# passed straight to a Django ``ChoiceField(choices=...)``.
+CAPTURE_KIND_CHOICES = (
+    (SnapshotKindChoices.KIND_CONFIG, SnapshotKindChoices.KIND_CONFIG.label),
+    (SnapshotKindChoices.KIND_STATE, SnapshotKindChoices.KIND_STATE.label),
+    (SnapshotKindChoices.KIND_FULL, SnapshotKindChoices.KIND_FULL.label),
+)
 
 
 class SnapshotTriggerChoices(models.TextChoices):
@@ -178,11 +203,10 @@ class PyatsJobTypeChoices(models.TextChoices):
     the multi-device batch capture introduced in Phase 5; ``parse`` is the
     on-demand, user-driven parse job (ATW-241 child 3) that runs an explicit
     command list via ``device.parse(...)`` with a raw ``execute()`` fallback.
-    ``refresh_parser_catalog`` is the worker-only catalog refresh introduced
-    by ATW-241 child 1 (ATW-249): it rebuilds the
-    :class:`PyatsParserCatalog` rows from the installed ``genie.libs`` parser
-    registry. Each maps 1:1 to an ``enqueue_*`` helper in
-    :mod:`netbox_pyats.jobs`.
+    ``learn`` (ATW-730) runs the Genie Ops Learn capture —
+    the Genie Ops framework (per-feature Ops ``.learn()``) per Ops
+    feature — producing a ``kind='learn'`` snapshot. Each maps 1:1 to an
+    ``enqueue_*`` helper in :mod:`netbox_pyats.jobs`.
     """
 
     JOB_CAPTURE = "capture", "Capture"
@@ -190,6 +214,7 @@ class PyatsJobTypeChoices(models.TextChoices):
     JOB_COMPLIANCE = "compliance", "Compliance"
     JOB_BATCH_CAPTURE = "batch_capture", "Batch capture"
     JOB_PARSE = "parse", "Parse (on-demand)"
+    JOB_LEARN = "learn", "Learn (Genie Ops)"
     JOB_REFRESH_PARSER_CATALOG = "refresh_catalog", "Refresh parser catalog"
 
 

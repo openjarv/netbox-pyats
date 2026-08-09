@@ -56,7 +56,7 @@ from netbox.views import generic
 from utilities.views import ViewTab, register_model_view
 
 from . import filtersets, forms, jobs, tables
-from .choices import SnapshotKindChoices, SnapshotTriggerChoices
+from .choices import CAPTURE_KIND_CHOICES, SnapshotKindChoices, SnapshotTriggerChoices
 from .diff import flatten_diff_tree
 from .models import (
     PyatsCaptureSchedule,
@@ -153,7 +153,7 @@ class DevicePyATSTabView(generic.ObjectView):
             "golden_configs": golden_configs,
             "compliance_runs": compliance_runs,
             "config_snapshots": config_snapshots,
-            "snapshot_kinds": SnapshotKindChoices.choices,
+            "snapshot_kinds": CAPTURE_KIND_CHOICES,
             "platform_supported": platform_supported,
             "pyats_os": os_value if platform_supported else None,
             "capture_url": _capture_url_for_device(instance),
@@ -1041,13 +1041,114 @@ class PyatsParserCatalogRefreshScheduleBulkDeleteView(generic.BulkDeleteView):
 
 
 # --------------------------------------------------------------------------- #
-# Genie dedicated pages (ATW-728 nav restructure → ATW-729 dedicated Parse)
+# Genie dedicated pages (ATW-728 nav restructure → ATW-729 dedicated Parse,
+# ATW-730 dedicated Learn)
 # --------------------------------------------------------------------------- #
 # The Genie top-level menu (ATW-727) leads with the three primary Genie
 # tools: Parse, Learn, Diff. Diff reuses the snapshot-diff list view; Parse
-# now has a full dedicated page (ATW-729) that supersedes the interim
-# device-picker-redirect landing shipped in ATW-728. Learn remains on the
-# interim landing page until the dedicated Learn page ships in ATW-730.
+# has a full dedicated page (ATW-729). Learn now has a full dedicated page
+# (ATW-730) that combines the parser catalog (the learned capability state)
+# with a device picker + Run Learn action and recent learn results.
+
+
+class GenieLearnView(PermissionRequiredMixin, View):
+    """Dedicated Genie Learn page (ATW-730).
+
+    Promotes Learn from the interim landing page (which rendered only the
+    parser catalog) to a first-class plugin page directly accessible from
+    the Genie menu. The page combines three surfaces on one URL
+    (``/genie/learn/``):
+
+    1. The parser catalog — :class:`PyatsParserCatalog` rows, the learned
+       capability state Genie has populated for each supported pyATS os (the
+       set of CLI commands Genie can parse). This is the evidence of what
+       Learn has captured. Read from the DB only — web-process-safe
+       (ADR-0001 §6).
+    2. A device picker + "Run Learn" action — a ``<select>`` submitted via
+       GET (``?device=<pk>``) that reloads the page with the selected device
+       highlighted, plus a POST form that enqueues a Genie Ops Learn job via
+       :func:`jobs.enqueue_learn`. The Learn job drives the Genie Ops
+       framework (per-feature Ops ``.learn()``)
+       on the worker and stores a ``kind='learn'`` snapshot. No client-side
+       JS (ADR-0001 §4).
+    3. Recent learn results — the latest ``kind='learn'`` :class:`PyatsSnapshot`
+       rows across all devices, rendered via :class:`tables.PyatsSnapshotTable`
+       so the operator sees Learn activity at a glance.
+
+    No new models, no new forms, no Genie import in the web process
+    (ADR-0001 §6) — the catalog is read from the DB only; the Learn runs on
+    the worker.
+
+    Requires ``netbox_pyats.add_pyatssnapshot`` (the learn result lands as a
+    ``kind='learn'`` snapshot, same gate as the parse page) and
+    ``netbox_pyats.view_pyatssnapshot`` (the catalog + recent-results table
+    read snapshots / the catalog rows).
+    """
+
+    permission_required = ("netbox_pyats.add_pyatssnapshot", "netbox_pyats.view_pyatssnapshot")
+    template_name = "netbox_pyats/genie_learn.html"
+
+    #: How many recent learn snapshots to show on the page.
+    RECENT_LIMIT = 15
+
+    def get(self, request):
+        from django.shortcuts import render
+
+        device = None
+        device_id = request.GET.get("device")
+        if device_id:
+            device = get_object_or_404(Device, pk=device_id)
+
+        # Resolve the platform support status for the selected device so the
+        # template can show a supported/unsupported badge before the operator
+        # clicks Run Learn.
+        platform_supported = False
+        pyats_os = None
+        if device is not None:
+            from .testbed import is_supported_os, platform_to_pyats_os
+
+            pyats_os = platform_to_pyats_os(getattr(device, "platform", None))
+            platform_supported = is_supported_os(pyats_os)
+
+        recent = list(
+            PyatsSnapshot.objects.filter(kind=SnapshotKindChoices.KIND_LEARN)
+            .select_related("device")
+            .order_by("-captured_at")[: self.RECENT_LIMIT]
+        )
+        recent_table = tables.PyatsSnapshotTable(recent)
+
+        return render(
+            request,
+            self.template_name,
+            {
+                "catalog_rows": PyatsParserCatalog.objects.order_by("pyats_os"),
+                "devices": Device.objects.select_related("platform").order_by("name"),
+                "selected_device": device,
+                "pyats_os": pyats_os,
+                "platform_supported": platform_supported,
+                "recent_table": recent_table,
+                "recent_count": len(recent),
+            },
+        )
+
+    def post(self, request):
+        from django.shortcuts import redirect
+        from django.urls import reverse
+
+        device_id = request.POST.get("device")
+        if not device_id:
+            messages.error(request, "Select a device first.")
+            return redirect("plugins:netbox_pyats:genie_learn")
+
+        device = get_object_or_404(Device, pk=device_id)
+        core_job = jobs.enqueue_learn(device, user=request.user)
+        messages.success(
+            request,
+            f"PyATS Genie Learn queued for {device}; core.Job #{core_job.pk}. "
+            "The result will appear in the recent learn results below when the "
+            "worker finishes.",
+        )
+        return redirect(f"{reverse('plugins:netbox_pyats:genie_learn')}?device={device.pk}")
 
 
 class GenieParseView(PermissionRequiredMixin, View):
@@ -1195,31 +1296,4 @@ class GenieParseView(PermissionRequiredMixin, View):
                 "recent_table": tables.PyatsSnapshotTable(recent),
                 "recent_count": len(recent),
             },
-        )
-
-
-class GenieLearnLandingView(PermissionRequiredMixin, View):
-    """Genie Learn landing page — parser catalog (learned capability state).
-
-    Genie Learn populates the parser catalog (the set of CLI commands Genie
-    can parse per pyATS os), which the worker-only ``refresh_parser_catalog``
-    job stores as :class:`PyatsParserCatalog` rows. Until the dedicated Learn
-    page (ATW-730) ships, this view renders that catalog — the operator-
-    facing evidence of what Learn has captured — so the menu item resolves to
-    a real page rather than a dead link.
-
-    Web-process-safe: reads :class:`PyatsParserCatalog` rows from the DB only
-    (no Genie import, ADR-0001 §6). Read-only.
-    """
-
-    permission_required = "netbox_pyats.view_pyatssnapshot"
-    template_name = "netbox_pyats/genie_learn_landing.html"
-
-    def get(self, request):
-        from django.shortcuts import render
-
-        return render(
-            request,
-            self.template_name,
-            {"catalog_rows": PyatsParserCatalog.objects.order_by("pyats_os")},
         )

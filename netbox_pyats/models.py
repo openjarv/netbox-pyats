@@ -216,12 +216,16 @@ class PyatsSnapshot(NetBoxModel):
 
     - ``config``: ``{"config": {<parsed show-running-config output>},
                      "config_raw": "<raw show-running-config text>"}``
-    - ``state``:  ``{"state": {<command: <parsed output>, ...>}}`` — one entry
+    - ``state``:  ``{"state": {<command: <parsed output>, ...>}}` — one entry
       per command resolved by :func:`netbox_pyats.capture.resolve_state_commands`
       (defaults to :data:`netbox_pyats.capture.STATE_COMMANDS`, overridable per-OS
       via ``PLUGINS_CONFIG``); commands whose parser is missing for the device's
       os are recorded as ``None`` with a warning.
     - ``full``:   ``{"config": {...}, "config_raw": "...", "state": {...}}``
+    - ``learn``:  ``{"learn": {<feature: <Ops learn output>, ...>}}` — one entry
+      per Genie Ops feature class the device exposed (ATW-730). Each value is
+      the structured dict returned by the Genie Ops ``.learn()`` call for that
+      feature (see :func:`netbox_pyats.capture._capture_learn`).
 
     ``data["config"]`` is the Genie abstract-config structured dict (used by
     the Phase 3 snapshot-vs-snapshot diff). ``data["config_raw"]`` is the raw
@@ -251,7 +255,7 @@ class PyatsSnapshot(NetBoxModel):
         max_length=20,
         choices=SnapshotKindChoices,
         default=SnapshotKindChoices.KIND_FULL,
-        help_text="What was captured: config, state, full (config + state), or parse (manual on-demand parse).",
+        help_text="What was captured: config, state, full, parse (manual on-demand), or learn (Genie Ops).",
     )
     status = models.CharField(
         max_length=20,
@@ -275,7 +279,8 @@ class PyatsSnapshot(NetBoxModel):
         help_text=(
             "Captured snapshot payload as JSON. Shape depends on kind: "
             "config → {config, config_raw}, state → {state}, "
-            "full → {config, config_raw, state}. Empty for unsupported/error rows."
+            "full → {config, config_raw, state}, learn → {learn}. "
+            "Empty for unsupported/error rows."
         ),
     )
     parser_warnings = models.JSONField(

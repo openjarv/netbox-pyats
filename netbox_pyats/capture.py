@@ -372,6 +372,144 @@ def _capture_parse(pyats_device, commands) -> tuple[dict, list]:
     return state, warnings
 
 
+def _capture_learn(pyats_device) -> tuple[dict, list]:
+    """Run the Genie Ops Learn capture on a connected pyATS Device (ATW-730).
+
+    Genie Learn discovers and collects device state across multiple feature
+    Ops classes (interface, bgp, ospf, routing, &hellip;) in a single operation.
+    Unlike the per-command ``device.parse(...)`` path used by ``kind='state'``
+    and ``kind='parse'``, Learn drives the Genie Ops framework: it enumerates
+    the Ops feature classes the device exposes and calls ``.learn()`` on each,
+    producing a structured snapshot of device feature state.
+
+    The verified Genie API has no top-level ``genie.learn(device)`` function
+    (see the note in :func:`_capture_state`); Learn works via per-feature Ops
+    classes. This helper is the worker-only implementation of that path.
+
+    .. note:: Genie abstraction-package wiring (known production gap, ATW-730).
+
+       ``Lookup.from_device(device)`` called from outside the ``genie`` package
+       stack (as here, from ``netbox_pyats.capture``) discovers **zero**
+       abstraction packages — ``lookup.ops`` raises ``KeyError: 'No abstract
+       package named "ops"'``. Verified against Genie 26.6 in the worker image.
+       The working pattern (see ``genie.libs.sdk.libs.utils.mapping.py``) is::
+
+           lookup = Lookup.from_device(device, packages={'ops': genie.libs.ops})
+           cls = lookup.ops.<feature>.<feature>.<ClassName>
+           instance = cls(device); instance.learn()
+
+       i.e. pass ``packages=`` explicitly, enumerate feature names from
+       ``genie.libs.ops`` submodules, and use the 2-level
+       ``ops.<feature>.<feature>.<ClassName>`` resolution (capitalized feature
+       name). The 1-level ``lookup.ops.<feature>(device)`` model used here
+       matches the unit-test stubs but not the real Genie API — as written,
+       ``_capture_learn`` records an ``error`` row against a real device.
+       Tracked in ATW-730; the view-layer and model structure are unaffected
+       by the fix, which is confined to this function's Genie wiring.
+
+    Args:
+        pyats_device: a connected ``pyats.topology.Device`` (or a duck-typed
+            object with ``name``, ``os``, and a ``learn()``-compatible Ops
+            surface for tests).
+
+    Returns:
+        A ``(learn, warnings)`` pair. ``learn`` maps each discovered feature
+        name to the structured dict returned by its Ops ``.learn()`` call.
+        ``warnings`` lists per-feature failures as human-readable strings —
+        the caller merges these into the snapshot's ``parser_warnings``. A
+        feature whose Ops class raises ``AttributeError`` (the Ops framework
+        exposes features the device's os does not implement) is skipped
+        silently with a debug log; other exceptions are recorded as warnings
+        and the feature is omitted from the dict (graceful degradation — one
+        bad feature does not abort the Learn).
+    """
+    learn: dict[str, Any] = {}
+    warnings: list[str] = []
+    try:
+        from genie.ops.utils import Lookup
+    except Exception as exc:  # noqa: BLE001 - genie import is worker-only
+        return learn, [f"genie.ops.utils import failed: {exc}"]
+
+    try:
+        lookup = Lookup.from_device(pyats_device)
+    except Exception as exc:  # noqa: BLE001 - Lookup discovery failure
+        return learn, [f"Lookup.from_device failed for {pyats_device.name}: {exc}"]
+
+    ops_attrs = _discover_ops_features(lookup)
+    if not ops_attrs:
+        warnings.append(
+            f"no Ops feature classes discovered for {pyats_device.name} (os={getattr(pyats_device, 'os', '?')})"
+        )
+        return learn, warnings
+
+    for feature_name, ops_factory in ops_attrs:
+        try:
+            ops_instance = ops_factory(pyats_device)
+            ops_instance.learn()
+            payload = getattr(ops_instance, "ops", None)
+            if payload is None:
+                payload = getattr(ops_instance, "data", None)
+            if payload is None:
+                warnings.append(f"Ops feature {feature_name!r} produced no payload after learn()")
+                continue
+            learn[feature_name] = payload if isinstance(payload, dict) else {"raw": str(payload)}
+        except AttributeError:
+            logger.debug(
+                "netbox_pyats: Ops feature %r not applicable to %s (os=%s), skipping",
+                feature_name,
+                pyats_device.name,
+                getattr(pyats_device, "os", "?"),
+            )
+        except Exception as exc:  # noqa: BLE001 - per-feature failure is a warning, not fatal
+            warnings.append(f"learn failed for Ops feature {feature_name!r}: [{type(exc).__name__}] {exc}")
+            logger.warning("netbox_pyats: Ops learn(%r) failed on %s: %s", feature_name, pyats_device.name, exc)
+    return learn, warnings
+
+
+def _discover_ops_features(lookup) -> list[tuple[str, Any]]:
+    """Return ``[(feature_name, ops_factory), ...]`` from a Genie Ops Lookup.
+
+    The Genie Ops ``Lookup`` object exposes the per-feature Ops class factories
+    via attributes on its ``ops`` namespace. Because the real Genie
+    ``Lookup.ops`` resolves feature names dynamically through ``__getattr__``
+    (they are not listed by ``dir()``), this helper first tries iteration over
+    the namespace (the path used by the Genie abstraction layer and by the
+    test stubs) and falls back to ``dir()`` for any namespace that exposes
+    features as real attributes. Each candidate is resolved with
+    ``getattr`` and kept only if it is callable.
+
+    Returns an empty list when no Ops features are discovered (the caller
+    records a warning). Order follows the namespace iteration order
+    (deterministic per Genie release).
+    """
+    features: list[tuple[str, Any]] = []
+    ops_namespace = getattr(lookup, "ops", None)
+    if ops_namespace is None:
+        return features
+
+    # Primary path: iterate the namespace (real Genie resolves features via
+    # __getattr__; dir() does not list them). Duck-typed stubs expose features
+    # the same way.
+    names: list[str] = []
+    try:
+        names = list(ops_namespace)
+    except TypeError:
+        # Not iterable — fall back to dir()-based discovery for namespaces
+        # that expose features as real attributes.
+        names = [n for n in dir(ops_namespace) if not n.startswith("_")]
+
+    for name in names:
+        if name.startswith("_"):
+            continue
+        try:
+            factory = getattr(ops_namespace, name)
+        except AttributeError:
+            continue
+        if callable(factory):
+            features.append((name, factory))
+    return features
+
+
 def capture_snapshot(
     pyats_device,
     *,
@@ -396,11 +534,12 @@ def capture_snapshot(
         pyats_device: a connected ``pyats.topology.Device`` (or a duck-typed
             object with ``name``, ``os``, ``parse``, ``execute`` for tests).
         kind: one of :class:`SnapshotKindChoices` — ``config``, ``state``,
-            ``full``, or ``parse``.
+            ``full``, ``parse``, or ``learn``.
         commands: required for ``kind='parse'`` — the explicit, user-supplied
             CLI command list to parse on demand (ATW-241 child 3). Ignored for
             the other kinds (the automated ``state`` path uses
-            :data:`STATE_COMMANDS`).
+            :data:`STATE_COMMANDS`; the ``learn`` path uses the Genie Ops
+            framework, not a command list).
 
     Returns:
         A :class:`CaptureResult` with the payload, warnings, and worker
@@ -469,6 +608,14 @@ def capture_snapshot(
             except Exception as exc:  # noqa: BLE001 - parse capture failure is a warning, not fatal
                 warnings.append(f"parse capture failed: [{type(exc).__name__}] {exc}")
                 data["state"] = {}
+        if kind == SnapshotKindChoices.KIND_LEARN:
+            try:
+                learn, learn_warnings = _capture_learn(pyats_device)
+                data["learn"] = learn
+                warnings.extend(learn_warnings)
+            except Exception as exc:  # noqa: BLE001 - learn capture failure is a warning, not fatal
+                warnings.append(f"learn capture failed: [{type(exc).__name__}] {exc}")
+                data["learn"] = {}
     except Exception as exc:  # noqa: BLE001 - any uncaught error → error status with traceback
         return CaptureResult(
             status=SnapshotStatusChoices.STATUS_ERROR,
@@ -489,6 +636,8 @@ def capture_snapshot(
     elif kind == SnapshotKindChoices.KIND_STATE and not data.get("state"):
         status = SnapshotStatusChoices.STATUS_ERROR
     elif kind == SnapshotKindChoices.KIND_PARSE and not data.get("state"):
+        status = SnapshotStatusChoices.STATUS_ERROR
+    elif kind == SnapshotKindChoices.KIND_LEARN and not data.get("learn"):
         status = SnapshotStatusChoices.STATUS_ERROR
     if status == SnapshotStatusChoices.STATUS_ERROR and not warnings:
         warnings.append("capture produced no data")

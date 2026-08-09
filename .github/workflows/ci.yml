@@ -167,6 +167,7 @@ jobs:
                  netbox_pyats/tests/test_testbed.py \
                  netbox_pyats/tests/test_diff.py \
                  netbox_pyats/tests/test_capture.py \
+                 netbox_pyats/tests/test_capture_learn.py \
                  netbox_pyats/tests/test_compliance.py \
                  netbox_pyats/tests/test_compliance_job_legacy.py \
                  netbox_pyats/tests/test_state_commands_invariant.py \

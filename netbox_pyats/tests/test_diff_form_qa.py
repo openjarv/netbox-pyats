@@ -16,7 +16,7 @@ template engine + plugin URL config.
 
 import pytest
 
-from netbox_pyats.choices import SnapshotKindChoices
+from netbox_pyats.choices import CAPTURE_KIND_CHOICES, SnapshotKindChoices
 from netbox_pyats.tab_context import group_snapshots_by_kind
 
 
@@ -59,13 +59,14 @@ class TestGroupSnapshotsByKind:
             assert len(group_snaps) > 0
 
     def test_ordering_follows_choices_definition(self):
-        # All four kinds present -> order must match SnapshotKindChoices.choices
-        # (config, state, full, parse) so the picker grouping is stable.
+        # All kinds present -> order must match SnapshotKindChoices.choices
+        # (config, state, full, parse, learn) so the picker grouping is stable.
         snaps = [
             FakeSnapshot(SnapshotKindChoices.KIND_PARSE, 4),
             FakeSnapshot(SnapshotKindChoices.KIND_FULL, 3),
             FakeSnapshot(SnapshotKindChoices.KIND_STATE, 2),
             FakeSnapshot(SnapshotKindChoices.KIND_CONFIG, 1),
+            FakeSnapshot(SnapshotKindChoices.KIND_LEARN, 5),
         ]
         grouped = group_snapshots_by_kind(snaps)
         assert [g[0] for g in grouped] == [c[0] for c in SnapshotKindChoices.choices]
@@ -132,7 +133,7 @@ class TestDeviceTabTemplateOptgroup:
                 "golden_configs": [],
                 "compliance_runs": [],
                 "config_snapshots": [],
-                "snapshot_kinds": SnapshotKindChoices.choices,
+                "snapshot_kinds": CAPTURE_KIND_CHOICES,
                 "platform_supported": True,
                 "pyats_os": "iosxe",
                 "capture_url": "/capture/",

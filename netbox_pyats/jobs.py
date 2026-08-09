@@ -1108,6 +1108,48 @@ def enqueue_parse(device, *, commands, user=None):
 
 
 # --------------------------------------------------------------------------- #
+# Learn job (ATW-730 — Genie Ops feature-state Learn capture)
+# --------------------------------------------------------------------------- #
+
+
+def enqueue_learn(device, *, user=None):
+    """Enqueue a Genie Ops Learn job on the dedicated ``pyats`` RQ queue (ATW-730).
+
+    Entry point the Genie Learn page (and, if wired, the device-page Learn
+    sub-tab) calls when the operator clicks "Run Learn". It creates a plugin
+    :class:`PyatsJob` row with ``job_type=learn``, a NetBox :class:`core.models.Job`
+    row, and enqueues the :func:`learn_snapshot_job` callable on the ``pyats``
+    queue. The job builds a one-device testbed, connects, drives the Genie Ops
+    framework (the Genie Ops framework (per-feature Ops ``.learn()``)),
+    and persists a ``kind='learn'`` :class:`PyatsSnapshot` row.
+
+    Args:
+        device: a NetBox ``dcim.Device`` instance.
+        user: the NetBox user initiating the Learn (for the Job row).
+
+    Returns:
+        The NetBox :class:`core.models.Job` row tracking this Learn run.
+    """
+    from core.models import Job
+
+    pyats_job = _create_pyats_job(job_type=PyatsJobTypeChoices.JOB_LEARN, device=device)
+
+    core_job = Job.enqueue(
+        learn_snapshot_job,
+        instance=device,
+        name=f"PyATS learn: {device}",
+        user=user,
+        queue_name=PYATS_QUEUE,
+        pyats_job_id=pyats_job.pk,
+    )
+    pyats_job.core_job = core_job
+    pyats_job.rq_job_id = getattr(core_job, "job_id", "") or ""
+    pyats_job.full_clean()
+    pyats_job.save()
+    return core_job
+
+
+# --------------------------------------------------------------------------- #
 # Parser catalog refresh job (ATW-241 child 1 / ATW-249)
 # --------------------------------------------------------------------------- #
 
@@ -1245,6 +1287,107 @@ def parse_commands_job(job, commands: list[str], pyats_job_id: int | None = None
         if result.warnings:
             for w in result.warnings[:5]:  # keep the job log readable
                 logger.warning("parse warning: %s", w)
+
+        if pyats_job_id is not None:
+            _finish_success(job, pyats_job_id, related_snapshot=snapshot)
+
+        return snapshot.pk
+    except Exception as exc:  # noqa: BLE001 - top-level try/finally re-raises (ADR-0005 §3 step 4)
+        if pyats_job_id is not None and snapshot is None:
+            _record_error(job, pyats_job_id, exc)
+        raise
+
+
+def learn_snapshot_job(job, pyats_job_id: int | None = None, **kwargs):
+    """RQ worker entry point — run a Genie Ops Learn and persist the snapshot (ATW-730).
+
+    NetBox's :class:`core.models.Job.enqueue` calls this with ``job`` (the
+    tracking :class:`core.models.Job` row) plus the kwargs passed through from
+    :func:`enqueue_learn`. ``job.object`` is the NetBox Device.
+
+    The Learn logic lives in :func:`netbox_pyats.capture.capture_snapshot`
+    (``kind='learn'`` → :func:`capture._capture_learn`, which drives the Genie
+    Ops framework via the Genie Ops framework (per-feature Ops ``.learn()``));
+    this function only handles the NetBox-side plumbing (load the Device, run
+    the capture, write the :class:`PyatsSnapshot` row, log to the Job).
+    Multi-vendor graceful degradation is enforced in
+    :func:`capture.capture_snapshot` — unsupported platforms and capture
+    errors still produce a row so the history shows the outcome in-line,
+    mirroring the parse job.
+
+    ``triggered_by`` is ``user`` when the Learn was run from the Genie Learn
+    page (the operator clicked "Run Learn").
+
+    ADR-0005 §3 plumbing: the :class:`PyatsJob` row (resolved via
+    ``pyats_job_id``) is set to ``running`` at entry, ``success`` (with the
+    snapshot FK) on a clean Learn (including the ``unsupported``/``error``
+    *snapshot row* — those are successful *jobs* producing error result rows
+    per ADR-0002), or ``error`` when the job raised and the result row could
+    not be written. The top-level ``try/finally`` re-raises so RQ/``core.Job``
+    is also marked failed.
+    """
+    from dcim.models import Device
+
+    from .capture import capture_snapshot_for_netbox_device
+    from .models import PyatsSnapshot
+
+    device: Device = job.object
+    logger.info("Running Genie Ops Learn for device %s", device)
+
+    if pyats_job_id is not None:
+        _mark_running(job, pyats_job_id)
+
+    snapshot = None
+    try:
+        try:
+            result = capture_snapshot_for_netbox_device(
+                device,
+                kind=SnapshotKindChoices.KIND_LEARN,
+            )
+        except Exception as exc:  # noqa: BLE001 - any uncaught error → error row + job failure
+            snapshot = _persist_error_row(
+                PyatsSnapshot(
+                    device=device,
+                    kind=SnapshotKindChoices.KIND_LEARN,
+                    status="error",
+                    triggered_by=SnapshotTriggerChoices.TRIGGER_USER,
+                    data={},
+                    parser_warnings=[f"learn error: {exc}", traceback.format_exc()],
+                    genie_version="",
+                    pyats_version="",
+                    parsed_os="",
+                    size_bytes=0,
+                ),
+                label="learn snapshot",
+            )
+            if pyats_job_id is not None and snapshot is not None:
+                _finish_success(job, pyats_job_id, related_snapshot=snapshot)
+            raise
+
+        snapshot = PyatsSnapshot(
+            device=device,
+            kind=SnapshotKindChoices.KIND_LEARN,
+            status=result.status,
+            triggered_by=SnapshotTriggerChoices.TRIGGER_USER,
+            data=result.data,
+            parser_warnings=result.warnings,
+            genie_version=result.genie_version,
+            pyats_version=result.pyats_version,
+            parsed_os=result.parsed_os,
+            size_bytes=result.size_bytes,
+        )
+        snapshot.full_clean()
+        snapshot.save()
+
+        logger.info(
+            "Learn snapshot %s stored (status=%s, %d bytes)",
+            snapshot.pk,
+            result.status,
+            result.size_bytes,
+        )
+        if result.warnings:
+            for w in result.warnings[:5]:  # keep the job log readable
+                logger.warning("learn warning: %s", w)
 
         if pyats_job_id is not None:
             _finish_success(job, pyats_job_id, related_snapshot=snapshot)

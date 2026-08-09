@@ -1,0 +1,257 @@
+"""Tests for the Genie Ops Learn capture (ATW-730).
+
+Pure-Python: exercises :func:`netbox_pyats.capture._capture_learn` and the
+``kind='learn'`` path of :func:`netbox_pyats.capture.capture_snapshot` against
+a fake pyATS Device and a stubbed ``genie.ops.utils.Lookup`` (no NetBox, no
+RQ, no real Genie). The helper imports ``genie.ops.utils`` lazily inside the
+function, so we inject a fake module into ``sys.modules`` so the lazy import
+resolves — the same pattern as ``test_parser_catalog.py``.
+
+Covers:
+- Unsupported platform → ``status="unsupported"`` (the shared short-circuit
+  in :func:`capture_snapshot`, before any Genie import).
+- Successful Learn → ``data["learn"]`` keyed by Ops feature name.
+- Per-feature graceful degradation: one feature raising a non-AttributeError
+  exception is recorded as a warning and omitted, the rest still captured.
+- ``AttributeError`` from a feature (the Ops framework exposes features the
+  device's os does not implement) is skipped silently.
+- Empty learn (no features discovered) → ``status="error"`` with a warning.
+- ``Lookup.from_device`` failure → empty learn with a warning, error status.
+- ``genie.ops.utils`` import failure → empty learn with a warning, error status.
+"""
+
+import pytest
+
+pytest.importorskip("pyats")
+
+from netbox_pyats.capture import capture_snapshot
+from netbox_pyats.choices import SnapshotKindChoices, SnapshotStatusChoices
+from netbox_pyats.testbed import UNSUPPORTED_OS
+
+
+class FakeOpsInstance:
+    """Duck-typed Genie Ops instance returned by an Ops class factory.
+
+    ``_capture_learn`` calls ``factory(device).learn()`` then reads
+    ``.ops`` (falling back to ``.data``) for the structured payload.
+    """
+
+    def __init__(self, payload, learn_exc=None):
+        self._payload = payload
+        self._learn_exc = learn_exc
+
+    def learn(self):
+        if self._learn_exc is not None:
+            raise self._learn_exc
+
+    @property
+    def ops(self):
+        return self._payload
+
+
+class FakeOpsFactory:
+    """Callable that returns a :class:`FakeOpsInstance` when called with a device."""
+
+    def __init__(self, payload, learn_exc=None):
+        self._payload = payload
+        self._learn_exc = learn_exc
+
+    def __call__(self, device):
+        return FakeOpsInstance(self._payload, learn_exc=self._learn_exc)
+
+
+class FakeOpsNamespace:
+    """Duck-typed ``lookup.ops`` namespace exposing feature factories."""
+
+    def __init__(self, features):
+        # features: dict of {name: FakeOpsFactory}
+        self._features = features
+
+    def __iter__(self):
+        return iter(self._features)
+
+    def __getattr__(self, name):
+        if name.startswith("_"):
+            raise AttributeError(name)
+        if name in self._features:
+            return self._features[name]
+        raise AttributeError(name)
+
+
+class FakeLookup:
+    """Duck-typed ``genie.ops.utils.Lookup`` instance."""
+
+    def __init__(self, ops_namespace):
+        self.ops = ops_namespace
+
+
+def _patch_genie_ops(monkeypatch, lookup=None, from_device_exc=None):
+    """Inject a fake ``genie.ops.utils.Lookup`` into ``sys.modules``.
+
+    ``_capture_learn`` does ``from genie.ops.utils import Lookup`` inside the
+    function. We register a fake package chain so the lazy import resolves,
+    with ``Lookup.from_device`` returning the configured lookup (or raising).
+    """
+    import sys
+    import types
+
+    fake_genie = types.ModuleType("genie")
+    fake_genie_libs = types.ModuleType("genie.libs")
+    fake_genie_ops = types.ModuleType("genie.ops")
+    fake_genie_ops_utils = types.ModuleType("genie.ops.utils")
+
+    class _FakeLookupClass:
+        @staticmethod
+        def from_device(device):
+            if from_device_exc is not None:
+                raise from_device_exc
+            return lookup
+
+    fake_genie_ops_utils.Lookup = _FakeLookupClass
+
+    monkeypatch.setitem(sys.modules, "genie", fake_genie)
+    monkeypatch.setitem(sys.modules, "genie.libs", fake_genie_libs)
+    monkeypatch.setitem(sys.modules, "genie.ops", fake_genie_ops)
+    monkeypatch.setitem(sys.modules, "genie.ops.utils", fake_genie_ops_utils)
+
+
+class FakePyatsDevice:
+    """Minimal duck-typed pyATS Device for Learn tests.
+
+    The Learn path only reads ``name`` and ``os`` (no ``parse``/``execute``);
+    the Genie Ops framework is stubbed via the patched ``Lookup``.
+    """
+
+    def __init__(self, name="rtr01", os="iosxe"):
+        self.name = name
+        self.os = os
+
+
+class TestLearnUnsupportedPlatform:
+    def test_unsupported_os_short_circuits_before_genie_import(self):
+        # The shared short-circuit in capture_snapshot returns unsupported
+        # before _capture_learn (and its genie import) is reached.
+        d = FakePyatsDevice(os=UNSUPPORTED_OS)
+        result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_LEARN)
+        assert result.status == SnapshotStatusChoices.STATUS_UNSUPPORTED
+        assert result.data == {}
+        assert any("no Genie parser" in w for w in result.warnings)
+
+
+class TestLearnCapture:
+    def test_successful_learn_writes_data_keyed_by_feature(self, monkeypatch):
+        ops = FakeOpsNamespace(
+            {
+                "interface": FakeOpsFactory({"interfaces": {"Gig0": {"enabled": True}}}),
+                "bgp": FakeOpsFactory({"neighbors": {"1.1.1.1": {"state": "Established"}}}),
+            }
+        )
+        _patch_genie_ops(monkeypatch, lookup=FakeLookup(ops))
+        d = FakePyatsDevice(os="iosxe")
+        result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_LEARN)
+        assert result.status == SnapshotStatusChoices.STATUS_SUCCESS
+        assert "learn" in result.data
+        assert set(result.data["learn"].keys()) == {"interface", "bgp"}
+        assert result.data["learn"]["interface"]["interfaces"]["Gig0"]["enabled"] is True
+        assert result.warnings == []
+
+    def test_learn_carries_parsed_os(self, monkeypatch):
+        ops = FakeOpsNamespace({"interface": FakeOpsFactory({"x": 1})})
+        _patch_genie_ops(monkeypatch, lookup=FakeLookup(ops))
+        d = FakePyatsDevice(os="nxos")
+        result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_LEARN)
+        assert result.parsed_os == "nxos"
+
+    def test_per_feature_failure_is_warning_not_fatal(self, monkeypatch):
+        # One feature raises a non-AttributeError exception → recorded as a
+        # warning and omitted; the other feature is still captured.
+        ops = FakeOpsNamespace(
+            {
+                "interface": FakeOpsFactory({"ok": True}),
+                "bgp": FakeOpsFactory(None, learn_exc=RuntimeError("bgp learn boom")),
+            }
+        )
+        _patch_genie_ops(monkeypatch, lookup=FakeLookup(ops))
+        d = FakePyatsDevice(os="iosxe")
+        result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_LEARN)
+        assert result.status == SnapshotStatusChoices.STATUS_SUCCESS
+        assert "interface" in result.data["learn"]
+        assert "bgp" not in result.data["learn"]
+        assert any("bgp" in w and "learn failed" in w for w in result.warnings)
+
+    def test_attribute_error_feature_is_silently_skipped(self, monkeypatch):
+        # AttributeError from a feature (the Ops framework exposes features
+        # the device's os does not implement) is skipped silently with a debug
+        # log — not a warning, not fatal.
+        ops = FakeOpsNamespace(
+            {
+                "interface": FakeOpsFactory({"ok": True}),
+                "bgp": FakeOpsFactory(None, learn_exc=AttributeError("not applicable")),
+            }
+        )
+        _patch_genie_ops(monkeypatch, lookup=FakeLookup(ops))
+        d = FakePyatsDevice(os="iosxe")
+        result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_LEARN)
+        assert result.status == SnapshotStatusChoices.STATUS_SUCCESS
+        assert "interface" in result.data["learn"]
+        assert "bgp" not in result.data["learn"]
+        # AttributeError is silent — no warning for the skipped feature.
+        assert not any("bgp" in w for w in result.warnings)
+
+    def test_no_features_discovered_is_error_with_warning(self, monkeypatch):
+        ops = FakeOpsNamespace({})
+        _patch_genie_ops(monkeypatch, lookup=FakeLookup(ops))
+        d = FakePyatsDevice(os="iosxe")
+        result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_LEARN)
+        assert result.status == SnapshotStatusChoices.STATUS_ERROR
+        assert result.data == {"learn": {}}
+        assert any("no Ops feature" in w for w in result.warnings)
+
+    def test_lookup_from_device_failure_is_error(self, monkeypatch):
+        _patch_genie_ops(monkeypatch, from_device_exc=RuntimeError("lookup boom"))
+        d = FakePyatsDevice(os="iosxe")
+        result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_LEARN)
+        assert result.status == SnapshotStatusChoices.STATUS_ERROR
+        assert result.data == {"learn": {}}
+        assert any("Lookup.from_device failed" in w for w in result.warnings)
+
+    def test_genie_ops_import_failure_is_error(self, monkeypatch):
+        # If the genie.ops.utils import itself fails (e.g. genie not installed
+        # on the worker), _capture_learn returns an empty learn with a warning
+        # and the capture is an error (no data).
+        import sys
+
+        # Ensure the real genie.ops.utils is absent so the lazy import fails.
+        for mod in ("genie", "genie.libs", "genie.ops", "genie.ops.utils"):
+            monkeypatch.setitem(sys.modules, mod, None)
+        d = FakePyatsDevice(os="iosxe")
+        result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_LEARN)
+        assert result.status == SnapshotStatusChoices.STATUS_ERROR
+        assert result.data == {"learn": {}}
+        assert any("import failed" in w for w in result.warnings)
+
+    def test_feature_with_no_payload_is_warning_and_omitted(self, monkeypatch):
+        # An Ops feature whose .learn() succeeds but produces no .ops/.data
+        # payload is recorded as a warning and omitted (not an empty entry).
+        class _NonePayloadOps(FakeOpsInstance):
+            @property
+            def ops(self):
+                return None
+
+        class _NonePayloadFactory(FakeOpsFactory):
+            def __call__(self, device):
+                return _NonePayloadOps(None)
+
+        ops = FakeOpsNamespace(
+            {
+                "interface": FakeOpsFactory({"ok": True}),
+                "empty": _NonePayloadFactory(None),
+            }
+        )
+        _patch_genie_ops(monkeypatch, lookup=FakeLookup(ops))
+        d = FakePyatsDevice(os="iosxe")
+        result = capture_snapshot(d, kind=SnapshotKindChoices.KIND_LEARN)
+        assert result.status == SnapshotStatusChoices.STATUS_SUCCESS
+        assert "interface" in result.data["learn"]
+        assert "empty" not in result.data["learn"]
+        assert any("empty" in w and "no payload" in w for w in result.warnings)
