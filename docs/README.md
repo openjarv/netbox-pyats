@@ -9,12 +9,13 @@ Pick the path that matches what you are trying to do.
 You know NetBox. You want to install the plugin, capture a snapshot, diff two snapshots, or run a compliance check against a golden config.
 
 - [Installation](user/installation.md) — install the plugin, configure NetBox, and run your first capture.
-- [Usage guide](user/usage.md) — the capture → diff → compliance workflow with exact UI paths.
-- [PyATS worker deployment](user/workers.md) — run the dedicated `pyats` RQ queue (required for snapshots, diffs, and compliance).
+- [Usage guide](user/usage.md) — the capture → parse → learn → diff → compliance workflow with exact UI paths (covers the three dedicated Genie pages plus the device-page tab).
+- [PyATS worker deployment](user/workers.md) — run the dedicated `pyats` RQ queue (required for snapshots, parses, learns, diffs, and compliance).
 - [Upgrade guide](user/upgrade.md) — upgrade the plugin, upgrade NetBox with the plugin installed, and keep the pyats worker aligned.
 - [Credential encryption](user/credentials.md) — how plugin-local device credentials are encrypted and rotated.
 - [Compliance engine](user/compliance.md) — what the golden-config compliance check classifies and why.
 - [Scheduled captures](user/scheduled-captures.md) — recurring capture schedules for nightly baselines and drift detection.
+- [Scheduled parser-catalog refresh](user/scheduled-parser-catalog-refresh.md) — keep the Parse page's command list in step with the worker's Genie install.
 - [Troubleshooting](user/troubleshooting.md) — operator-facing fixes for the most common failure modes.
 
 ## For contributors (developing the plugin)

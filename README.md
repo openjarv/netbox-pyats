@@ -12,10 +12,19 @@ An [Atw](https://github.com/openjarv) [NetBox](https://netbox.dev) plugin that b
 Once installed, the plugin adds a top-level **Genie** entry in the NetBox navigation menu — leading with the three primary Genie tools (**Parse**, **Learn**, **Diff**) plus the supporting groups (Credentials, Snapshots, Golden Configs & Compliance, Automation, Parser Catalog) — a **PyATS Jobs & Platforms** menu for the operational surface, and every device page gains a **PyATS** tab.
 
 <p align="center">
-  <img src="docs/screenshots/nav-pyats-menu.png" alt="NetBox navigation menu with the top-level PyATS menu expanded, showing grouped entries" width="45%">&nbsp;&nbsp;
+  <img src="docs/screenshots/nav-pyats-menu.png" alt="NetBox navigation with the top-level Genie menu expanded showing the Genie Tools group (Genie Parse, Genie Learn, Genie Diff), Credentials, Snapshots, Golden Configs & Compliance, Automation, and Parser Catalog, plus the PyATS Jobs & Platforms menu" width="45%">&nbsp;&nbsp;
   <img src="docs/screenshots/device-pyats-tab.png" alt="A device's PyATS tab showing the capture form and recent-snapshot history with status badges" width="45%">
 </p>
-<p align="center"><em>Left: the top-level PyATS menu in the NetBox nav. Right: the device-page PyATS tab — capture form and recent snapshots with status badges.</em></p>
+<p align="center"><em>Left: the top-level Genie menu (with the PyATS Jobs &amp; Platforms menu) in the NetBox nav. Right: the device-page PyATS tab — capture form and recent snapshots with status badges.</em></p>
+
+The three dedicated Genie pages — **Parse**, **Learn**, and **Diff** — are the primary surfaces for ad-hoc parser runs, Genie Ops learn captures, and snapshot diffs:
+
+<p align="center">
+  <img src="docs/screenshots/genie-parse-page.png" alt="The Genie Parse page with the device picker, cached-parser-command checkbox list, free-text manual command field, Refresh parser list button, and recent parse results table" width="32%">&nbsp;&nbsp;
+  <img src="docs/screenshots/genie-learn-page.png" alt="The Genie Learn page with the device picker, Run Learn action, parser catalog card, and recent learn results table" width="32%">&nbsp;&nbsp;
+  <img src="docs/screenshots/genie-diff-page.png" alt="The Genie Diff page with the same-device / cross-device mode picker, device pickers, snapshot diff picker, and recent diffs table" width="32%">
+</p>
+<p align="center"><em>Left: Genie Parse. Middle: Genie Learn. Right: Genie Diff.</em></p>
 
 The diff and compliance views render the same side-by-side before/after diff table:
 
@@ -46,6 +55,8 @@ Three feature groups ship today — see the [usage guide](docs/user/usage.md) fo
 - **Snapshot diffs** — `PyatsSnapshotDiff` + `run_diff` RQ job; structured recursive diff over JSONB flattened into a server-rendered side-by-side diff table (no JS).
 - **Diff viewer** — `/plugins/pyats/diffs/<pk>/`; flat `Path / Before / After` table with red/green monospace values for changed leaves, summary badges, raw-JSON fallback.
 - **Genie Diff page** — `/plugins/pyats/genie/diff/`; the primary diff surface under the **Genie** menu. Pick same-device or cross-device mode, select device(s) and two snapshots, and click Diff. Same-device reuses the device-page diff path; cross-device compares the same feature across two devices (the before device owns the diff row; the after device is recorded in the diff warnings). Recent diffs across all devices are shown below the form, with a "View all" link to the full diff history. The device-page Diff sub-tab stays as a convenience.
+- **Genie Parse page** — `/plugins/pyats/genie/parse/`; ad-hoc Genie parser runs against any device from a first-class page — a device picker, a checkbox list of cached parser commands from the `PyatsParserCatalog`, a free-text `manual_command` field, and a recent-results table. The result lands as a `kind='parse'` snapshot.
+- **Genie Learn page** — `/plugins/pyats/genie/learn/`; structured feature-state capture via the Genie Ops framework (per-feature Ops `.learn()`). Pick a device, click Run Learn, and the worker iterates every Ops feature the device exposes (BGP, interfaces, OSPF, VLANs, …) into a `kind='learn'` snapshot keyed by feature name. Learn snapshots are diffable against other `learn` snapshots in the Diff page.
 
 ### Compliance & Jobs
 
@@ -57,7 +68,7 @@ Three feature groups ship today — see the [usage guide](docs/user/usage.md) fo
 ### Device-page UI
 
 - **Device-page "PyATS" tab** — capture button (config / state / full), recent-snapshot history with status badges, "Diff two snapshots" picker (≥2 snapshots), "Run compliance" picker (≥1 golden + ≥1 config/full snapshot), and recent-diffs / recent-compliance-runs lists.
-- **Device-page "Parse" sub-tab** — `/plugins/pyats/devices/<id>/parse/`; a checkbox list of cached parser commands (from the `PyatsParserCatalog` row for the device's resolved pyATS os — DB only, no Genie import in the web process) and/or a free-text `manual_command` field; each selected/typed command becomes one parse entry and the result lands as a `kind='parse'` snapshot in the device-page history. A "Refresh parser list" button enqueues the catalog refresh job for all supported os. See [usage guide](docs/user/usage.md#3-on-demand-parse).
+- **Device-page "Parse" sub-tab** — `/plugins/pyats/devices/<id>/parse/`; a convenience link into the dedicated **Genie Parse** page. The checkbox list of cached parser commands (from the `PyatsParserCatalog` row for the device's resolved pyATS os — DB only, no Genie import in the web process) and the free-text `manual_command` field are shared between the two surfaces; each selected/typed command becomes one parse entry and the result lands as a `kind='parse'` snapshot in the device-page history. A "Refresh parser list" button enqueues the catalog refresh job for all supported os. See [usage guide](docs/user/usage.md#3-run-an-on-demand-parse).
 
 ## Compatibility matrix
 
