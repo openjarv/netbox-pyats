@@ -69,7 +69,7 @@ The diff engine is pure-Python and operates on already-serialized JSONB — no p
 
 ## 5 — Add a golden config
 
-**Genie → Golden Configs → Add** (or open the device's PyATS tab → use the "Run compliance" picker's golden link).
+**Genie → Golden Configs & Compliance → Golden Configs → Add** (or open the device's PyATS tab → use the "Run compliance" picker's golden link).
 
 Pick the device, give the golden a name (e.g. `baseline-rtr01`), and paste the expected running-config text. The `source` defaults to `manual`; a "promote from snapshot" flow sets it to `snapshot` and links the originating `PyatsSnapshot` for provenance. Multiple goldens per device are allowed (e.g. `baseline`, `post-maintenance-window`).
 
@@ -95,7 +95,7 @@ The supporting pages live under the **Genie** menu (and the **PyATS Jobs & Platf
 
 - **Credentials** (Genie → Credentials) — filterable by device.
 - **Snapshots** (Genie → Snapshots) — filterable by device, kind, status.
-- **Golden Configs** (Genie → Golden Configs) — filterable by device, source.
+- **Golden Configs** (Genie → Golden Configs & Compliance) — filterable by device, source.
 - **Compliance Runs** (Genie → Golden Configs & Compliance) — filterable by device, result.
 - **Capture Schedules** (Genie → Automation) — filterable by device, kind, enabled; the recurring-capture model (see [Scheduled captures](scheduled-captures.md)).
 - **Jobs** (PyATS Jobs & Platforms → Jobs, `/plugins/pyats/jobs/`) — one row per capture / diff / compliance / batch-capture / parse / refresh-catalog job, with a `pending` → `running` → `success` / `error` / `partial` status lifecycle and typed links to the result row each job produced. Filterable by type, status, and device.
