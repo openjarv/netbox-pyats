@@ -9,7 +9,17 @@ from netbox.plugins import PluginMenu, PluginMenuItem
 # ``(group_label, [PluginMenuItem, ...])`` tuples. Each group renders as a
 # labelled section inside the top-level nav entry.
 #
-# Routing (post ATW-728/729/730):
+# Relabel pass (ATW-732): the supporting infrastructure moved under the Genie
+# menu in ATW-728, so the redundant ``PyATS`` prefix is dropped from the
+# ``link_text`` of every supporting item (the menu already says "Genie").
+# The "Capture Schedules" group is renamed to "Automation" to match the
+# board's proposed final navigation (ATW-727 plan). No links, permissions,
+# or ordering changed — this is a display-text-only consolidation. The
+# standalone ``pyatssnapshotdiff_list`` menu entry was already removed in
+# ATW-728 (the list view remains at /diffs/ as the full-history target
+# linked from the Genie Diff page, ATW-731).
+#
+# Routing (post ATW-728/729/730/731):
 #   * Genie Parse → the dedicated Genie Parse page (``genie_parse``,
 #     ATW-729) — a device picker + on-demand parse form + recent parse
 #     results, all on one first-class page. Permissions reuse
@@ -26,8 +36,9 @@ from netbox.plugins import PluginMenu, PluginMenuItem
 #   * Genie Diff → the dedicated Genie Diff page (``genie_diff``, ATW-731) —
 #     the primary surface for all diff operations: same-device snapshot diff,
 #     cross-device diff, and recent diffs. The full diff history remains on
-#     ``pyatssnapshotdiff_list`` (linked from the Diff page).
-#
+#     ``pyatssnapshotdiff_list`` (linked from the Diff page, not in the nav
+#     menu — the standalone menu entry was redundant once the dedicated Diff
+#     page shipped, ATW-728/731).
 # Ordering convention (ADR-0001 §3 / ATW-83): the static ``supported_platforms``
 # report (the only non-model menu entry) is last overall — it closes the
 # Jobs & Platforms menu.
@@ -59,7 +70,7 @@ genie_menu = PluginMenu(
             (
                 PluginMenuItem(
                     link="plugins:netbox_pyats:pyatscredential_list",
-                    link_text=_("PyATS Credentials"),
+                    link_text=_("Credentials"),
                     permissions=["netbox_pyats.view_pyatscredential"],
                 ),
                 PluginMenuItem(
@@ -74,7 +85,7 @@ genie_menu = PluginMenu(
             (
                 PluginMenuItem(
                     link="plugins:netbox_pyats:pyatssnapshot_list",
-                    link_text=_("PyATS Snapshots"),
+                    link_text=_("Snapshots"),
                     permissions=["netbox_pyats.view_pyatssnapshot"],
                 ),
             ),
@@ -84,22 +95,22 @@ genie_menu = PluginMenu(
             (
                 PluginMenuItem(
                     link="plugins:netbox_pyats:pyatsgoldenconfig_list",
-                    link_text=_("PyATS Golden Configs"),
+                    link_text=_("Golden Configs"),
                     permissions=["netbox_pyats.view_pyatsgoldenconfig"],
                 ),
                 PluginMenuItem(
                     link="plugins:netbox_pyats:pyatscompliancerun_list",
-                    link_text=_("PyATS Compliance Runs"),
+                    link_text=_("Compliance Runs"),
                     permissions=["netbox_pyats.view_pyatscompliancerun"],
                 ),
             ),
         ),
         (
-            _("Capture Schedules"),
+            _("Automation"),
             (
                 PluginMenuItem(
                     link="plugins:netbox_pyats:pyatscaptureschedule_list",
-                    link_text=_("PyATS Capture Schedules"),
+                    link_text=_("Capture Schedules"),
                     permissions=["netbox_pyats.view_pyatscaptureschedule"],
                 ),
                 PluginMenuItem(
@@ -136,7 +147,7 @@ jobs_menu = PluginMenu(
             (
                 PluginMenuItem(
                     link="plugins:netbox_pyats:pyatsjob_list",
-                    link_text=_("PyATS Jobs"),
+                    link_text=_("Jobs"),
                     permissions=["netbox_pyats.view_pyatsjob"],
                 ),
                 PluginMenuItem(

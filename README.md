@@ -9,7 +9,7 @@ An [Atw](https://github.com/openjarv) [NetBox](https://netbox.dev) plugin that b
 
 ## At a glance
 
-Once installed, the plugin adds a top-level **Genie** entry in the NetBox navigation menu — leading with the three primary Genie tools (**Parse**, **Learn**, **Diff**) plus the supporting groups (Credentials, Snapshots, Golden Configs & Compliance, Capture Schedules, Parser Catalog) — a **PyATS Jobs & Platforms** menu for the operational surface, and every device page gains a **PyATS** tab.
+Once installed, the plugin adds a top-level **Genie** entry in the NetBox navigation menu — leading with the three primary Genie tools (**Parse**, **Learn**, **Diff**) plus the supporting groups (Credentials, Snapshots, Golden Configs & Compliance, Automation, Parser Catalog) — a **PyATS Jobs & Platforms** menu for the operational surface, and every device page gains a **PyATS** tab.
 
 <p align="center">
   <img src="docs/screenshots/nav-pyats-menu.png" alt="NetBox navigation menu with the top-level PyATS menu expanded, showing grouped entries" width="45%">&nbsp;&nbsp;

@@ -11,7 +11,7 @@ The plugin adds a **PyATS** tab to every NetBox device page. From that tab you c
 
 ## 1 — Add a credential
 
-**PyATS → Add Credential**.
+**Genie → Credentials → Add Credential**.
 
 Pick a device, enter username + password (+ optional enable secret). The secrets are encrypted with Fernet before they hit the database — see [Credential encryption](credentials.md). The credential is never returned by the REST API, GraphQL, or the detail view template; only ciphertext is persisted.
 
@@ -69,7 +69,7 @@ The diff engine is pure-Python and operates on already-serialized JSONB — no p
 
 ## 5 — Add a golden config
 
-**PyATS → Golden Configs → Add** (or open the device's PyATS tab → use the "Run compliance" picker's golden link).
+**Genie → Golden Configs → Add** (or open the device's PyATS tab → use the "Run compliance" picker's golden link).
 
 Pick the device, give the golden a name (e.g. `baseline-rtr01`), and paste the expected running-config text. The `source` defaults to `manual`; a "promote from snapshot" flow sets it to `snapshot` and links the originating `PyatsSnapshot` for provenance. Multiple goldens per device are allowed (e.g. `baseline`, `post-maintenance-window`).
 
@@ -91,15 +91,16 @@ The compliance-run viewer (`/plugins/pyats/compliance-runs/<pk>/`) reuses the di
 
 ## 7 — Browse everything
 
-**PyATS →** the relevant list:
+The supporting pages live under the **Genie** menu (and the **PyATS Jobs & Platforms** menu for the operational surface):
 
-- **PyATS Credentials** — filterable by device.
-- **PyATS Snapshots** — filterable by device, kind, status.
-- **PyATS Snapshot Diffs** — filterable by device, status.
-- **Golden Configs** — filterable by device, source.
-- **PyATS Compliance Runs** — filterable by device, result.
-- **PyATS Capture Schedules** — filterable by device, kind, enabled; the recurring-capture model (see [Scheduled captures](scheduled-captures.md)).
-- **PyATS Jobs** (`/plugins/pyats/jobs/`) — one row per capture / diff / compliance / batch-capture / parse / refresh-catalog job, with a `pending` → `running` → `success` / `error` / `partial` status lifecycle and typed links to the result row each job produced. Filterable by type, status, and device.
+- **Credentials** (Genie → Credentials) — filterable by device.
+- **Snapshots** (Genie → Snapshots) — filterable by device, kind, status.
+- **Golden Configs** (Genie → Golden Configs) — filterable by device, source.
+- **Compliance Runs** (Genie → Golden Configs & Compliance) — filterable by device, result.
+- **Capture Schedules** (Genie → Automation) — filterable by device, kind, enabled; the recurring-capture model (see [Scheduled captures](scheduled-captures.md)).
+- **Jobs** (PyATS Jobs & Platforms → Jobs, `/plugins/pyats/jobs/`) — one row per capture / diff / compliance / batch-capture / parse / refresh-catalog job, with a `pending` → `running` → `success` / `error` / `partial` status lifecycle and typed links to the result row each job produced. Filterable by type, status, and device.
+
+> **Snapshot Diffs** have no standalone menu entry — the dedicated **Genie → Genie Diff** page is the primary surface (recent diffs across all devices + a "View all" link to the full diff history at `/plugins/pyats/diffs/`). The device-page Diff sub-tab stays as a convenience.
 
 > **PyATS Parser Catalog** has no UI list view — it is a worker-populated cache read by the on-device Parse tab and exposed read-only via the REST + GraphQL API (see [REST and GraphQL](#rest-and-graphql) below).
 
@@ -129,7 +130,7 @@ Genie parsers cover Cisco IOS/XE/XR/NX-OS/ASA, Juniper JunOS, Arista EOS, and No
 
 Adding a slug to the map is a commitment that Genie has real parser coverage for that os; unknown slugs degrade gracefully rather than silently producing empty snapshots.
 
-The supported-platforms report at **PyATS → Supported Platforms** renders the static map the capture job uses, with a per-slug NetBox device count, so you can see what a batch capture will reach before you run it.
+The supported-platforms report at **PyATS Jobs & Platforms → Supported Platforms** renders the static map the capture job uses, with a per-slug NetBox device count, so you can see what a batch capture will reach before you run it.
 
 <img src="../screenshots/supported-platforms.png" alt="The supported-platforms report showing the platform slug to pyATS os map with per-slug device counts" width="720">
 
