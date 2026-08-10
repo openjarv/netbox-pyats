@@ -236,6 +236,43 @@ class PyatsSnapshotDiffFilterForm(NetBoxModelFilterSetForm):
 
 
 # --------------------------------------------------------------------------- #
+# Genie Diff form (ATW-731)
+# --------------------------------------------------------------------------- #
+
+
+class GenieDiffForm(forms.Form):
+    """Form backing the dedicated Genie Diff page (ATW-731).
+
+    Posted to the :class:`views.GenieDiffView`. Supports two diff modes:
+
+    - **same-device** (``mode=same``): the operator picks a single device and
+      two snapshots of that device. Reuses the same device-page diff path
+      (:func:`jobs.enqueue_diff` with ``cross_device=False``).
+    - **cross-device** (``mode=cross``): the operator picks a before device +
+      before snapshot and an after device + after snapshot, comparing the same
+      feature across two different devices (e.g. BGP state on rtr01 vs rtr02).
+      Enqueues with ``cross_device=True`` so the worker skips the same-device
+      guard (ATW-731).
+
+    The form carries raw snapshot IDs and a mode toggle; the view resolves the
+    devices from the snapshots and validates they match the mode. No JS, no
+    kind-enforcement here (the operator can diff a config snapshot against a
+    state snapshot across devices if they want — the diff engine operates on
+    the JSONB structure, not the kind).
+    """
+
+    mode = forms.ChoiceField(
+        choices=(("same", "Same device"), ("cross", "Cross-device")),
+        initial="same",
+        required=True,
+        label="Diff mode",
+        help_text="Same device compares two snapshots of one device; cross-device compares the same feature across two devices.",
+    )
+    before_id = forms.IntegerField(required=True, label="Before snapshot")
+    after_id = forms.IntegerField(required=True, label="After snapshot")
+
+
+# --------------------------------------------------------------------------- #
 # Compliance forms (Phase 4, ATW-15)
 # --------------------------------------------------------------------------- #
 

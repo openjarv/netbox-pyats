@@ -45,6 +45,7 @@ Three feature groups ship today — see the [usage guide](docs/user/usage.md) fo
 
 - **Snapshot diffs** — `PyatsSnapshotDiff` + `run_diff` RQ job; structured recursive diff over JSONB flattened into a server-rendered side-by-side diff table (no JS).
 - **Diff viewer** — `/plugins/pyats/diffs/<pk>/`; flat `Path / Before / After` table with red/green monospace values for changed leaves, summary badges, raw-JSON fallback.
+- **Genie Diff page** — `/plugins/pyats/genie/diff/`; the primary diff surface under the **Genie** menu. Pick same-device or cross-device mode, select device(s) and two snapshots, and click Diff. Same-device reuses the device-page diff path; cross-device compares the same feature across two devices (the before device owns the diff row; the after device is recorded in the diff warnings). Recent diffs across all devices are shown below the form, with a "View all" link to the full diff history. The device-page Diff sub-tab stays as a convenience.
 
 ### Compliance & Jobs
 
