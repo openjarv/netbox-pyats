@@ -26,7 +26,7 @@ The plugin splits scheduling into three pieces (ADR-0008):
 
 ## Creating a schedule
 
-1. Navigate to **PyATS → Capture Schedules → Add**.
+1. Navigate to **Genie → Automation → Add Capture Schedule**.
 2. Enter a **name** (e.g. "Edge-routers nightly baseline").
 3. Pick a **kind** (config / state / full).
 4. Enter a **device_filter** as a JSON ORM filter spec. Examples:
@@ -93,10 +93,10 @@ comes online").
 
 ## Verifying a scheduled run
 
-1. After the dispatcher fires, navigate to **PyATS → Jobs** — you will see
+1. After the dispatcher fires, navigate to **PyATS Jobs & Platforms → Jobs** — you will see
    one `batch_capture` `PyatsJob` row per enabled schedule.
 2. The schedule's **Last run** timestamp is updated after each dispatch.
-3. The snapshot rows appear in **PyATS → Snapshots** (or the device-page PyATS
+3. The snapshot rows appear in **Genie → Snapshots** (or the device-page PyATS
    tab) once the pyats worker finishes the captures.
 
 ## External cron fallback

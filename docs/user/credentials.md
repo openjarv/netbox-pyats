@@ -28,7 +28,7 @@ Changing `credential_key` means existing ciphertext can no longer be decrypted (
 
 1. Generate a new key (above).
 2. Update `PLUGINS_CONFIG['netbox_pyats']['credential_key']` and restart NetBox.
-3. Re-enter each `PyatsCredential`'s password / enable secret at **PyATS →** the credential's edit page. Old ciphertext is unreadable; the re-entered plaintext is encrypted with the new key.
+3. Re-enter each `PyatsCredential`'s password / enable secret at **Genie → Credentials →** the credential's edit page. Old ciphertext is unreadable; the re-entered plaintext is encrypted with the new key.
 
 v1 ships a management note for this; an automated re-key command is planned for a later release.
 
