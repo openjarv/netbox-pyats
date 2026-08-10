@@ -57,6 +57,8 @@ A **Refresh parser list** button on the page enqueues the catalog refresh job (`
 
 The device-page **PyATS** tab → **Parse** link stays as a convenience; the dedicated Genie Parse page is the primary surface.
 
+<img src="../screenshots/genie-parse-page.png" alt="The Genie Parse page showing the device picker, cached-parser-command checkbox list, free-text manual command field, Refresh parser list button, and recent parse results table" width="720">
+
 ## 4 — Run a Genie Learn capture
 
 The dedicated **Genie Learn** page (**Genie → Genie Tools → Genie Learn**, `/plugins/pyats/genie/learn/`) runs a structured feature-state capture against a device using the Genie Ops framework (per-feature Ops `.learn()`). It combines:
@@ -70,6 +72,8 @@ Use Learn when you want a structured, feature-keyed view of device state (e.g. a
 
 > **Coverage note.** The Genie Ops framework covers a bounded feature set per os (interface, BGP, OSPF, VLAN, platform, …). Features the device does not expose are skipped with a warning; an empty learn (no features discovered) lands as a `status='error'` row so it appears in the history.
 
+<img src="../screenshots/genie-learn-page.png" alt="The Genie Learn page showing the device picker, Run Learn action, parser catalog card, and recent learn results table" width="720">
+
 ## 5 — Diff two snapshots
 
 The dedicated **Genie Diff** page (**Genie → Genie Tools → Genie Diff**, `/plugins/pyats/genie/diff/`) is the primary surface for all diff operations. It combines:
@@ -82,6 +86,8 @@ The dedicated **Genie Diff** page (**Genie → Genie Tools → Genie Diff**, `/p
 Same-device mode reuses the device-page diff path unchanged. Cross-device mode enqueues with `cross_device=True` so the worker skips the same-device guard and records the after device in `parser_warnings` — the `PyatsSnapshotDiff.device` FK still points to the before device (no model change). The diff picker groups snapshots by `kind`, so a `kind='parse'` row is only diffable against another `parse` row, a `learn` against a `learn`, and so on.
 
 The device-page **PyATS** tab → **Diff two snapshots** picker stays as a convenience; the dedicated Genie Diff page is the primary surface.
+
+<img src="../screenshots/genie-diff-page.png" alt="The Genie Diff page showing the same-device / cross-device mode picker, device pickers, snapshot diff picker, and recent diffs table with a View all link" width="720">
 
 The `run_diff` job is enqueued on the `pyats` queue. When the worker finishes, the diff appears in the recent-diffs table. Open it (`/plugins/pyats/diffs/<pk>/`) to see:
 
@@ -140,6 +146,8 @@ The plugin exposes two top-level menus in the NetBox navigation:
 > **Snapshot Diffs** have no standalone menu entry — the dedicated **Genie → Genie Diff** page is the primary surface (recent diffs across all devices + a "View all" link to the full diff history at `/plugins/pyats/diffs/`). The device-page Diff sub-tab stays as a convenience.
 
 Each detail view renders the JSONB payload / diff table / golden text / compliance diff and any warnings.
+
+<img src="../screenshots/nav-pyats-menu.png" alt="NetBox navigation with the top-level Genie menu expanded showing the Genie Tools group (Genie Parse, Genie Learn, Genie Diff), Credentials, Snapshots, Golden Configs &amp; Compliance, Automation, and Parser Catalog, plus the PyATS Jobs &amp; Platforms menu" width="720">
 
 <img src="../screenshots/jobs-view.png" alt="The unified PyATS Jobs view showing capture and batch-capture jobs with status badges including a partial row" width="720">
 

@@ -12,10 +12,19 @@ An [Atw](https://github.com/openjarv) [NetBox](https://netbox.dev) plugin that b
 Once installed, the plugin adds a top-level **Genie** entry in the NetBox navigation menu — leading with the three primary Genie tools (**Parse**, **Learn**, **Diff**) plus the supporting groups (Credentials, Snapshots, Golden Configs & Compliance, Automation, Parser Catalog) — a **PyATS Jobs & Platforms** menu for the operational surface, and every device page gains a **PyATS** tab.
 
 <p align="center">
-  <img src="docs/screenshots/nav-pyats-menu.png" alt="NetBox navigation menu with the top-level PyATS menu expanded, showing grouped entries" width="45%">&nbsp;&nbsp;
+  <img src="docs/screenshots/nav-pyats-menu.png" alt="NetBox navigation with the top-level Genie menu expanded showing the Genie Tools group (Genie Parse, Genie Learn, Genie Diff), Credentials, Snapshots, Golden Configs & Compliance, Automation, and Parser Catalog, plus the PyATS Jobs & Platforms menu" width="45%">&nbsp;&nbsp;
   <img src="docs/screenshots/device-pyats-tab.png" alt="A device's PyATS tab showing the capture form and recent-snapshot history with status badges" width="45%">
 </p>
-<p align="center"><em>Left: the top-level PyATS menu in the NetBox nav. Right: the device-page PyATS tab — capture form and recent snapshots with status badges.</em></p>
+<p align="center"><em>Left: the top-level Genie menu (with the PyATS Jobs &amp; Platforms menu) in the NetBox nav. Right: the device-page PyATS tab — capture form and recent snapshots with status badges.</em></p>
+
+The three dedicated Genie pages — **Parse**, **Learn**, and **Diff** — are the primary surfaces for ad-hoc parser runs, Genie Ops learn captures, and snapshot diffs:
+
+<p align="center">
+  <img src="docs/screenshots/genie-parse-page.png" alt="The Genie Parse page with the device picker, cached-parser-command checkbox list, free-text manual command field, Refresh parser list button, and recent parse results table" width="32%">&nbsp;&nbsp;
+  <img src="docs/screenshots/genie-learn-page.png" alt="The Genie Learn page with the device picker, Run Learn action, parser catalog card, and recent learn results table" width="32%">&nbsp;&nbsp;
+  <img src="docs/screenshots/genie-diff-page.png" alt="The Genie Diff page with the same-device / cross-device mode picker, device pickers, snapshot diff picker, and recent diffs table" width="32%">
+</p>
+<p align="center"><em>Left: Genie Parse. Middle: Genie Learn. Right: Genie Diff.</em></p>
 
 The diff and compliance views render the same side-by-side before/after diff table:
 
