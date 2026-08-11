@@ -131,9 +131,6 @@ menu = PluginMenu(
                 ),
             ),
         ),
-    ),
-    icon_class="mdi mdi-router-wireless",
-)
         (
             _("Jobs & Platforms"),
             (

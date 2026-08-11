@@ -52,4 +52,5 @@ class NetBoxPyATSConfig(PluginConfig):
         "state_commands_per_os": {},
     }
 
+
 config = NetBoxPyATSConfig
