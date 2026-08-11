@@ -1,0 +1,13 @@
+{# Worker status badge (ATW-804) — server-rendered red/green indicator.
+
+Context vars:
+  - worker_online (bool): True when at least one RQ worker is on the pyats queue.
+  - worker_reason (str):  short tooltip label (e.g. "1 worker on pyats").
+
+No JS (ADR-0001 §4). The badge is non-blocking — forms still work when the
+worker is offline; the job just sits on the queue (same as today). #}
+<span class="badge bg-{{ worker_online|yesno:'success,danger' }}"
+      title="{{ worker_reason }}">
+  <i class="mdi mdi-{{ worker_online|yesno:'check-circle,alert-circle' }}"></i>
+  Worker {{ worker_online|yesno:'online,offline' }}
+</span>

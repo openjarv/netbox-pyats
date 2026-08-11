@@ -12,6 +12,7 @@
       <h5 class="card-header">
         Genie Learn
         {% if selected_device and platform_supported %}<span class="badge bg-success ms-2">{{ pyats_os }}</span>{% elif selected_device %}<span class="badge bg-warning ms-2">unsupported platform</span>{% endif %}
+        {% include 'netbox_pyats/inc/worker_status_badge.html' %}
       </h5>
       <div class="card-body">
         <p class="text-muted">
