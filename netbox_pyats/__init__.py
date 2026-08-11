@@ -27,14 +27,14 @@ class NetBoxPyATSConfig(PluginConfig):
     # device capture run can never block NetBox's own housekeeping jobs.
     queues = ["pyats"]
 
-    # The ATW-728 Genie nav restructure splits the single PyATS menu into two
-    # top-level PluginMenus: ``genie_menu`` (the primary surface — Genie Tools
-    # with Parse/Learn/Diff, plus the supporting groups) and ``jobs_menu``
-    # (the operational surface — PyATS Jobs + the static supported-platforms
-    # report). PluginConfig._load_resource imports ``{module}.{menu}``, so
-    # point the default ``menu`` at ``navigation.genie_menu``; ``jobs_menu``
-    # is registered explicitly in ``ready()`` below.
-    menu = "navigation.genie_menu"
+    # Single consolidated top-level PluginMenu (ATW-794). The ATW-728 split
+    # into ``genie_menu`` + ``jobs_menu`` is folded back into one
+    # ``navigation.menu`` labeled "PyATS/Genie" with both Genie and PyATS
+    # items grouped underneath (Jobs & Platforms last, supported_platforms
+    # final per ADR-0001 §3 / ATW-83). PluginConfig._load_resource imports
+    # ``{module}.{menu}``, so point it at the consolidated menu; no
+    # ``ready()`` register_menu override is needed with a single menu.
+    menu = "navigation.menu"
 
     # Plugin-local configuration schema (validated by NetBox at startup).
     # `credential_key` is the recommended Fernet key for encrypting credential
@@ -51,23 +51,5 @@ class NetBoxPyATSConfig(PluginConfig):
         # set for that os. See netbox_pyats.capture.resolve_state_commands.
         "state_commands_per_os": {},
     }
-
-    def ready(self):
-        super().ready()
-        # The default PluginConfig.ready() registers only the module-level
-        # ``navigation.menu`` PluginMenu. The ATW-728 Genie nav restructure
-        # registers a second top-level menu (``navigation.jobs_menu``) — the
-        # operational surface (PyATS Jobs + the static supported-platforms
-        # report) that the prior single PyATS menu carried alongside the
-        # Genie tools. register_menu is idempotent per call: each call
-        # appends one PluginMenu to the plugin menu registry.
-        try:
-            from netbox.plugins.registration import register_menu
-        except ModuleNotFoundError:  # pragma: no cover - netbox.plugins absent
-            return
-        from .navigation import jobs_menu
-
-        register_menu(jobs_menu)
-
 
 config = NetBoxPyATSConfig
