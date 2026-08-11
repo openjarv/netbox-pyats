@@ -11,8 +11,10 @@ Design constraints (ADR-0001 §4/§6 — no JS, no Genie in the web process):
 - **NetBox/RQ-optional at import time.** The module is importable without
   NetBox/RQ/Redis installed (same pattern as ``jobs.py`` / ``capture.py``).
   All ``rq`` / ``django_rq`` / Redis imports are lazy, inside the function
-  body, guarded by try/except. This keeps the pure-Python unit test lane
-  clean.
+  body, guarded by try/except. The ``PYATS_QUEUE`` constant is imported
+  from ``jobs.py`` behind the same guard (``jobs.py`` imports Django at
+  module top, so the import is wrapped and falls back to the literal
+  ``"pyats"``). This keeps the pure-Python unit test lane clean.
 - **Never raises.** This is a UI indicator, not a gate. If Redis is
   unreachable, the queue does not exist, or RQ is not installed, return
   ``online=False`` with a short human-readable reason string.
@@ -76,7 +78,15 @@ def _check_worker_status() -> tuple[bool, str]:
     except ModuleNotFoundError:
         return False, "RQ not installed"
 
-    from .jobs import PYATS_QUEUE
+    # PYATS_QUEUE is a plain string constant in jobs.py, but jobs.py imports
+    # django.utils.timezone at module top — so importing it in pure-Python
+    # mode (no Django, e.g. the CI unit lane) raises ModuleNotFoundError.
+    # Guard the import and fall back to the literal so this helper stays
+    # NetBox-optional and never raises (ADR-0001 §6, ADR-0002).
+    try:
+        from .jobs import PYATS_QUEUE
+    except ModuleNotFoundError:
+        PYATS_QUEUE = "pyats"
 
     try:
         connection = django_rq.get_connection(PYATS_QUEUE)
