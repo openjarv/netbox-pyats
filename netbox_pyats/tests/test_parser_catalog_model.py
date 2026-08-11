@@ -266,6 +266,7 @@ class PyatsParserCatalogSearchIndexTest(TestCase):
 
     def test_model_registered_in_search_registry(self):
         from netbox.registry import registry
+
         from netbox_pyats.search import PyatsParserCatalogIndex
 
         label = f"{PyatsParserCatalog._meta.app_label}.{PyatsParserCatalog._meta.model_name}"

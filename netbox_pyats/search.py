@@ -132,6 +132,4 @@ class PyatsParserCatalogIndex(SearchIndex):
     """
 
     model = PyatsParserCatalog
-    fields = (
-        ("pyats_os", 100),
-    )
+    fields = (("pyats_os", 100),)

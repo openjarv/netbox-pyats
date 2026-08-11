@@ -78,8 +78,7 @@ class SearchIndexCompletenessGuard(unittest.TestCase):
         self.assertEqual(
             stale,
             set(),
-            f"_EXCLUDED references models not in models.py: {stale} "
-            "(remove stale exclusion)",
+            f"_EXCLUDED references models not in models.py: {stale} " "(remove stale exclusion)",
         )
 
 
