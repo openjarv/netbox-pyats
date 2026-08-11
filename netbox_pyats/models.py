@@ -24,9 +24,8 @@ render the device-page Parse sub-tab checkbox list without importing genie
 (ADR-0001 §6 — the web process never imports genie).
 """
 
-from django.core.exceptions import ValidationError
+from django.core.exceptions import FieldError, ValidationError
 from django.db import models
-from django.db.models import FieldError
 from django.urls import reverse
 from netbox.models import NetBoxModel
 
@@ -75,16 +74,20 @@ def _resolve_device_filter(device_filter):
 def _validate_device_filter(device_filter):
     """Validate a ``device_filter`` ORM spec by dry-running it against Device.
 
-    Catches ``FieldError`` (bad lookup key) and raises ``ValidationError`` so
-    the form and API serializer reject invalid keys at save time, not at
-    dispatch time (ATW-814). Empty/None/falsy specs are valid (match no
-    devices).
+    Resolves the spec against ``dcim.Device`` and catches shape errors
+    (unknown field, bad lookup suffix, wrong value type) so the form and API
+    serializer reject invalid specs at save time, not at dispatch time
+    (ATW-814). Empty/None/falsy specs are valid (match no devices).
+
+    Run-time re-resolution (:func:`_resolve_device_filter`) stays the source
+    of truth for *which* devices match — devices drift between save and
+    dispatch, so this validator only checks spec *shape*, not result count.
 
     Args:
         device_filter: a dict of ORM lookup kwargs (may be empty/None).
 
     Raises:
-        ValidationError: if a lookup key is not a valid Device ORM field.
+        ValidationError: if the spec cannot be resolved against Device.
     """
     from dcim.models import Device
 
@@ -92,8 +95,8 @@ def _validate_device_filter(device_filter):
         return
     try:
         Device.objects.filter(**device_filter).exists()
-    except FieldError as exc:
-        raise ValidationError(f"device_filter has an invalid ORM lookup: {exc}")
+    except (FieldError, TypeError, ValueError) as exc:
+        raise ValidationError({"device_filter": f"Invalid ORM filter spec: {exc}"}) from exc
 
 
 class PyatsCredential(NetBoxModel):
