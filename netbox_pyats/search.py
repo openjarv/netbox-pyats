@@ -6,6 +6,7 @@ from .models import (
     PyatsCredential,
     PyatsGoldenConfig,
     PyatsJob,
+    PyatsParserCatalog,
     PyatsSnapshot,
     PyatsSnapshotDiff,
 )
@@ -118,4 +119,34 @@ class PyatsCaptureScheduleIndex(SearchIndex):
     fields = (
         ("name", 100),
         ("kind", 200),
+    )
+
+
+@register_search
+class PyatsParserCatalogIndex(SearchIndex):
+    """Search index for PyatsParserCatalog (ATW-241/249, ATW-816 CR-3).
+
+    Indexes the pyATS os string so global search can surface parser-catalog
+    rows. The ``commands`` JSONField is not indexed (a large list, not a
+    user-facing search term).
+    """
+
+    model = PyatsParserCatalog
+    fields = (
+        ("pyats_os", 100),
+    )
+
+
+@register_search
+class PyatsParserCatalogIndex(SearchIndex):
+    """Search index for PyatsParserCatalog (ATW-816).
+
+    Indexes the pyATS os string so global search can surface catalog rows.
+    The ``commands`` JSONField is not indexed (a list, not a user-facing search
+    term).
+    """
+
+    model = PyatsParserCatalog
+    fields = (
+        ("pyats_os", 100),
     )
