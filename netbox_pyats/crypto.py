@@ -23,7 +23,7 @@ import base64
 import hashlib
 import warnings
 
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import Fernet, InvalidToken  # noqa: F401 - re-exported for testbed.py catch site
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
