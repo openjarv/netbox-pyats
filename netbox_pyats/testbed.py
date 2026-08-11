@@ -27,6 +27,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Iterable, Optional
 
+from . import crypto
 from .choices import CredentialProtocolChoices
 
 if TYPE_CHECKING:  # pragma: no cover - typing only, avoids runtime netbox import
@@ -196,10 +197,23 @@ def _build_device_entry(netbox_device, *, credential: Optional["PyatsCredential"
     if credential is not None:
         d.credentials.setdefault("default", {})
         d.credentials["default"]["username"] = credential.username
-        d.credentials["default"]["password"] = credential.get_password()
-        if credential.get_enable_secret():
+        try:
+            d.credentials["default"]["password"] = credential.get_password()
+            enable_secret = credential.get_enable_secret()
+        except crypto.InvalidToken as exc:
+            # A wrong/tampered Fernet key makes the credential undecryptable.
+            # Surface a domain error carrying credential id + device name so
+            # the capture job's exception handler turns it into an
+            # error-status snapshot row (CR-2, ATW-815) rather than crashing
+            # the worker with a bare InvalidToken.
+            raise crypto.CredentialDecryptError(
+                f"credential id={credential.pk} for device {name!r} could not be "
+                f"decrypted (Fernet InvalidToken); rotate the credential_key and "
+                f"re-key this credential. Underlying error: {exc}"
+            ) from exc
+        if enable_secret:
             d.credentials.setdefault("enable", {})
-            d.credentials["enable"]["password"] = credential.get_enable_secret()
+            d.credentials["enable"]["password"] = enable_secret
     # Stash NetBox metadata so downstream code (and the UI) can trace the
     # pyATS device back to the NetBox row and surface the supported/unsupported
     # status without re-querying.

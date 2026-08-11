@@ -259,3 +259,16 @@ class RefreshParserCatalogJobTest(TestCase):
         assert reloaded.summary["skipped"] == 1
         # The warning-bearing row is still written (empty commands, with warnings recorded in the log).
         assert PyatsParserCatalog.objects.filter(pyats_os="iosxe").exists()
+
+
+class PyatsParserCatalogSearchIndexTest(TestCase):
+    """PyatsParserCatalog is registered for NetBox global search (ATW-816 CR-3)."""
+
+    def test_model_registered_in_search_registry(self):
+        from netbox.registry import registry
+        from netbox_pyats.search import PyatsParserCatalogIndex
+
+        label = f"{PyatsParserCatalog._meta.app_label}.{PyatsParserCatalog._meta.model_name}"
+        assert label == "netbox_pyats.pyatsparsercatalog"
+        assert registry["search"][label] is PyatsParserCatalogIndex
+        assert ("pyats_os", 100) in PyatsParserCatalogIndex.fields

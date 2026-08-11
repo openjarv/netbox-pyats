@@ -9,6 +9,7 @@ import pytest
 
 pytest.importorskip("netbox")
 
+from django.test import override_settings
 from utilities.testing import TestCase
 
 from netbox_pyats import crypto
@@ -111,3 +112,32 @@ class PyatsCredentialModelTest(TestCase):
         cred.save()
         self.assertEqual(cred.protocol, CredentialProtocolChoices.PROTOCOL_SSH)
         self.assertEqual(cred.ssh_port, 22)
+
+    def test_get_password_raises_invalid_token_on_wrong_key(self):
+        # CR-2 (ATW-815): a credential encrypted under one key cannot be
+        # decrypted under another. The model accessors (get_password /
+        # get_enable_secret) must surface the underlying InvalidToken so
+        # the testbed builder can catch it and raise CredentialDecryptError
+        # with provenance (currently untested before this change).
+        from cryptography.fernet import Fernet, InvalidToken
+
+        from netbox_pyats import crypto
+
+        key1 = Fernet.generate_key()
+        key2 = Fernet.generate_key()
+        cred = PyatsCredential(name="rtr-wrong-key", username="admin")
+        with override_settings(PLUGINS_CONFIG={"netbox_pyats": {"credential_key": key1.decode()}}):
+            cred.set_password("hunter2")
+            cred.set_enable_secret("enablepass")
+        # Rotate the key without re-keying the credential: decrypt must fail.
+        with override_settings(PLUGINS_CONFIG={"netbox_pyats": {"credential_key": key2.decode()}}):
+            with self.assertRaises(InvalidToken):
+                cred.get_password()
+            with self.assertRaises(InvalidToken):
+                cred.get_enable_secret()
+        # Sanity: decrypts fine under the original key.
+        with override_settings(PLUGINS_CONFIG={"netbox_pyats": {"credential_key": key1.decode()}}):
+            self.assertEqual(cred.get_password(), "hunter2")
+            self.assertEqual(cred.get_enable_secret(), "enablepass")
+        # The domain error class is importable from crypto for the call site.
+        self.assertTrue(issubclass(crypto.CredentialDecryptError, Exception))

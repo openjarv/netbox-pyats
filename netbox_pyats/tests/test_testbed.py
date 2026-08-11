@@ -295,6 +295,65 @@ class TestBuildTestbed(unittest.TestCase):
 
 
 # --------------------------------------------------------------------------- #
+# build_testbed: credential decrypt failure (CR-2, ATW-815)
+# --------------------------------------------------------------------------- #
+
+
+class _UndecryptableCredential(FakeCredential):
+    """A FakeCredential whose get_password/get_enable_secret raise InvalidToken.
+
+    Simulates a real ``PyatsCredential`` row whose stored Fernet token was
+    encrypted under a key that no longer matches the process's
+    ``credential_key`` (key rotation without re-keying, or a tampered token).
+    The real ``PyatsCredential.get_password`` calls ``crypto.decrypt`` which
+    raises ``cryptography.fernet.InvalidToken`` on a wrong/tampered key.
+    """
+
+    def get_password(self):
+        from cryptography.fernet import InvalidToken
+
+        raise InvalidToken("wrong key (simulated)")
+
+    def get_enable_secret(self):
+        from cryptography.fernet import InvalidToken
+
+        raise InvalidToken("wrong key (simulated)")
+
+
+class TestBuildTestbedCredentialDecryptFailure(unittest.TestCase):
+    """CR-2 (ATW-815): a wrong/tampered Fernet key must surface as a
+    ``CredentialDecryptError`` carrying credential id + device name, not a
+    bare ``InvalidToken`` crash.
+
+    The capture job's ``except Exception`` handler turns the
+    ``CredentialDecryptError`` into an error-status snapshot row with the
+    message in ``parser_warnings``, so the operator sees the failure in the
+    device-page history instead of a hard worker crash.
+    """
+
+    def test_get_password_invalid_token_raises_credential_decrypt_error(self):
+        from netbox_pyats import crypto
+
+        dev = FakeDevice(pk=1, name="rtr01", platform_slug="iosxe")
+        cred = _UndecryptableCredential(pk=99)
+        with self.assertRaises(crypto.CredentialDecryptError) as ctx:
+            build_testbed([dev], credential_resolver=_cred_resolver_factory(cred))
+        msg = str(ctx.exception)
+        # Provenance: credential id + device name carried into the error
+        self.assertIn("id=99", msg)
+        self.assertIn("rtr01", msg)
+        # Root cause chained (InvalidToken is the __cause__)
+        self.assertIsInstance(ctx.exception.__cause__, crypto.InvalidToken)
+
+    def test_credential_decrypt_error_is_subclass_of_exception(self):
+        # The capture job's ``except Exception`` handler must catch it to
+        # produce an error-status snapshot row (jobs.py:431).
+        from netbox_pyats import crypto
+
+        self.assertTrue(issubclass(crypto.CredentialDecryptError, Exception))
+
+
+# --------------------------------------------------------------------------- #
 # build_testbed: DuplicateDeviceError narrowing (ATW-673)
 # --------------------------------------------------------------------------- #
 

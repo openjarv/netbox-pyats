@@ -26,6 +26,7 @@ render the device-page Parse sub-tab checkbox list without importing genie
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import FieldError
 from django.urls import reverse
 from netbox.models import NetBoxModel
 
@@ -69,6 +70,30 @@ def _resolve_device_filter(device_filter):
     if not device_filter or not isinstance(device_filter, dict):
         return Device.objects.none()
     return Device.objects.filter(**device_filter)
+
+
+def _validate_device_filter(device_filter):
+    """Validate a ``device_filter`` ORM spec by dry-running it against Device.
+
+    Catches ``FieldError`` (bad lookup key) and raises ``ValidationError`` so
+    the form and API serializer reject invalid keys at save time, not at
+    dispatch time (ATW-814). Empty/None/falsy specs are valid (match no
+    devices).
+
+    Args:
+        device_filter: a dict of ORM lookup kwargs (may be empty/None).
+
+    Raises:
+        ValidationError: if a lookup key is not a valid Device ORM field.
+    """
+    from dcim.models import Device
+
+    if not device_filter or not isinstance(device_filter, dict):
+        return
+    try:
+        Device.objects.filter(**device_filter).exists()
+    except FieldError as exc:
+        raise ValidationError(f"device_filter has an invalid ORM lookup: {exc}")
 
 
 class PyatsCredential(NetBoxModel):
@@ -1172,6 +1197,19 @@ class PyatsCaptureSchedule(NetBoxModel):
         have the model instance (tests, the dispatcher).
         """
         return _resolve_device_filter(self.device_filter)
+
+    def clean(self):
+        """Validate ``device_filter`` ORM keys at save time (ATW-814).
+
+        Raises ``ValidationError`` if any key in the spec is not a valid
+        ``dcim.Device`` ORM lookup. Shared by the form (which calls
+        ``full_clean`` via ``NetBoxModelForm.save``) and the API serializer
+        (which calls ``validate_device_filter`` explicitly). Prevents
+        invalid keys from reaching the dispatcher where they would crash
+        with ``FieldError`` at dispatch time.
+        """
+        super().clean()
+        _validate_device_filter(self.device_filter)
 
 
 class PyatsParserCatalogRefreshSchedule(NetBoxModel):

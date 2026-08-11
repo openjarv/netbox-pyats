@@ -115,6 +115,72 @@ class PyatsCaptureScheduleModelTest(TestCase):
         assert reloaded.enabled is False
 
 
+class PyatsCaptureScheduleCleanTest(TestCase):
+    """Model-level ``device_filter`` validation (ATW-814 CR-1).
+
+    ``PyatsCaptureSchedule.clean()`` dry-run-compiles the ORM spec against
+    ``dcim.Device`` and raises ``ValidationError`` on unknown fields, bad
+    lookup suffixes, or wrong value types — shared by the form (calls
+    ``full_clean``) and the API serializer (NetBoxModelSerializer.validate
+    calls ``instance.full_clean()``).
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.site = Site.objects.create(name="CL01", slug="cl01")
+        cls.mfr = Manufacturer.objects.create(name="Cisco-CL", slug="cisco-cl")
+        cls.device_type = DeviceType.objects.create(model="C9200-CL", slug="c9200-cl", manufacturer=cls.mfr)
+        cls.role = DeviceRole.objects.create(name="Router-CL", slug="router-cl")
+        cls.device = Device.objects.create(
+            name="cl-rtr01",
+            site=cls.site,
+            device_type=cls.device_type,
+            role=cls.role,
+        )
+
+    def _make(self, device_filter):
+        return PyatsCaptureSchedule(
+            name="Clean-test",
+            device_filter=device_filter,
+            kind=SnapshotKindChoices.KIND_FULL,
+            enabled=True,
+        )
+
+    def test_clean_accepts_valid_lookup(self):
+        sched = self._make({"id__in": [self.device.pk]})
+        sched.full_clean()  # no raise
+
+    def test_clean_accepts_empty_dict(self):
+        sched = self._make({})
+        sched.full_clean()  # no raise
+
+    def test_clean_rejects_unknown_field(self):
+        from django.core.exceptions import ValidationError
+
+        sched = self._make({"not_a_real_field__in": [1, 2]})
+        with pytest.raises(ValidationError) as exc:
+            sched.full_clean()
+        assert "device_filter" in exc.value.message_dict
+
+    def test_clean_rejects_bad_lookup_suffix(self):
+        from django.core.exceptions import ValidationError
+
+        sched = self._make({"name__not_a_lookup": "foo"})
+        with pytest.raises(ValidationError) as exc:
+            sched.full_clean()
+        assert "device_filter" in exc.value.message_dict
+
+    def test_clean_rejects_wrong_value_type(self):
+        from django.core.exceptions import ValidationError
+
+        # ``id__in`` expects an iterable; a non-iterable (int) raises a
+        # TypeError when the SQL compiler builds the IN clause.
+        sched = self._make({"id__in": 42})
+        with pytest.raises(ValidationError) as exc:
+            sched.full_clean()
+        assert "device_filter" in exc.value.message_dict
+
+
 class RunCaptureSchedulesJobTest(TestCase):
     """run_capture_schedules_job dispatch logic (ATW-433)."""
 

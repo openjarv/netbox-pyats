@@ -352,6 +352,17 @@ class PyatsCaptureScheduleSerializer(NetBoxModelSerializer):
     they are read-only on the API.
     """
 
+    def validate_device_filter(self, value):
+        """Validate ORM keys at save time (ATW-814).
+
+        Mirrors the model-level ``clean()`` so API consumers get a 400 with a
+        clear message instead of a 500 FieldError at dispatch time.
+        """
+        from netbox_pyats.models import _validate_device_filter
+
+        _validate_device_filter(value)
+        return value
+
     class Meta:
         model = PyatsCaptureSchedule
         fields = [
