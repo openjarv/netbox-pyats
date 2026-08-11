@@ -17,7 +17,7 @@ The `run_compliance` job:
 4. classifies the outcome,
 5. persists a `PyatsComplianceRun` row with the diff tree + summary counts + warnings, and records the `mode` that produced it.
 
-The row is **always created**, even on `error`, so the outcome is visible in-line in the device-page PyATS tab and under **Genie → Golden Configs & Compliance → Compliance Runs**. The `mode` is shown as a badge on the run detail, a column in the runs list, and a filter (`?mode=ordered` / `?mode=set`).
+The row is **always created**, even on `error`, so the outcome is visible in-line in the device-page PyATS tab and under **PyATS/Genie → Golden Configs & Compliance → Compliance Runs**. The `mode` is shown as a badge on the run detail, a column in the runs list, and a filter (`?mode=ordered` / `?mode=set`).
 
 ## Classification
 

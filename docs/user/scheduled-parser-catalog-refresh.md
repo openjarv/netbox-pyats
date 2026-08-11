@@ -32,7 +32,7 @@ The scheduling mirrors the [scheduled captures](scheduled-captures.md) flow
 
 ## Enabling the schedule
 
-1. Navigate to **Genie → Parser Catalog → Catalog Refresh Schedule** (or
+1. Navigate to **PyATS/Genie → Parser Catalog → Catalog Refresh Schedule** (or
    **Edit Refresh Schedule** — both land on the same single row).
 2. Tick **enabled**.
 3. Save.
@@ -89,7 +89,7 @@ comes online").
 
 ## Verifying a scheduled run
 
-1. After the dispatcher fires, navigate to **PyATS Jobs & Platforms → Jobs** — you will see
+1. After the dispatcher fires, navigate to **PyATS/Genie → Jobs & Platforms → Jobs** — you will see
    one `refresh_catalog` `PyatsJob` row per dispatch.
 2. The schedule's **Last run** timestamp is updated after each dispatch.
 3. The `PyatsParserCatalog` rows (one per supported `os`) are upserted with

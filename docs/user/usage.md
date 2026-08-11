@@ -1,6 +1,6 @@
 # Usage guide
 
-The plugin adds a **PyATS** tab to every NetBox device page, plus a top-level **Genie** menu with three dedicated first-class surfaces — **Genie Parse**, **Genie Learn**, and **Genie Diff** — that are the primary way to run ad-hoc parses, Genie Ops learn captures, and snapshot diffs. The device-page tab stays as a convenience for one-device workflows; the dedicated pages are the primary surfaces for cross-device and catalog-driven work. This guide walks the full workflow with exact UI paths.
+The plugin adds a **PyATS** tab to every NetBox device page, plus a single top-level **PyATS/Genie** menu in the NetBox navigation with three dedicated first-class surfaces — **Genie Parse**, **Genie Learn**, and **Genie Diff** — under a **Genie Tools** group, alongside the supporting groups (Credentials, Snapshots, Golden Configs & Compliance, Automation, Parser Catalog, Jobs & Platforms). The dedicated Genie pages are the primary way to run ad-hoc parses, Genie Ops learn captures, and snapshot diffs. The device-page tab stays as a convenience for one-device workflows; the dedicated pages are the primary surfaces for cross-device and catalog-driven work. This guide walks the full workflow with exact UI paths.
 
 ## Prerequisites
 
@@ -11,7 +11,7 @@ The plugin adds a **PyATS** tab to every NetBox device page, plus a top-level **
 
 ## 1 — Add a credential
 
-**Genie → Credentials → Add Credential**.
+**PyATS/Genie → Credentials → Add Credential**.
 
 Pick a device, enter username + password (+ optional enable secret). The secrets are encrypted with Fernet before they hit the database — see [Credential encryption](credentials.md). The credential is never returned by the REST API, GraphQL, or the detail view template; only ciphertext is persisted.
 
@@ -43,7 +43,7 @@ For recurring captures (e.g. a nightly baseline for drift detection), see [Sched
 
 ## 3 — Run an on-demand Parse
 
-The dedicated **Genie Parse** page (**Genie → Genie Tools → Genie Parse**, `/plugins/pyats/genie/parse/`) is the primary surface for ad-hoc Genie parser runs. It combines:
+The dedicated **Genie Parse** page (**PyATS/Genie → Genie Tools → Genie Parse**, `/plugins/pyats/genie/parse/`) is the primary surface for ad-hoc Genie parser runs. It combines:
 
 - a **device picker** (GET `?device=<pk>`),
 - the **parse form** — the same form the device-page Parse sub-tab uses: a checkbox list of cached parser commands for the device's resolved pyATS os (populated from the `PyatsParserCatalog` row — DB only, no Genie import in the web process) and/or a free-text `manual_command` field,
@@ -61,7 +61,7 @@ The device-page **PyATS** tab → **Parse** link stays as a convenience; the ded
 
 ## 4 — Run a Genie Learn capture
 
-The dedicated **Genie Learn** page (**Genie → Genie Tools → Genie Learn**, `/plugins/pyats/genie/learn/`) runs a structured feature-state capture against a device using the Genie Ops framework (per-feature Ops `.learn()`). It combines:
+The dedicated **Genie Learn** page (**PyATS/Genie → Genie Tools → Genie Learn**, `/plugins/pyats/genie/learn/`) runs a structured feature-state capture against a device using the Genie Ops framework (per-feature Ops `.learn()`). It combines:
 
 - a **device picker**,
 - a **Run Learn** action — enqueues a `learn_snapshot_job` on the `pyats` queue; the worker connects via Unicon, iterates every Ops feature the device exposes (BGP, interfaces, OSPF, VLANs, …), and stores a `kind='learn'` `PyatsSnapshot` row whose `data["learn"]` is keyed by feature name,
@@ -76,7 +76,7 @@ Use Learn when you want a structured, feature-keyed view of device state (e.g. a
 
 ## 5 — Diff two snapshots
 
-The dedicated **Genie Diff** page (**Genie → Genie Tools → Genie Diff**, `/plugins/pyats/genie/diff/`) is the primary surface for all diff operations. It combines:
+The dedicated **Genie Diff** page (**PyATS/Genie → Genie Tools → Genie Diff**, `/plugins/pyats/genie/diff/`) is the primary surface for all diff operations. It combines:
 
 - a **mode picker** — **Same device** (classic pre/post-change check on one device) or **Cross-device** (compare the same feature across two devices),
 - **device pickers** — in cross-device mode, pick the before and after devices separately (GET `?before_device=<pk>&after_device=<pk>&mode=cross`),
@@ -102,7 +102,7 @@ The diff engine is pure-Python and operates on already-serialized JSONB — no p
 
 ## 6 — Add a golden config
 
-**Genie → Golden Configs & Compliance → Golden Configs → Add** (or open the device's PyATS tab → use the "Run compliance" picker's golden link).
+**PyATS/Genie → Golden Configs & Compliance → Golden Configs → Add** (or open the device's PyATS tab → use the "Run compliance" picker's golden link).
 
 Pick the device, give the golden a name (e.g. `baseline-rtr01`), and paste the expected running-config text. The `source` defaults to `manual`; a "promote from snapshot" flow sets it to `snapshot` and links the originating `PyatsSnapshot` for provenance. Multiple goldens per device are allowed (e.g. `baseline`, `post-maintenance-window`).
 
@@ -124,9 +124,9 @@ The compliance-run viewer (`/plugins/pyats/compliance-runs/<pk>/`) reuses the di
 
 ## 8 — Browse everything
 
-The plugin exposes two top-level menus in the NetBox navigation:
+The plugin adds a single top-level **PyATS/Genie** menu to the NetBox navigation, with seven groups:
 
-**Genie** (the primary menu):
+**PyATS/Genie** (the single top-level menu):
 
 - **Genie Tools** group — the three primary Genie surfaces:
   - **Genie Parse** — the dedicated Parse page (`/plugins/pyats/genie/parse/`, see [§3](#3-run-an-on-demand-parse)).
@@ -137,17 +137,15 @@ The plugin exposes two top-level menus in the NetBox navigation:
 - **Golden Configs & Compliance** — Golden Configs filterable by device/source, Compliance Runs filterable by device/result.
 - **Automation** — Capture Schedules (the recurring-capture model, see [Scheduled captures](scheduled-captures.md)).
 - **Parser Catalog** — the Catalog Refresh Schedule (see [Scheduled parser-catalog refresh](scheduled-parser-catalog-refresh.md)). The catalog rows themselves have no UI list view — they are a worker-populated cache read by the Parse page and exposed read-only via the REST + GraphQL API.
+- **Jobs & Platforms** group (the operational surface, closing the menu per ADR-0001 §3):
+  - **Jobs** (`/plugins/pyats/jobs/`) — one row per capture / diff / compliance / batch-capture / parse / learn / refresh-catalog job, with a `pending` → `running` → `success` / `error` / `partial` status lifecycle and typed links to the result row each job produced. Filterable by type, status, and device.
+  - **Supported Platforms** — the static platform → pyATS os map with per-slug device counts.
 
-**PyATS Jobs & Platforms** (the operational surface):
-
-- **Jobs** (`/plugins/pyats/jobs/`) — one row per capture / diff / compliance / batch-capture / parse / learn / refresh-catalog job, with a `pending` → `running` → `success` / `error` / `partial` status lifecycle and typed links to the result row each job produced. Filterable by type, status, and device.
-- **Supported Platforms** — the static platform → pyATS os map with per-slug device counts.
-
-> **Snapshot Diffs** have no standalone menu entry — the dedicated **Genie → Genie Diff** page is the primary surface (recent diffs across all devices + a "View all" link to the full diff history at `/plugins/pyats/diffs/`). The device-page Diff sub-tab stays as a convenience.
+> **Snapshot Diffs** have no standalone menu entry — the dedicated **PyATS/Genie → Genie Tools → Genie Diff** page is the primary surface (recent diffs across all devices + a "View all" link to the full diff history at `/plugins/pyats/diffs/`). The device-page Diff sub-tab stays as a convenience.
 
 Each detail view renders the JSONB payload / diff table / golden text / compliance diff and any warnings.
 
-<img src="../screenshots/nav-pyats-menu.png" alt="NetBox navigation with the top-level Genie menu expanded showing the Genie Tools group (Genie Parse, Genie Learn, Genie Diff), Credentials, Snapshots, Golden Configs &amp; Compliance, Automation, and Parser Catalog, plus the PyATS Jobs &amp; Platforms menu" width="720">
+<img src="../screenshots/nav-pyats-menu.png" alt="NetBox navigation with the single top-level PyATS/Genie menu expanded showing seven groups: Genie Tools (Genie Parse, Genie Learn, Genie Diff), Credentials, Snapshots, Golden Configs & Compliance, Automation, Parser Catalog, and Jobs & Platforms (Jobs, Supported Platforms)" width="720">
 
 <img src="../screenshots/jobs-view.png" alt="The unified PyATS Jobs view showing capture and batch-capture jobs with status badges including a partial row" width="720">
 
@@ -173,7 +171,7 @@ Genie parsers cover Cisco IOS/XE/XR/NX-OS/ASA, Juniper JunOS, Arista EOS, and No
 
 Adding a slug to the map is a commitment that Genie has real parser coverage for that os; unknown slugs degrade gracefully rather than silently producing empty snapshots.
 
-The supported-platforms report at **PyATS Jobs & Platforms → Supported Platforms** renders the static map the capture job uses, with a per-slug NetBox device count, so you can see what a batch capture will reach before you run it.
+The supported-platforms report at **PyATS/Genie → Jobs & Platforms → Supported Platforms** renders the static map the capture job uses, with a per-slug NetBox device count, so you can see what a batch capture will reach before you run it.
 
 <img src="../screenshots/supported-platforms.png" alt="The supported-platforms report showing the platform slug to pyATS os map with per-slug device counts" width="720">
 
