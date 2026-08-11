@@ -72,6 +72,7 @@ from .models import (
 from .panel_support import resolve_panel_platform_support
 from .tab_context import group_snapshots_by_kind
 from .testbed import PLATFORM_SLUG_TO_PYATS_OS, UNSUPPORTED_OS, is_supported_os, platform_to_pyats_os
+from .worker_status import get_worker_status
 
 # How many recent snapshots / diffs / compliance runs to show in the
 # device-page tab. Kept small so the device page stays fast; the full
@@ -145,6 +146,10 @@ class DevicePyATSTabView(generic.ObjectView):
         # so the operator sees the grouping; DeviceDiffForm.clean enforces it.
         diff_snapshots_by_kind = group_snapshots_by_kind(snapshots)
 
+        # Worker status indicator (ATW-804): red/green badge so operators
+        # see the pyats-RQ-worker state before clicking Capture/Diff/Compliance.
+        worker_online, worker_reason = get_worker_status()
+
         return {
             "base_template": self.base_template,
             "snapshots": snapshots,
@@ -161,6 +166,8 @@ class DevicePyATSTabView(generic.ObjectView):
             "compliance_url": _compliance_url_for_device(instance),
             "snapshot_list_url": _snapshot_list_url_for_device(instance),
             "parse_url": _parse_url_for_device(instance),
+            "worker_online": worker_online,
+            "worker_reason": worker_reason,
         }
 
 
@@ -670,10 +677,17 @@ class DeviceBulkCaptureView(PermissionRequiredMixin, View):
     def _render(self, request, form, pks):
         from django.shortcuts import render
 
+        worker_online, worker_reason = get_worker_status()
         return render(
             request,
             self.template_name,
-            {"form": form, "pks": pks, "return_url": "plugins:netbox_pyats:pyatsjob_list"},
+            {
+                "form": form,
+                "pks": pks,
+                "return_url": "plugins:netbox_pyats:pyatsjob_list",
+                "worker_online": worker_online,
+                "worker_reason": worker_reason,
+            },
         )
 
 
@@ -869,6 +883,7 @@ class DeviceParseView(PermissionRequiredMixin, View):
     def _render(self, request, device, form, ctx):
         from django.shortcuts import render
 
+        worker_online, worker_reason = get_worker_status()
         return render(
             request,
             self.template_name,
@@ -882,6 +897,8 @@ class DeviceParseView(PermissionRequiredMixin, View):
                 "command_count": len(ctx["command_choices"]),
                 "refresh_url": _refresh_parser_catalog_url_for_device(device),
                 "device_url": device.get_absolute_url(),
+                "worker_online": worker_online,
+                "worker_reason": worker_reason,
             },
         )
 
@@ -1117,6 +1134,7 @@ class GenieLearnView(PermissionRequiredMixin, View):
         )
         recent_table = tables.PyatsSnapshotTable(recent)
 
+        worker_online, worker_reason = get_worker_status()
         return render(
             request,
             self.template_name,
@@ -1128,6 +1146,8 @@ class GenieLearnView(PermissionRequiredMixin, View):
                 "platform_supported": platform_supported,
                 "recent_table": recent_table,
                 "recent_count": len(recent),
+                "worker_online": worker_online,
+                "worker_reason": worker_reason,
             },
         )
 
@@ -1209,6 +1229,7 @@ class GenieParseView(PermissionRequiredMixin, View):
         )
         recent_table = tables.PyatsSnapshotTable(recent)
 
+        worker_online, worker_reason = get_worker_status()
         return render(
             request,
             self.template_name,
@@ -1224,6 +1245,8 @@ class GenieParseView(PermissionRequiredMixin, View):
                 "refresh_url": _refresh_parser_catalog_url_for_device(device) if device else None,
                 "recent_table": recent_table,
                 "recent_count": len(recent),
+                "worker_online": worker_online,
+                "worker_reason": worker_reason,
             },
         )
 
@@ -1280,6 +1303,7 @@ class GenieParseView(PermissionRequiredMixin, View):
             .select_related("device")
             .order_by("-captured_at")[: self.RECENT_LIMIT]
         )
+        worker_online, worker_reason = get_worker_status()
         return render(
             request,
             self.template_name,
@@ -1295,6 +1319,8 @@ class GenieParseView(PermissionRequiredMixin, View):
                 "refresh_url": _refresh_parser_catalog_url_for_device(device),
                 "recent_table": tables.PyatsSnapshotTable(recent),
                 "recent_count": len(recent),
+                "worker_online": worker_online,
+                "worker_reason": worker_reason,
             },
         )
 
@@ -1367,6 +1393,7 @@ class GenieDiffView(PermissionRequiredMixin, View):
         )
         recent_table = tables.PyatsSnapshotDiffTable(recent)
 
+        worker_online, worker_reason = get_worker_status()
         return render(
             request,
             self.template_name,
@@ -1381,6 +1408,8 @@ class GenieDiffView(PermissionRequiredMixin, View):
                 "diff_list_url": _diff_list_url(),
                 "recent_table": recent_table,
                 "recent_count": len(recent),
+                "worker_online": worker_online,
+                "worker_reason": worker_reason,
             },
         )
 
