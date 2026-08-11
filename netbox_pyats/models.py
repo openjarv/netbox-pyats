@@ -24,7 +24,7 @@ render the device-page Parse sub-tab checkbox list without importing genie
 (ADR-0001 §6 — the web process never imports genie).
 """
 
-from django.core.exceptions import ValidationError
+from django.core.exceptions import FieldError, ValidationError
 from django.db import models
 from django.urls import reverse
 from netbox.models import NetBoxModel
@@ -69,6 +69,34 @@ def _resolve_device_filter(device_filter):
     if not device_filter or not isinstance(device_filter, dict):
         return Device.objects.none()
     return Device.objects.filter(**device_filter)
+
+
+def _validate_device_filter(device_filter):
+    """Validate a ``device_filter`` ORM spec by dry-running it against Device.
+
+    Resolves the spec against ``dcim.Device`` and catches shape errors
+    (unknown field, bad lookup suffix, wrong value type) so the form and API
+    serializer reject invalid specs at save time, not at dispatch time
+    (ATW-814). Empty/None/falsy specs are valid (match no devices).
+
+    Run-time re-resolution (:func:`_resolve_device_filter`) stays the source
+    of truth for *which* devices match — devices drift between save and
+    dispatch, so this validator only checks spec *shape*, not result count.
+
+    Args:
+        device_filter: a dict of ORM lookup kwargs (may be empty/None).
+
+    Raises:
+        ValidationError: if the spec cannot be resolved against Device.
+    """
+    from dcim.models import Device
+
+    if not device_filter or not isinstance(device_filter, dict):
+        return
+    try:
+        Device.objects.filter(**device_filter).exists()
+    except (FieldError, TypeError, ValueError) as exc:
+        raise ValidationError({"device_filter": f"Invalid ORM filter spec: {exc}"}) from exc
 
 
 class PyatsCredential(NetBoxModel):
@@ -1172,6 +1200,19 @@ class PyatsCaptureSchedule(NetBoxModel):
         have the model instance (tests, the dispatcher).
         """
         return _resolve_device_filter(self.device_filter)
+
+    def clean(self):
+        """Validate ``device_filter`` ORM keys at save time (ATW-814).
+
+        Raises ``ValidationError`` if any key in the spec is not a valid
+        ``dcim.Device`` ORM lookup. Shared by the form (which calls
+        ``full_clean`` via ``NetBoxModelForm.save``) and the API serializer
+        (which calls ``validate_device_filter`` explicitly). Prevents
+        invalid keys from reaching the dispatcher where they would crash
+        with ``FieldError`` at dispatch time.
+        """
+        super().clean()
+        _validate_device_filter(self.device_filter)
 
 
 class PyatsParserCatalogRefreshSchedule(NetBoxModel):

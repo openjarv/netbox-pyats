@@ -23,9 +23,19 @@ import base64
 import hashlib
 import warnings
 
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken  # noqa: F401 - re-exported for testbed.py catch site
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+
+
+class CredentialDecryptError(Exception):
+    """Raised when a stored Fernet token cannot be decrypted (ATW-815, CR-2).
+
+    Wraps :class:`cryptography.fernet.InvalidToken` with credential/device
+    provenance so the capture job's ``except Exception`` handler turns it
+    into an error-status snapshot row with a clear message instead of a
+    bare ``InvalidToken`` worker crash.
+    """
 
 
 def _get_config() -> dict:
@@ -102,7 +112,9 @@ def decrypt(token: str) -> str:
 
     Empty input round-trips to an empty string. A tampered or wrong-key token
     raises :class:`cryptography.fernet.InvalidToken`; callers should catch that
-    to surface a friendly error rather than crash the model accessor.
+    and re-raise :class:`CredentialDecryptError` with credential/device context
+    so the capture job can surface a friendly error-status snapshot rather
+    than crash the worker (CR-2, ATW-815).
     """
     if not token:
         return ""

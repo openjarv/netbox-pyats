@@ -43,6 +43,7 @@ unit_tests=(
   "${repo_root}/netbox_pyats/tests/test_crypto.py"
   "${repo_root}/netbox_pyats/tests/test_template_extension.py"
   "${repo_root}/netbox_pyats/tests/test_navmenu_uniqueness_guard.py"
+  "${repo_root}/netbox_pyats/tests/test_search_index_guard.py"
   "${repo_root}/netbox_pyats/tests/test_panel.py"
   "${repo_root}/netbox_pyats/tests/test_worker_status.py"
 )
