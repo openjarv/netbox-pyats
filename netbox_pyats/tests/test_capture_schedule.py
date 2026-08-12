@@ -326,9 +326,7 @@ class _PyatsCaptureScheduleModelTestHD2(TestCase):
     def setUpTestData(cls):
         cls.site = Site.objects.create(name="HD01", slug="hd01")
         cls.mfr = Manufacturer.objects.create(name="Cisco-HD", slug="cisco-hd")
-        cls.device_type = DeviceType.objects.create(
-            model="C9200-HD", slug="c9200-hd", manufacturer=cls.mfr
-        )
+        cls.device_type = DeviceType.objects.create(model="C9200-HD", slug="c9200-hd", manufacturer=cls.mfr)
         cls.role = DeviceRole.objects.create(name="Switch-HD", slug="switch-hd")
         cls.device = Device.objects.create(
             name="hd-sw01",

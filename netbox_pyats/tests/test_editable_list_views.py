@@ -23,8 +23,19 @@ from dcim.models import Device, DeviceRole, DeviceType, Manufacturer, Site
 from django.urls import reverse
 from utilities.testing import TestCase
 
-from netbox_pyats.choices import GoldenConfigSourceChoices, SnapshotKindChoices, SnapshotStatusChoices, SnapshotTriggerChoices
-from netbox_pyats.models import PyatsCaptureSchedule, PyatsCredential, PyatsGoldenConfig, PyatsParserCatalogRefreshSchedule, PyatsSnapshot
+from netbox_pyats.choices import (
+    GoldenConfigSourceChoices,
+    SnapshotKindChoices,
+    SnapshotStatusChoices,
+    SnapshotTriggerChoices,
+)
+from netbox_pyats.models import (
+    PyatsCaptureSchedule,
+    PyatsCredential,
+    PyatsGoldenConfig,
+    PyatsParserCatalogRefreshSchedule,
+    PyatsSnapshot,
+)
 
 
 class _EditableListViewsBase(TestCase):
@@ -53,9 +64,7 @@ class _EditableListViewsBase(TestCase):
         cls.mfr = Manufacturer.objects.create(name="Cisco-EDIT", slug="cisco-edit")
         cls.device_type = DeviceType.objects.create(model="C9300-EDIT", slug="c9300-edit", manufacturer=cls.mfr)
         cls.role = DeviceRole.objects.create(name="Router-EDIT", slug="router-edit")
-        cls.device = Device.objects.create(
-            name="editrt01", site=cls.site, device_type=cls.device_type, role=cls.role
-        )
+        cls.device = Device.objects.create(name="editrt01", site=cls.site, device_type=cls.device_type, role=cls.role)
 
     def _make_snapshot(self, *, data=None):
         snap = PyatsSnapshot(
