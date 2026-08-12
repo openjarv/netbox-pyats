@@ -132,8 +132,7 @@ class PyatsCaptureScheduleListViewRenderTest(_EditableListViewsBase):
         schedule = PyatsCaptureSchedule(
             name="edit-test-schedule",
             device_filter={"id__in": [self.device.pk]},
-            kind="capture",
-            interval=3600,
+            kind=SnapshotKindChoices.KIND_FULL,
             enabled=True,
         )
         schedule.full_clean()
