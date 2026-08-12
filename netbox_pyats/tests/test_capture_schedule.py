@@ -295,3 +295,144 @@ class RunCaptureSchedulesJobTest(TestCase):
         assert reloaded.last_run_at is not None
         assert reloaded.next_run_at == reloaded.last_run_at + timedelta(minutes=60)
         assert result["skipped"] == 1
+
+
+# --- HD-2 (ATW-818): invalid ORM key regression tests ------------------ #
+#
+# Companion to CR-1 (ATW-814): the model gains a model-level ``clean()``
+# that dry-run resolves the ORM spec against ``dcim.Device`` and rejects
+# invalid lookup keys at save time (``ValidationError``, not
+# ``django.core.exceptions.FieldError`` at dispatch time).
+#
+# These tests self-skip until CR-1 lands on ``main`` (feature-detected via
+# ``hasattr(PyatsCaptureSchedule, "clean")``). NetBoxModel (the base) does
+# not define a model-level ``clean``, so the attribute only appears after
+# CR-1 adds it to the subclass. When CR-1 lands, remove the skip guard
+# (or delete the ``_CR1_LANDED`` sentinel and the ``skipUnless``).
+#
+# Expected CR-1 behavior:
+#   - ``full_clean()`` raises ``django.core.exceptions.ValidationError``
+#     whose error dict includes the ``device_filter`` key.
+#   - The bad key never reaches ``Device.objects.filter(**spec)`` (which
+#     would raise ``FieldError`` at dispatch time, not save time).
+#
+# See: ATW-814, ATW-818 (HD-2).
+
+
+class _PyatsCaptureScheduleModelTestHD2(TestCase):
+    """HD-2 regression guards for device_filter ORM-key validation (ATW-818)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.site = Site.objects.create(name="HD01", slug="hd01")
+        cls.mfr = Manufacturer.objects.create(name="Cisco-HD", slug="cisco-hd")
+        cls.device_type = DeviceType.objects.create(model="C9200-HD", slug="c9200-hd", manufacturer=cls.mfr)
+        cls.role = DeviceRole.objects.create(name="Switch-HD", slug="switch-hd")
+        cls.device = Device.objects.create(
+            name="hd-sw01",
+            site=cls.site,
+            device_type=cls.device_type,
+            role=cls.role,
+        )
+
+    @staticmethod
+    def _cr1_landed():
+        """Feature-detect CR-1 (ATW-814): model-level clean() on the subclass.
+
+        NetBoxModel itself has no ``clean`` method, so ``PyatsCaptureSchedule.clean``
+        only exists once CR-1 defines it on the subclass. ``hasattr`` on the
+        class (not an instance) avoids triggering the descriptor protocol that
+        would resolve to the base class's inherited ``full_clean`` wrapper.
+        """
+        return "clean" in PyatsCaptureSchedule.__dict__
+
+    def test_invalid_orm_key_rejected_at_save_time(self):
+        """HD-2: a bad ORM key raises ValidationError at save, not FieldError at dispatch.
+
+        Guards the hardening framing (ATW-818): operator-supplied keys must not
+        reach ``Device.objects.filter(**spec)`` unvalidated. The typo
+        ``region_idd__in`` is not a valid ``dcim.Device`` lookup and would raise
+        ``django.core.exceptions.FieldError`` inside ``_resolve_device_filter``
+        at dispatch time without CR-1's save-time validator.
+        """
+        import unittest
+
+        from django.core.exceptions import ValidationError
+
+        if not self._cr1_landed():
+            raise unittest.SkipTest(
+                "CR-1 (ATW-814) not landed: model-level device_filter "
+                "validator absent — skipping HD-2 regression guard"
+            )
+
+        sched = PyatsCaptureSchedule(
+            name="Bad-key save",
+            device_filter={"region_idd__in": [1, 2]},
+            kind=SnapshotKindChoices.KIND_FULL,
+            enabled=True,
+        )
+        with pytest.raises(ValidationError) as exc_info:
+            sched.full_clean()
+        assert "device_filter" in exc_info.value.message_dict
+        assert sched.pk is None
+
+        sched2 = PyatsCaptureSchedule(
+            name="Bad-key dispatch",
+            device_filter={"region_idd__in": [1, 2]},
+            kind=SnapshotKindChoices.KIND_FULL,
+            enabled=True,
+        )
+        with pytest.raises(ValidationError):
+            sched2.full_clean()
+        assert sched2.pk is None
+
+    def test_valid_orm_key_still_accepted_at_save_time(self):
+        """HD-2: a valid ORM key still saves cleanly after CR-1 lands.
+
+        Guards against CR-1 over-validating (rejecting specs that
+        ``Device.objects.filter(**spec)`` accepts). ``id__in`` is a valid
+        ``dcim.Device`` lookup that the existing tests already use.
+        """
+        import unittest
+
+        if not self._cr1_landed():
+            raise unittest.SkipTest(
+                "CR-1 (ATW-814) not landed: model-level device_filter "
+                "validator absent — skipping HD-2 regression guard"
+            )
+
+        sched = PyatsCaptureSchedule(
+            name="Valid-key save",
+            device_filter={"id__in": [self.device.pk]},
+            kind=SnapshotKindChoices.KIND_FULL,
+            enabled=True,
+        )
+        sched.full_clean()
+        sched.save()
+        reloaded = PyatsCaptureSchedule.objects.get(pk=sched.pk)
+        assert reloaded.device_filter == {"id__in": [self.device.pk]}
+
+    def test_empty_filter_still_accepted_at_save_time(self):
+        """HD-2: the empty-dict default (no filter) still saves cleanly after CR-1.
+
+        Guards against CR-1 rejecting the documented "match no devices"
+        sentinel (``device_filter={}``).
+        """
+        import unittest
+
+        if not self._cr1_landed():
+            raise unittest.SkipTest(
+                "CR-1 (ATW-814) not landed: model-level device_filter "
+                "validator absent — skipping HD-2 regression guard"
+            )
+
+        sched = PyatsCaptureSchedule(
+            name="Empty-filter save",
+            device_filter={},
+            kind=SnapshotKindChoices.KIND_FULL,
+            enabled=True,
+        )
+        sched.full_clean()
+        sched.save()
+        reloaded = PyatsCaptureSchedule.objects.get(pk=sched.pk)
+        assert reloaded.device_filter == {}
