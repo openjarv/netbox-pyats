@@ -24,6 +24,8 @@ from django.urls import reverse
 from utilities.testing import TestCase
 
 from netbox_pyats.choices import (
+    CredentialProtocolChoices,
+    CredentialScopeChoices,
     GoldenConfigSourceChoices,
     SnapshotKindChoices,
     SnapshotStatusChoices,
@@ -87,9 +89,9 @@ class PyatsCredentialListViewRenderTest(_EditableListViewsBase):
         cred = PyatsCredential(
             device=self.device,
             name="edit-test-cred",
-            scope="enable",
+            scope=CredentialScopeChoices.SCOPE_DEVICE,
             username="admin",
-            protocol="ssh",
+            protocol=CredentialProtocolChoices.PROTOCOL_SSH,
             ssh_port=22,
         )
         cred.full_clean()
