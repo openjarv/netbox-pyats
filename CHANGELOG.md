@@ -52,7 +52,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Compatibility
 
-- NetBox 4.6.x (current: 4.6.5)
+- NetBox 4.6.x (current: 4.6.8)
 - Python 3.10, 3.11, 3.12
 - pyATS 26.x (worker only; not required for the web UI)
 
