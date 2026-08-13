@@ -48,7 +48,7 @@ Three feature groups ship today — see the [usage guide](docs/user/usage.md) fo
 - **Batch capture** — bulk-action on the device list; one job → N snapshots with a `supported`/`unsupported`/`errored`/`total` summary and a `partial` status when not every device captured cleanly.
 - **Supported-platforms report** — `/plugins/pyats/supported-platforms/` shows the static platform → pyATS os map with per-slug device counts.
 - **Scheduled captures** — `PyatsCaptureSchedule` model + `RunCaptureSchedulesJob` NetBox `JobRunner`; define a device filter + capture kind once and let NetBox's native job scheduler fire it on a recurring interval, so you get nightly baselines for drift detection without manual triggers (see [Scheduled captures](docs/user/scheduled-captures.md)).
-- **Dedicated `pyats` RQ queue + worker** — pyATS/Genie work runs on its own queue, isolated from NetBox's default workers. The default NetBox worker does not need pyATS installed; run a second worker pointed at `pyats` (see [Worker deployment](docs/user/workers.md)).
+- **Dedicated `pyats` RQ queue + worker** — pyATS/Genie work runs on its own queue, isolated from NetBox's default workers. The default NetBox worker does not need pyATS installed; run a second worker pointed at `pyats` (see [Worker deployment](docs/user/workers.md)). Each Capture / Parse / Learn / Diff page shows a green/red **worker-status badge** so you see at a glance whether the `pyats` worker is online before you trigger a job.
 
 ### Compare
 

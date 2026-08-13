@@ -36,6 +36,7 @@ A state command's parser raised an unexpected exception (not `ParserNotFound`).
 
 The `pyats` worker is not running or not servicing the `pyats` queue.
 
+- If the **worker-status badge** on the page is red, no worker is listening on the `pyats` queue — see [Worker deployment](workers.md) to start one.
 - In the NetBox UI, **Operations → Background Tasks → Workers** should list a worker listening on `pyats`. If none, start the worker (see [Worker deployment](workers.md)).
 - Check the worker logs for crash loops or import errors.
 - If the worker is up but the job is stuck in `queued`, the worker may not have pyats installed — the capture job imports pyATS lazily and will fail with an import error in the worker logs.
@@ -76,7 +77,7 @@ The golden and the snapshot's raw text normalize to the same line set. If you ex
 
 ### No worker listening on `pyats`
 
-Start one — see [Worker deployment](workers.md). The default NetBox worker does **not** service the `pyats` queue by design; pyats work is isolated from NetBox's housekeeping jobs.
+Start one — see [Worker deployment](workers.md). The default NetBox worker does **not** service the `pyats` queue by design; pyats work is isolated from NetBox's housekeeping jobs. You can confirm this from the plugin UI: a red **Worker offline** badge on any Capture / Parse / Learn / Diff page means no worker is on the `pyats` queue. See [Worker status badge](workers.md#worker-status-badge) for what the colors mean.
 
 ### Worker is up but jobs are stuck in `queued`
 
