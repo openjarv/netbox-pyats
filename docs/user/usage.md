@@ -147,7 +147,7 @@ Each detail view renders the JSONB payload / diff table / golden text / complian
 
 <img src="../screenshots/nav-pyats-menu.png" alt="NetBox navigation with the single top-level PyATS/Genie menu expanded showing seven groups: Genie Tools (Genie Parse, Genie Learn, Genie Diff), Credentials, Snapshots, Golden Configs & Compliance, Automation, Parser Catalog, and Jobs & Platforms (Jobs, Supported Platforms)" width="720">
 
-<img src="../screenshots/jobs-view.png" alt="The unified PyATS Jobs view showing capture and batch-capture jobs with status badges including a partial row" width="720">
+<img src="../screenshots/jobs-view.png" alt="The unified PyATS Jobs view showing all seven job types — Capture, Diff, Compliance, Batch capture, Parse (on-demand), Learn (Genie Ops), and Refresh parser catalog — in the filter dropdown with a Jobs table below" width="720">
 
 ## 9 — Build a testbed programmatically
 
