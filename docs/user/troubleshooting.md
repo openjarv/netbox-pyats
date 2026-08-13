@@ -65,13 +65,13 @@ Malformed diff inputs. Read `parser_warnings` for the cause. The diff row is alw
 The golden text does not normalize to the same line set as the snapshot's raw running-config text.
 
 - Open the compliance-run detail view; the diff table shows exactly which leaves diverged — start there.
-- v1 is **order-independent** line-set diff: a re-ordered config is still `compliant`, but any added/removed line is `drift`. If you expected order-insensitive compliance and got `drift`, the device really is carrying a line the golden does not (or is missing a line the golden has).
+- The default **Ordered** mode (v2) is order-sensitive: a re-ordered config line counts as drift (removed at golden position + added at snapshot position). If the device really is carrying a line the golden does not (or is missing one), that is genuine drift.
 - Trailing whitespace, blank lines, and lone `!` delimiter lines are stripped as noise — those do not cause `drift`.
-- If you need order-sensitive compliance (e.g. ACL entry order), that is v2 — see [Compliance engine](compliance.md) for the v1 vs v2 distinction.
+- If you need order-independent compliance (a re-ordered config is still `compliant`), change the mode to **Set** (v1) in the Compliance engine — see [Compliance engine](compliance.md).
 
 ### `compliant` when you expected `drift`
 
-The golden and the snapshot's raw text normalize to the same line set. If you expected `drift` from a re-ordered config, that is the v1 order-independent semantics — see [Compliance engine](compliance.md). Order-sensitive drift is deferred to v2.
+The golden and the snapshot's raw text normalize to the same line set. If you expected `drift` from a re-ordered config, the default **Ordered** mode (v2) would have caught the re-ordering as drift. If you got `compliant`, the run mode was **Set** (v1), which is order-independent — see [Compliance engine](compliance.md) to switch modes.
 
 ## Worker / queue
 
