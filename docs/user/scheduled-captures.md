@@ -35,6 +35,17 @@ The plugin splits scheduling into three pieces (ADR-0008):
    - All devices with platform slug `cisco_ios`: `{"platform__slug": "cisco_ios"}`
    - All devices with a platform that maps to `iosxe`:
      `{"platform__slug__in": ["cisco_ios", "cisco_iosxe"]}`
+
+!!! tip "Save-time validation"
+    When you save the form (or call the REST API serializer), the plugin
+    dry-runs your filter JSON against the `dcim.Device` ORM. Unknown field
+    names, bad lookup suffixes (e.g. a typo like `region_idd__in`), and wrong
+    value types are rejected immediately with a clear error — you do not need
+    to wait until the schedule runs to discover a bad filter. An empty filter
+    (`{}`) is valid and matches all devices; the match count is not enforced at
+    save time — the live queryset at run time decides which devices actually
+    match.
+
 5. Leave **enabled** checked (uncheck to pause without deleting).
 6. Save.
 
