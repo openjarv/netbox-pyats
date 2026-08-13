@@ -42,9 +42,9 @@ The plugin splits scheduling into three pieces (ADR-0008):
     names, bad lookup suffixes (e.g. a typo like `region_idd__in`), and wrong
     value types are rejected immediately with a clear error — you do not need
     to wait until the schedule runs to discover a bad filter. An empty filter
-    (`{}`) is valid and matches all devices; the match count is not enforced at
-    save time — the live queryset at run time decides which devices actually
-    match.
+    (`{}`) is valid but matches **no** devices — the dispatcher skips it with
+    a "matched 0 devices" log line; the match count is not enforced at save
+    time — the live queryset at run time decides which devices actually match.
 
 5. Leave **enabled** checked (uncheck to pause without deleting).
 6. Save.
