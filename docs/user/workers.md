@@ -46,6 +46,32 @@ python manage.py rqworker --url redis://redis:6379/0 pyats   # foreground, for d
 
 In the NetBox UI, **Operations → Background Tasks → Workers** lists registered workers and the queues they service; you should see one worker listening on `pyats`. The **Jobs** tab shows queued/running jobs on the queue — capture jobs (`PyATS snapshot: <device> (<kind>)`), diff jobs (`PyATS diff: <device> (#before vs #after)`), and compliance jobs (`PyATS compliance: <device> (golden #<id> vs snapshot #<id>)`).
 
+## Worker status badge
+
+Every plugin page that triggers pyATS work shows a small **Worker online / offline** badge near the top of the form area, next to the action button. It is a quick at-a-glance check so you know the worker state *before* you click Capture / Parse / Learn / Diff — instead of finding out the hard way when a job sits on the queue and nothing happens.
+
+The badge appears on six pages:
+
+- the device **PyATS** tab (capture form)
+- the device **Parse** sub-tab
+- the **Genie Parse** page
+- the **Genie Learn** page
+- the **Genie Diff** page
+- the **Bulk capture** action on the device list
+
+### What the colors mean
+
+- **Green — Worker online.** At least one RQ worker is listening on the `pyats` queue. Hover the badge for the count, e.g. `1 worker on pyats`.
+- **Red — Worker offline.** No worker is on the `pyats` queue, Redis is unreachable, or RQ is not installed. Hover the badge for the reason, e.g. `no workers on pyats queue`, `redis unreachable`, or `RQ not installed`.
+
+### The ~15-second cache
+
+The status is cached for about 15 seconds on the NetBox server, so a freshly started or stopped worker may not show up for up to ~15 seconds. This is on purpose — one Redis check every ~15 seconds, not one per page render — so the badge stays cheap on a busy device tab. If you just started a worker and the badge is still red, give it a few seconds and refresh the page.
+
+### The badge is informational only
+
+A red badge does **not** block the form. You can still click Capture / Parse / Learn / Diff and the job is enqueued as usual — it just sits on the `pyats` queue until a worker comes online, the same as before the badge existed. The badge is a heads-up, not a gate. To turn it green, start a worker — see [Running the worker](#running-the-worker) above.
+
 ## What runs on the `pyats` queue
 
 | Job | Needs pyATS? | Why it is on `pyats` |
