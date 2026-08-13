@@ -51,7 +51,7 @@ Both snapshots were empty (e.g. two `unsupported`-platform snapshots). This is a
 
 Malformed diff inputs. Read `parser_warnings` for the cause. The diff row is always created so the outcome is visible in-line. Common causes:
 
-- one or both snapshots were deleted between the user clicking "Diff" and the worker picking up the job (the `DoesNotExist` branch now sets `before=None` / `after=None` and records the missing ids in `parser_warnings` — see [ADR-0003](../adr/0003-netbox46-migration-and-worker-toolchain.md) and the migration `0008` note in the [changelog](../../CHANGELOG.md)).
+- one or both snapshots were deleted between the user clicking "Diff" and the worker picking up the job (the `DoesNotExist` branch now sets `before=None` / `after=None` and records the missing ids in `parser_warnings` — see [ADR-0002](../adr/0002-graceful-degradation.md) and the migration `0008` note in the [changelog](../../CHANGELOG.md)).
 
 ## Compliance results
 
