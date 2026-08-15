@@ -252,7 +252,7 @@ scripts/test-unit.sh -v          # direct
 ```
 
 The set in `scripts/test-unit.sh` is the same 13 modules the CI `unit`
-lane runs (see [CI](ci.md)). CI's `unit` lane also runs a
+lane runs for the logic core (see [CI](ci.md)). CI's `unit` lane also runs a
 handful of repo-hygiene pure-Python guards (`test_supported_platforms`,
 `test_graphify_scrub_guard`, `test_pr_body_scrub_guard`,
 `test_secret_detection`) — those are not part of the logic lane and are not
