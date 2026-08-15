@@ -1,3 +1,5 @@
+import django_filters
+from django.db.models import Q
 from netbox.filtersets import NetBoxModelFilterSet
 
 from .models import (
@@ -11,6 +13,15 @@ from .models import (
     PyatsSnapshot,
     PyatsSnapshotDiff,
 )
+
+
+def _has_changes_q():
+    """Q matching rows whose summary JSON has a non-zero added/removed/changed count.
+
+    Mirrors ``PyatsSnapshotDiff.has_changes`` / ``PyatsComplianceRun.has_drift``,
+    which return ``bool(s.get("added") or s.get("removed") or s.get("changed"))``.
+    """
+    return Q(summary__added__gt=0) | Q(summary__removed__gt=0) | Q(summary__changed__gt=0)
 
 
 class PyatsCredentialFilterSet(NetBoxModelFilterSet):
@@ -54,8 +65,11 @@ class PyatsSnapshotDiffFilterSet(NetBoxModelFilterSet):
 
     Lets the diff list view be filtered by device, status, and the before/after
     snapshot ids — the axes the device-page history and the compliance picker
-    (Phase 4) will query on.
+    (Phase 4) query on.
     """
+
+    has_changes = django_filters.BooleanFilter(method="filter_has_changes", label="Only diffs with changes")
+    has_warnings = django_filters.BooleanFilter(method="filter_has_warnings", label="Only diffs with warnings")
 
     class Meta:
         model = PyatsSnapshotDiff
@@ -67,6 +81,16 @@ class PyatsSnapshotDiffFilterSet(NetBoxModelFilterSet):
             "after_id",
             "created",
         ]
+
+    def filter_has_changes(self, queryset, name, value):
+        if value:
+            return queryset.filter(_has_changes_q())
+        return queryset
+
+    def filter_has_warnings(self, queryset, name, value):
+        if value:
+            return queryset.exclude(parser_warnings=[]).exclude(parser_warnings__isnull=True)
+        return queryset
 
 
 class PyatsGoldenConfigFilterSet(NetBoxModelFilterSet):
@@ -95,6 +119,9 @@ class PyatsComplianceRunFilterSet(NetBoxModelFilterSet):
     the compliance picker query on.
     """
 
+    has_drift = django_filters.BooleanFilter(method="filter_has_drift", label="Only runs with drift")
+    has_warnings = django_filters.BooleanFilter(method="filter_has_warnings", label="Only runs with warnings")
+
     class Meta:
         model = PyatsComplianceRun
         fields = [
@@ -106,6 +133,16 @@ class PyatsComplianceRunFilterSet(NetBoxModelFilterSet):
             "snapshot_id",
             "created",
         ]
+
+    def filter_has_drift(self, queryset, name, value):
+        if value:
+            return queryset.filter(_has_changes_q())
+        return queryset
+
+    def filter_has_warnings(self, queryset, name, value):
+        if value:
+            return queryset.exclude(parser_warnings=[]).exclude(parser_warnings__isnull=True)
+        return queryset
 
 
 class PyatsJobFilterSet(NetBoxModelFilterSet):
