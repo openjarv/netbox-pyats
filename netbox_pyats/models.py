@@ -563,9 +563,7 @@ class PyatsSnapshotDiff(NetBoxModel):
         if self.status == DiffStatusChoices.STATUS_ERROR:
             return
         if self.before_id is not None and self.before.device_id != self.device_id:
-            raise ValidationError(
-                {"before": "The before snapshot must belong to this diff row's device."}
-            )
+            raise ValidationError({"before": "The before snapshot must belong to this diff row's device."})
 
     def get_status_color(self):
         """Map status to a NetBox color label for table badges."""
@@ -688,7 +686,9 @@ class PyatsGoldenConfig(NetBoxModel):
         # carve-out is needed.
         if self.source_snapshot_id is not None and self.source_snapshot.device_id != self.device_id:
             raise ValidationError(
-                {"source_snapshot": "A golden config promoted from a snapshot must reference a snapshot of the same device."}
+                {
+                    "source_snapshot": "A golden config promoted from a snapshot must reference a snapshot of the same device."
+                }
             )
 
     @property

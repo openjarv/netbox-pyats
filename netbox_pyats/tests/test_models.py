@@ -189,9 +189,7 @@ class PyatsSnapshotDiffCleanTest(TestCase):
         cls.dt = DeviceType.objects.create(model="C9300-D", slug="c9300-d", manufacturer=cls.mfr)
         cls.role = DeviceRole.objects.create(name="Router-D", slug="router-d")
         cls.device = Device.objects.create(name="diffrtr01", site=cls.site, device_type=cls.dt, role=cls.role)
-        cls.other_device = Device.objects.create(
-            name="diffrtr02", site=cls.site, device_type=cls.dt, role=cls.role
-        )
+        cls.other_device = Device.objects.create(name="diffrtr02", site=cls.site, device_type=cls.dt, role=cls.role)
 
     def _make_snapshot(self, device, data=None):
         from netbox_pyats.choices import SnapshotKindChoices, SnapshotStatusChoices, SnapshotTriggerChoices
@@ -223,6 +221,7 @@ class PyatsSnapshotDiffCleanTest(TestCase):
 
     def test_clean_rejects_cross_device_before(self):
         from django.core.exceptions import ValidationError
+
         from netbox_pyats.models import PyatsSnapshotDiff
 
         # A before snapshot from a different device than the diff row's device.
@@ -285,9 +284,7 @@ class PyatsGoldenConfigCleanTest(TestCase):
         cls.dt = DeviceType.objects.create(model="C9300-GC", slug="c9300-gc", manufacturer=cls.mfr)
         cls.role = DeviceRole.objects.create(name="Router-GC", slug="router-gc")
         cls.device = Device.objects.create(name="goldrtr01", site=cls.site, device_type=cls.dt, role=cls.role)
-        cls.other_device = Device.objects.create(
-            name="goldrtr02", site=cls.site, device_type=cls.dt, role=cls.role
-        )
+        cls.other_device = Device.objects.create(name="goldrtr02", site=cls.site, device_type=cls.dt, role=cls.role)
 
     def _make_snapshot(self, device):
         from netbox_pyats.choices import SnapshotKindChoices, SnapshotStatusChoices, SnapshotTriggerChoices
@@ -319,6 +316,7 @@ class PyatsGoldenConfigCleanTest(TestCase):
 
     def test_clean_rejects_cross_device_source_snapshot(self):
         from django.core.exceptions import ValidationError
+
         from netbox_pyats.choices import GoldenConfigSourceChoices
         from netbox_pyats.models import PyatsGoldenConfig
 
@@ -360,9 +358,7 @@ class PyatsComplianceRunCleanTest(TestCase):
         cls.dt = DeviceType.objects.create(model="C9300-CR", slug="c9300-cr", manufacturer=cls.mfr)
         cls.role = DeviceRole.objects.create(name="Router-CR", slug="router-cr")
         cls.device = Device.objects.create(name="cmprtr01", site=cls.site, device_type=cls.dt, role=cls.role)
-        cls.other_device = Device.objects.create(
-            name="cmprtr02", site=cls.site, device_type=cls.dt, role=cls.role
-        )
+        cls.other_device = Device.objects.create(name="cmprtr02", site=cls.site, device_type=cls.dt, role=cls.role)
 
     def _make_snapshot(self, device):
         from netbox_pyats.choices import SnapshotKindChoices, SnapshotStatusChoices, SnapshotTriggerChoices
@@ -410,6 +406,7 @@ class PyatsComplianceRunCleanTest(TestCase):
 
     def test_clean_rejects_cross_device_golden(self):
         from django.core.exceptions import ValidationError
+
         from netbox_pyats.choices import ComplianceResultChoices
         from netbox_pyats.models import PyatsComplianceRun
 
@@ -429,6 +426,7 @@ class PyatsComplianceRunCleanTest(TestCase):
 
     def test_clean_rejects_cross_device_snapshot(self):
         from django.core.exceptions import ValidationError
+
         from netbox_pyats.choices import ComplianceResultChoices
         from netbox_pyats.models import PyatsComplianceRun
 
