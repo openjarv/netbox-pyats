@@ -149,29 +149,29 @@ class PyatsCredentialFernetCleanTest(TestCase):
     def test_clean_rejects_plaintext_password(self):
         from django.core.exceptions import ValidationError
 
-        cred = PyatsCredential(name="plain-pw", username="admin")
+        cred = PyatsCredential(name="plain-pw", username="admin", scope=CredentialScopeChoices.SCOPE_GLOBAL)
         cred.password = "hunter2"  # direct assignment, not via set_password
         with self.assertRaises(ValidationError) as cm:
             cred.full_clean()
-        self.assertIn("password", cm.value.message_dict)
+        self.assertIn("password", cm.exception.message_dict)
 
     def test_clean_rejects_plaintext_enable_secret(self):
         from django.core.exceptions import ValidationError
 
-        cred = PyatsCredential(name="plain-enable", username="admin")
+        cred = PyatsCredential(name="plain-enable", username="admin", scope=CredentialScopeChoices.SCOPE_GLOBAL)
         cred.enable_secret = "enablepass"  # direct assignment
         with self.assertRaises(ValidationError) as cm:
             cred.full_clean()
-        self.assertIn("enable_secret", cm.value.message_dict)
+        self.assertIn("enable_secret", cm.exception.message_dict)
 
     def test_clean_accepts_fernet_ciphertext_password(self):
-        cred = PyatsCredential(name="cipher-pw", username="admin")
+        cred = PyatsCredential(name="cipher-pw", username="admin", scope=CredentialScopeChoices.SCOPE_GLOBAL)
         cred.set_password("hunter2")
         cred.set_enable_secret("enablepass")
         cred.full_clean()  # no raise — ciphertext is valid
 
     def test_clean_accepts_empty_secrets(self):
-        cred = PyatsCredential(name="empty-secrets", username="admin")
+        cred = PyatsCredential(name="empty-secrets", username="admin", scope=CredentialScopeChoices.SCOPE_GLOBAL)
         cred.password = ""
         cred.enable_secret = ""
         cred.full_clean()  # no raise — blank=True round-trips to ""
@@ -237,7 +237,7 @@ class PyatsSnapshotDiffCleanTest(TestCase):
         )
         with self.assertRaises(ValidationError) as cm:
             diff.full_clean()
-        self.assertIn("before", cm.value.message_dict)
+        self.assertIn("before", cm.exception.message_dict)
 
     def test_clean_skips_check_for_error_status(self):
         # ATW-68: the job's device-mismatch error-row path persists the
@@ -332,7 +332,7 @@ class PyatsGoldenConfigCleanTest(TestCase):
         )
         with self.assertRaises(ValidationError) as cm:
             golden.full_clean()
-        self.assertIn("source_snapshot", cm.value.message_dict)
+        self.assertIn("source_snapshot", cm.exception.message_dict)
 
     def test_clean_accepts_null_source_snapshot(self):
         from netbox_pyats.choices import GoldenConfigSourceChoices
@@ -425,7 +425,7 @@ class PyatsComplianceRunCleanTest(TestCase):
         )
         with self.assertRaises(ValidationError) as cm:
             run.full_clean()
-        self.assertIn("golden", cm.value.message_dict)
+        self.assertIn("golden", cm.exception.message_dict)
 
     def test_clean_rejects_cross_device_snapshot(self):
         from django.core.exceptions import ValidationError
@@ -444,7 +444,7 @@ class PyatsComplianceRunCleanTest(TestCase):
         )
         with self.assertRaises(ValidationError) as cm:
             run.full_clean()
-        self.assertIn("snapshot", cm.value.message_dict)
+        self.assertIn("snapshot", cm.exception.message_dict)
 
     def test_clean_skips_check_for_error_result(self):
         # ATW-68: the job's device-mismatch error-row path persists the
