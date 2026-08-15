@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scripts/test-unit.sh
 #
-# Run the pure-Python unit lane: the five test modules that exercise logic
+# Run the pure-Python unit lane: the 13 test modules that exercise logic
 # with no NetBox, no PostgreSQL, no Redis, and no Docker. They configure a
 # minimal in-memory Django settings via conftest.py and skip cleanly when
 # pyats is absent (pytest.importorskip). Use this lane for iterating on the
@@ -18,7 +18,7 @@
 # to BOTH this script and the CI `unit` lane so the split stays in sync.
 #
 # Usage:
-#   scripts/test-unit.sh           # run all 103 unit tests
+#   scripts/test-unit.sh           # run all 204 unit tests
 #   scripts/test-unit.sh -v        # verbose
 #   scripts/test-unit.sh -k crypto # pass-through extra pytest flags
 #

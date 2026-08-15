@@ -236,20 +236,23 @@ view/model/migration change → integration lane (Docker).
 
 ### Unit lane (no Docker, no NetBox, no PostgreSQL/Redis)
 
-The five pure-Python test modules — `test_diff`, `test_testbed`,
-`test_capture`, `test_compliance`, `test_crypto` — configure a minimal
-in-memory Django settings via `conftest.py` and skip cleanly when pyats is
-absent (`pytest.importorskip("pyats")`). They run in ~3 s on any machine with
-Python 3.10+, Django, pyATS, and `cryptography` installed.
+The 13 pure-Python test modules — `test_diff`, `test_testbed`,
+`test_capture`, `test_capture_learn`, `test_compliance`,
+`test_compliance_job_legacy`, `test_state_commands_invariant`,
+`test_crypto`, `test_template_extension`, `test_navmenu_uniqueness_guard`,
+`test_search_index_guard`, `test_panel`, `test_worker_status` — configure a
+minimal in-memory Django settings via `conftest.py` and skip cleanly when
+pyats is absent (`pytest.importorskip("pyats")`). They run in ~3 s on any
+machine with Python 3.10+, Django, pyATS, and `cryptography` installed.
 
 ```bash
-make test-unit                 # 103 tests, ~3s
+make test-unit                 # 204 tests, ~3s
 make test-unit ARGS="-k crypto"  # pass-through pytest flags
 scripts/test-unit.sh -v          # direct
 ```
 
-The set in `scripts/test-unit.sh` is the same five modules the CI `unit`
-lane runs for the logic core (see [CI](ci.md)). CI's `unit` lane also runs a
+The set in `scripts/test-unit.sh` is the same 13 modules the CI `unit`
+lane runs (see [CI](ci.md)). CI's `unit` lane also runs a
 handful of repo-hygiene pure-Python guards (`test_supported_platforms`,
 `test_graphify_scrub_guard`, `test_pr_body_scrub_guard`,
 `test_secret_detection`) — those are not part of the logic lane and are not

@@ -6,7 +6,7 @@
 
 .PHONY: test test-unit test-integration lint format seed
 
-# Pure-Python unit lane: 103 tests, no Docker, no NetBox, ~3s.
+# Pure-Python unit lane: 204 tests, no Docker, no NetBox, ~3s.
 # Use this for logic changes (diff, testbed, capture, compliance, crypto).
 # Extra pytest flags pass through:  make test-unit ARGS="-k crypto -v"
 test-unit:
