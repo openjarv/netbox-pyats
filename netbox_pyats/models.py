@@ -105,7 +105,9 @@ class PyatsCredential(NetBoxModel):
     ``password`` and ``enable_secret`` are stored as Fernet ciphertext. Access
     through the ``set_password``/``get_password`` and ``set_enable_secret``/
     ``get_enable_secret`` accessors ensures plaintext never reaches the
-    database; direct field assignment is rejected by :meth:`full_clean`.
+    database; :meth:`clean` rejects direct plaintext field assignment so a
+    non-ciphertext value cannot be persisted via the API, admin, or a raw
+    ORM write that calls ``full_clean()``.
 
     A credential is scoped either to a single NetBox ``Device`` (the common
     case — the device-page PyATS tab resolves the device's credential via FK)
@@ -220,6 +222,19 @@ class PyatsCredential(NetBoxModel):
             raise ValidationError({"device": "A per-device credential must have a device assigned."})
         if self.scope == CredentialScopeChoices.SCOPE_GLOBAL and self.device_id:
             raise ValidationError({"device": "A global credential must not be bound to a specific device."})
+        # Defence-in-depth (ATW-907 H1): reject plaintext values assigned directly
+        # to the ciphertext fields. ``set_password`` / ``set_enable_secret`` are
+        # the only legitimate write paths; a raw ``cred.password = "hunter2"``
+        # followed by ``full_clean()`` must not silently persist plaintext. Empty
+        # strings are valid (blank=True round-trips to ""). The check is
+        # prefix-based (``is_encrypted_token``) so it works without the Fernet
+        # key configured (clean() may run in contexts without the key).
+        if self.password and not crypto.is_encrypted_token(self.password):
+            raise ValidationError({"password": "Must be a Fernet ciphertext token. Use set_password() to assign."})
+        if self.enable_secret and not crypto.is_encrypted_token(self.enable_secret):
+            raise ValidationError(
+                {"enable_secret": "Must be a Fernet ciphertext token. Use set_enable_secret() to assign."}
+            )
 
 
 class PyatsSnapshot(NetBoxModel):
@@ -533,6 +548,23 @@ class PyatsSnapshotDiff(NetBoxModel):
     def get_absolute_url(self):
         return reverse("plugins:netbox_pyats:pyatssnapshotdiff", kwargs={"pk": self.pk})
 
+    def clean(self):
+        super().clean()
+        # Defence-in-depth (ATW-907 L1): the job (jobs.py:632) guards same-device
+        # diffs, but a direct DB write or admin form could create a cross-device
+        # row. The row's ``device`` FK is always the before snapshot's device
+        # (ATW-731 cross-device diff: ``device`` is the before side's device, the
+        # after side may legitimately differ). Enforce that invariant here.
+        # Skip when ``before`` is None (error-row persistence, ATW-68: a diff
+        # whose before snapshot was deleted between click and worker pickup
+        # writes a row with before=None) or when status is "error" (the job's
+        # device-mismatch error-row path persists the mismatched row as an
+        # error result via full_clean()).
+        if self.status == DiffStatusChoices.STATUS_ERROR:
+            return
+        if self.before_id is not None and self.before.device_id != self.device_id:
+            raise ValidationError({"before": "The before snapshot must belong to this diff row's device."})
+
     def get_status_color(self):
         """Map status to a NetBox color label for table badges."""
         return {
@@ -643,6 +675,21 @@ class PyatsGoldenConfig(NetBoxModel):
 
     def get_absolute_url(self):
         return reverse("plugins:netbox_pyats:pyatsgoldenconfig", kwargs={"pk": self.pk})
+
+    def clean(self):
+        super().clean()
+        # Defence-in-depth (ATW-907 L1): a golden config promoted from a snapshot
+        # (source=snapshot) must reference a snapshot of the same device. The
+        # promotion flow (form pre-fill) assumes same-device; a direct DB write
+        # or admin form could cross devices. No error-row path exists for
+        # goldens (they are operator-authored, not job-written), so no null-FK
+        # carve-out is needed.
+        if self.source_snapshot_id is not None and self.source_snapshot.device_id != self.device_id:
+            raise ValidationError(
+                {
+                    "source_snapshot": "A golden config promoted from a snapshot must reference a snapshot of the same device."
+                }
+            )
 
     @property
     def is_from_snapshot(self) -> bool:
@@ -804,6 +851,21 @@ class PyatsComplianceRun(NetBoxModel):
 
     def get_absolute_url(self):
         return reverse("plugins:netbox_pyats:pyatscompliancerun", kwargs={"pk": self.pk})
+
+    def clean(self):
+        super().clean()
+        # Defence-in-depth (ATW-907 L1): the view (views.py:534) and the job
+        # (jobs.py:851) both guard same-device golden+snapshot, but a direct DB
+        # write or admin form could create a cross-device compliance row. Skip
+        # when result is "error" (the job's device-mismatch error-row path
+        # persists the mismatched row as an error result via full_clean(),
+        # ATW-68) and when FKs are None (deleted-FK error rows, ATW-68).
+        if self.result == ComplianceResultChoices.RESULT_ERROR:
+            return
+        if self.golden_id is not None and self.golden.device_id != self.device_id:
+            raise ValidationError({"golden": "The golden config must belong to this compliance run's device."})
+        if self.snapshot_id is not None and self.snapshot.device_id != self.device_id:
+            raise ValidationError({"snapshot": "The snapshot must belong to this compliance run's device."})
 
     def get_result_color(self):
         """Map result to a NetBox color label for table badges."""
@@ -1210,6 +1272,12 @@ class PyatsCaptureSchedule(NetBoxModel):
         (which calls ``validate_device_filter`` explicitly). Prevents
         invalid keys from reaching the dispatcher where they would crash
         with ``FieldError`` at dispatch time.
+
+        ATW-907 L1 review: no additional cross-field validator is warranted.
+        ``enabled`` is an independent operator toggle (pause without delete),
+        ``kind`` selects the capture type, and the cadence is owned by the
+        NetBox ``Job`` row's ``interval`` (not a model field), so there is no
+        genuine cross-field invariant to enforce at the model layer.
         """
         super().clean()
         _validate_device_filter(self.device_filter)
