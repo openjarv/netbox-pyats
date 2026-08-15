@@ -27,12 +27,9 @@ Login: `admin / admin` (default NetBox dev credentials).
 make test-unit            # 103 tests, ~3s, no Docker
 # or directly:
 scripts/test-unit.sh
-# or the long form:
-pip install -e ".[dev]"
-pytest netbox_pyats/tests/test_crypto.py netbox_pyats/tests/test_testbed.py \
-       netbox_pyats/tests/test_diff.py netbox_pyats/tests/test_capture.py \
-       netbox_pyats/tests/test_compliance.py
 ```
+
+The full module list lives in `scripts/test-unit.sh` and stays in sync with the CI `unit` lane (`.github/workflows/ci.yml`). If you prefer to invoke `pytest` directly, read the module list from that script rather than copying a command from here — the long-form list drifts as new pure-Python modules are added.
 
 These run anywhere with Python 3.10+, Django, pyATS, and `cryptography` available (no PostgreSQL/Redis required). They are the fast lane for iterating on the diff engine, testbed builder, capture parser, compliance comparison, and credential crypto. The `test_testbed.py` suite uses `pytest.importorskip("pyats")` so it skips cleanly if pyATS isn't installed. See [setup.md — Test lane split](setup.md#test-lane-split) for when to use the unit vs integration lane.
 
