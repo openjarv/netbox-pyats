@@ -24,7 +24,7 @@ Login: `admin / admin` (default NetBox dev credentials).
 ### Pure-Python tests (no NetBox DB needed)
 
 ```bash
-make test-unit            # 103 tests, ~3s, no Docker
+make test-unit            # 204 tests, ~3s, no Docker
 # or directly:
 scripts/test-unit.sh
 ```
