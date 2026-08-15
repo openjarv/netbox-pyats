@@ -14,7 +14,7 @@ from utilities.testing import TestCase
 
 from netbox_pyats import crypto
 from netbox_pyats.choices import CredentialProtocolChoices, CredentialScopeChoices
-from netbox_pyats.models import PyatsCredential
+from netbox_pyats.models import PyatsCredential, PyatsSnapshot
 
 
 class PyatsCredentialModelTest(TestCase):
@@ -141,3 +141,344 @@ class PyatsCredentialModelTest(TestCase):
             self.assertEqual(cred.get_enable_secret(), "enablepass")
         # The domain error class is importable from crypto for the call site.
         self.assertTrue(issubclass(crypto.CredentialDecryptError, Exception))
+
+
+class PyatsCredentialFernetCleanTest(TestCase):
+    """ATW-907 H1: ``PyatsCredential.clean()`` rejects plaintext ciphertext fields."""
+
+    def test_clean_rejects_plaintext_password(self):
+        from django.core.exceptions import ValidationError
+
+        cred = PyatsCredential(name="plain-pw", username="admin")
+        cred.password = "hunter2"  # direct assignment, not via set_password
+        with self.assertRaises(ValidationError) as cm:
+            cred.full_clean()
+        self.assertIn("password", cm.value.message_dict)
+
+    def test_clean_rejects_plaintext_enable_secret(self):
+        from django.core.exceptions import ValidationError
+
+        cred = PyatsCredential(name="plain-enable", username="admin")
+        cred.enable_secret = "enablepass"  # direct assignment
+        with self.assertRaises(ValidationError) as cm:
+            cred.full_clean()
+        self.assertIn("enable_secret", cm.value.message_dict)
+
+    def test_clean_accepts_fernet_ciphertext_password(self):
+        cred = PyatsCredential(name="cipher-pw", username="admin")
+        cred.set_password("hunter2")
+        cred.set_enable_secret("enablepass")
+        cred.full_clean()  # no raise — ciphertext is valid
+
+    def test_clean_accepts_empty_secrets(self):
+        cred = PyatsCredential(name="empty-secrets", username="admin")
+        cred.password = ""
+        cred.enable_secret = ""
+        cred.full_clean()  # no raise — blank=True round-trips to ""
+
+
+class PyatsSnapshotDiffCleanTest(TestCase):
+    """ATW-907 L1: ``PyatsSnapshotDiff.clean()`` cross-field device invariant."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from dcim.models import Device, DeviceRole, DeviceType, Manufacturer, Site
+
+        cls.site = Site.objects.create(name="DC01", slug="dc01")
+        cls.mfr = Manufacturer.objects.create(name="Cisco-D", slug="cisco-d")
+        cls.dt = DeviceType.objects.create(model="C9300-D", slug="c9300-d", manufacturer=cls.mfr)
+        cls.role = DeviceRole.objects.create(name="Router-D", slug="router-d")
+        cls.device = Device.objects.create(name="diffrtr01", site=cls.site, device_type=cls.dt, role=cls.role)
+        cls.other_device = Device.objects.create(
+            name="diffrtr02", site=cls.site, device_type=cls.dt, role=cls.role
+        )
+
+    def _make_snapshot(self, device, data=None):
+        from netbox_pyats.choices import SnapshotKindChoices, SnapshotStatusChoices, SnapshotTriggerChoices
+
+        snap = PyatsSnapshot(
+            device=device,
+            kind=SnapshotKindChoices.KIND_CONFIG,
+            status=SnapshotStatusChoices.STATUS_SUCCESS,
+            triggered_by=SnapshotTriggerChoices.TRIGGER_USER,
+            data=data or {"config": {"hostname": str(device)}},
+        )
+        snap.full_clean()
+        snap.save()
+        return snap
+
+    def test_clean_accepts_same_device_before(self):
+        from netbox_pyats.models import PyatsSnapshotDiff
+
+        snap = self._make_snapshot(self.device)
+        diff = PyatsSnapshotDiff(
+            device=self.device,
+            before=snap,
+            after=snap,
+            status="success",
+            diff={},
+            summary={},
+        )
+        diff.full_clean()  # no raise
+
+    def test_clean_rejects_cross_device_before(self):
+        from django.core.exceptions import ValidationError
+        from netbox_pyats.models import PyatsSnapshotDiff
+
+        # A before snapshot from a different device than the diff row's device.
+        other_snap = self._make_snapshot(self.other_device)
+        diff = PyatsSnapshotDiff(
+            device=self.device,
+            before=other_snap,
+            after=None,
+            status="success",
+            diff={},
+            summary={},
+        )
+        with self.assertRaises(ValidationError) as cm:
+            diff.full_clean()
+        self.assertIn("before", cm.value.message_dict)
+
+    def test_clean_skips_check_for_error_status(self):
+        # ATW-68: the job's device-mismatch error-row path persists the
+        # mismatched row as status="error" via full_clean(). clean() must not
+        # reject it.
+        from netbox_pyats.models import PyatsSnapshotDiff
+
+        other_snap = self._make_snapshot(self.other_device)
+        diff = PyatsSnapshotDiff(
+            device=self.device,
+            before=other_snap,
+            after=None,
+            status="error",
+            diff={},
+            summary={},
+            parser_warnings=["device mismatch"],
+        )
+        diff.full_clean()  # no raise — error rows are exempt
+
+    def test_clean_skips_check_for_null_before(self):
+        # ATW-68: a diff whose before snapshot was deleted writes before=None.
+        from netbox_pyats.models import PyatsSnapshotDiff
+
+        diff = PyatsSnapshotDiff(
+            device=self.device,
+            before=None,
+            after=None,
+            status="error",
+            diff={},
+            summary={},
+            parser_warnings=["before snapshot missing"],
+        )
+        diff.full_clean()  # no raise
+
+
+class PyatsGoldenConfigCleanTest(TestCase):
+    """ATW-907 L1: ``PyatsGoldenConfig.clean()`` source_snapshot device invariant."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from dcim.models import Device, DeviceRole, DeviceType, Manufacturer, Site
+
+        cls.site = Site.objects.create(name="GC01", slug="gc01")
+        cls.mfr = Manufacturer.objects.create(name="Cisco-GC", slug="cisco-gc")
+        cls.dt = DeviceType.objects.create(model="C9300-GC", slug="c9300-gc", manufacturer=cls.mfr)
+        cls.role = DeviceRole.objects.create(name="Router-GC", slug="router-gc")
+        cls.device = Device.objects.create(name="goldrtr01", site=cls.site, device_type=cls.dt, role=cls.role)
+        cls.other_device = Device.objects.create(
+            name="goldrtr02", site=cls.site, device_type=cls.dt, role=cls.role
+        )
+
+    def _make_snapshot(self, device):
+        from netbox_pyats.choices import SnapshotKindChoices, SnapshotStatusChoices, SnapshotTriggerChoices
+
+        snap = PyatsSnapshot(
+            device=device,
+            kind=SnapshotKindChoices.KIND_CONFIG,
+            status=SnapshotStatusChoices.STATUS_SUCCESS,
+            triggered_by=SnapshotTriggerChoices.TRIGGER_USER,
+            data={"config": {"hostname": str(device)}},
+        )
+        snap.full_clean()
+        snap.save()
+        return snap
+
+    def test_clean_accepts_same_device_source_snapshot(self):
+        from netbox_pyats.choices import GoldenConfigSourceChoices
+        from netbox_pyats.models import PyatsGoldenConfig
+
+        snap = self._make_snapshot(self.device)
+        golden = PyatsGoldenConfig(
+            device=self.device,
+            name="baseline",
+            config_text="hostname rtr01\n",
+            source=GoldenConfigSourceChoices.SOURCE_SNAPSHOT,
+            source_snapshot=snap,
+        )
+        golden.full_clean()  # no raise
+
+    def test_clean_rejects_cross_device_source_snapshot(self):
+        from django.core.exceptions import ValidationError
+        from netbox_pyats.choices import GoldenConfigSourceChoices
+        from netbox_pyats.models import PyatsGoldenConfig
+
+        other_snap = self._make_snapshot(self.other_device)
+        golden = PyatsGoldenConfig(
+            device=self.device,
+            name="bad-snapshot",
+            config_text="hostname rtr01\n",
+            source=GoldenConfigSourceChoices.SOURCE_SNAPSHOT,
+            source_snapshot=other_snap,
+        )
+        with self.assertRaises(ValidationError) as cm:
+            golden.full_clean()
+        self.assertIn("source_snapshot", cm.value.message_dict)
+
+    def test_clean_accepts_null_source_snapshot(self):
+        from netbox_pyats.choices import GoldenConfigSourceChoices
+        from netbox_pyats.models import PyatsGoldenConfig
+
+        golden = PyatsGoldenConfig(
+            device=self.device,
+            name="manual",
+            config_text="hostname rtr01\n",
+            source=GoldenConfigSourceChoices.SOURCE_MANUAL,
+            source_snapshot=None,
+        )
+        golden.full_clean()  # no raise
+
+
+class PyatsComplianceRunCleanTest(TestCase):
+    """ATW-907 L1: ``PyatsComplianceRun.clean()`` cross-field device invariant."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from dcim.models import Device, DeviceRole, DeviceType, Manufacturer, Site
+
+        cls.site = Site.objects.create(name="CR01", slug="cr01")
+        cls.mfr = Manufacturer.objects.create(name="Cisco-CR", slug="cisco-cr")
+        cls.dt = DeviceType.objects.create(model="C9300-CR", slug="c9300-cr", manufacturer=cls.mfr)
+        cls.role = DeviceRole.objects.create(name="Router-CR", slug="router-cr")
+        cls.device = Device.objects.create(name="cmprtr01", site=cls.site, device_type=cls.dt, role=cls.role)
+        cls.other_device = Device.objects.create(
+            name="cmprtr02", site=cls.site, device_type=cls.dt, role=cls.role
+        )
+
+    def _make_snapshot(self, device):
+        from netbox_pyats.choices import SnapshotKindChoices, SnapshotStatusChoices, SnapshotTriggerChoices
+
+        snap = PyatsSnapshot(
+            device=device,
+            kind=SnapshotKindChoices.KIND_FULL,
+            status=SnapshotStatusChoices.STATUS_SUCCESS,
+            triggered_by=SnapshotTriggerChoices.TRIGGER_USER,
+            data={"config": {"hostname": str(device)}},
+        )
+        snap.full_clean()
+        snap.save()
+        return snap
+
+    def _make_golden(self, device, name="baseline"):
+        from netbox_pyats.choices import GoldenConfigSourceChoices
+        from netbox_pyats.models import PyatsGoldenConfig
+
+        golden = PyatsGoldenConfig(
+            device=device,
+            name=name,
+            config_text="hostname rtr01\n",
+            source=GoldenConfigSourceChoices.SOURCE_MANUAL,
+        )
+        golden.full_clean()
+        golden.save()
+        return golden
+
+    def test_clean_accepts_same_device_golden_and_snapshot(self):
+        from netbox_pyats.choices import ComplianceResultChoices
+        from netbox_pyats.models import PyatsComplianceRun
+
+        golden = self._make_golden(self.device)
+        snap = self._make_snapshot(self.device)
+        run = PyatsComplianceRun(
+            device=self.device,
+            golden=golden,
+            snapshot=snap,
+            result=ComplianceResultChoices.RESULT_COMPLIANT,
+            diff={},
+            summary={},
+        )
+        run.full_clean()  # no raise
+
+    def test_clean_rejects_cross_device_golden(self):
+        from django.core.exceptions import ValidationError
+        from netbox_pyats.choices import ComplianceResultChoices
+        from netbox_pyats.models import PyatsComplianceRun
+
+        other_golden = self._make_golden(self.other_device, name="other-baseline")
+        snap = self._make_snapshot(self.device)
+        run = PyatsComplianceRun(
+            device=self.device,
+            golden=other_golden,
+            snapshot=snap,
+            result=ComplianceResultChoices.RESULT_DRIFT,
+            diff={},
+            summary={},
+        )
+        with self.assertRaises(ValidationError) as cm:
+            run.full_clean()
+        self.assertIn("golden", cm.value.message_dict)
+
+    def test_clean_rejects_cross_device_snapshot(self):
+        from django.core.exceptions import ValidationError
+        from netbox_pyats.choices import ComplianceResultChoices
+        from netbox_pyats.models import PyatsComplianceRun
+
+        golden = self._make_golden(self.device)
+        other_snap = self._make_snapshot(self.other_device)
+        run = PyatsComplianceRun(
+            device=self.device,
+            golden=golden,
+            snapshot=other_snap,
+            result=ComplianceResultChoices.RESULT_DRIFT,
+            diff={},
+            summary={},
+        )
+        with self.assertRaises(ValidationError) as cm:
+            run.full_clean()
+        self.assertIn("snapshot", cm.value.message_dict)
+
+    def test_clean_skips_check_for_error_result(self):
+        # ATW-68: the job's device-mismatch error-row path persists the
+        # mismatched row as result="error" via full_clean(). clean() must not
+        # reject it.
+        from netbox_pyats.choices import ComplianceResultChoices
+        from netbox_pyats.models import PyatsComplianceRun
+
+        other_golden = self._make_golden(self.other_device, name="err-baseline")
+        snap = self._make_snapshot(self.device)
+        run = PyatsComplianceRun(
+            device=self.device,
+            golden=other_golden,
+            snapshot=snap,
+            result=ComplianceResultChoices.RESULT_ERROR,
+            diff={},
+            summary={},
+            parser_warnings=["device mismatch"],
+        )
+        run.full_clean()  # no raise — error rows are exempt
+
+    def test_clean_skips_check_for_null_fks(self):
+        # ATW-68: a compliance run whose golden/snapshot was deleted writes
+        # golden=None / snapshot=None.
+        from netbox_pyats.choices import ComplianceResultChoices
+        from netbox_pyats.models import PyatsComplianceRun
+
+        run = PyatsComplianceRun(
+            device=self.device,
+            golden=None,
+            snapshot=None,
+            result=ComplianceResultChoices.RESULT_ERROR,
+            diff={},
+            summary={},
+            parser_warnings=["golden or snapshot missing"],
+        )
+        run.full_clean()  # no raise
