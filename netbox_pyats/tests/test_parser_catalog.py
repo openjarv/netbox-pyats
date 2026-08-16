@@ -120,10 +120,10 @@ class TestRefreshParserCatalogForOs:
 
     def test_version_strings_present_in_result(self, monkeypatch):
         # Version strings are best-effort; we only assert the fields exist
-        # (the actual value depends on the worker env). The pure-Python
-        # helper mirrors capture._worker_versions, which returns "" when
-        # metadata is unavailable — so we just check the attribute is a
-        # string, not that it is populated.
+        # (the actual value depends on the worker env). The shared helper
+        # netbox_pyats.utils.worker_versions returns "" when metadata is
+        # unavailable — so we just check the attribute is a string, not
+        # that it is populated.
         self._patch_get_parser_commands(monkeypatch, return_value=["show version"])
         result = refresh_parser_catalog_for_os("iosxe")
         assert isinstance(result.genie_version, str)
