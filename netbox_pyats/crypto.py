@@ -27,6 +27,8 @@ from cryptography.fernet import Fernet, InvalidToken  # noqa: F401 - re-exported
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
+from .utils import get_plugin_config
+
 
 class CredentialDecryptError(Exception):
     """Raised when a stored Fernet token cannot be decrypted (ATW-815, CR-2).
@@ -36,11 +38,6 @@ class CredentialDecryptError(Exception):
     into an error-status snapshot row with a clear message instead of a
     bare ``InvalidToken`` worker crash.
     """
-
-
-def _get_config() -> dict:
-    """Return the plugin's PLUGINS_CONFIG block (empty dict if unset)."""
-    return getattr(settings, "PLUGINS_CONFIG", {}).get("netbox_pyats", {}) or {}
 
 
 def _derive_fernet_key_from_secret_key(secret_key: str) -> bytes:
@@ -65,7 +62,7 @@ def get_fernet_key() -> bytes:
          Fernet key material — a 32-byte url-safe base64 string).
       2. Derived from a slice of ``settings.SECRET_KEY`` (dev fallback, warns).
     """
-    cfg = _get_config()
+    cfg = get_plugin_config()
     configured = cfg.get("credential_key")
     if configured:
         try:

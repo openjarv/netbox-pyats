@@ -33,6 +33,7 @@ from typing import Any
 
 from .choices import SnapshotKindChoices, SnapshotStatusChoices
 from .testbed import UNSUPPORTED_OS, is_supported_os
+from .utils import get_plugin_config, worker_versions
 
 logger = logging.getLogger(__name__)
 
@@ -67,19 +68,6 @@ STATE_COMMANDS: tuple[str, ...] = (
 )
 
 
-def _get_plugin_config() -> dict:
-    """Return the plugin's PLUGINS_CONFIG block (empty dict if unset).
-
-    Mirrors :func:`netbox_pyats.crypto._get_config` so capture-time config
-    reads stay consistent. The conftest configures a minimal
-    ``PLUGINS_CONFIG`` for pure-Python tests, so this is safe to call in the
-    unit lane.
-    """
-    from django.conf import settings
-
-    return getattr(settings, "PLUGINS_CONFIG", {}).get("netbox_pyats", {}) or {}
-
-
 def resolve_state_commands(os_value: str) -> tuple[str, ...]:
     """Return the state-capture command list for a given pyATS ``os``.
 
@@ -100,7 +88,7 @@ def resolve_state_commands(os_value: str) -> tuple[str, ...]:
     extras list them all. The per-command graceful-degradation contract
     (ParserNotFound → skip with warning) is unchanged.
     """
-    per_os = _get_plugin_config().get("state_commands_per_os", {})
+    per_os = get_plugin_config().get("state_commands_per_os", {})
     if os_value in per_os:
         commands = per_os[os_value]
         return tuple(commands) if not isinstance(commands, tuple) else commands
@@ -138,33 +126,6 @@ class CaptureResult:
         if not self.data:
             return 0
         return len(json.dumps(self.data, default=str).encode("utf-8"))
-
-
-def _worker_versions() -> tuple[str, str]:
-    """Return ``(genie_version, pyats_version)`` from the worker environment.
-
-    Best-effort: returns empty strings if the version cannot be determined
-    (e.g. genie installed without metadata, or a stripped wheel). We never
-    let a version-lookup failure abort a capture — the snapshot is still
-    useful without the version strings; they're metadata for diagnosing
-    parser-output drift across Genie releases.
-    """
-    genie_version = ""
-    pyats_version = ""
-    try:
-        import importlib.metadata as md
-
-        try:
-            genie_version = md.version("genie")
-        except Exception:  # noqa: BLE001 - metadata lookups are best-effort
-            pass
-        try:
-            pyats_version = md.version("pyats")
-        except Exception:  # noqa: BLE001 - metadata lookups are best-effort
-            pass
-    except Exception:  # noqa: BLE001 - importlib.metadata itself missing (very old Py)
-        pass
-    return genie_version, pyats_version
 
 
 def _capture_config(pyats_device) -> tuple[dict, str, list]:
@@ -561,7 +522,7 @@ def capture_snapshot(
     if kind == SnapshotKindChoices.KIND_PARSE and not commands:
         raise ValueError("kind='parse' requires a non-empty `commands` list")
 
-    genie_version, pyats_version = _worker_versions()
+    genie_version, pyats_version = worker_versions()
     os_value = getattr(pyats_device, "os", "") or ""
     if not is_supported_os(os_value):
         return CaptureResult(
@@ -702,7 +663,7 @@ def capture_snapshot_for_netbox_device(
         # Connect via Unicon. This is where SSH/Telnet actually happens.
         pyats_device.connect()
     except Exception as exc:  # noqa: BLE001 - connection failure is an error status, not a crash
-        genie_version, pyats_version = _worker_versions()
+        genie_version, pyats_version = worker_versions()
         # The device's os is known (the testbed mapped it); carry it so the row
         # records provenance even when the connection failed.
         os_value = getattr(pyats_device, "os", "") or ""

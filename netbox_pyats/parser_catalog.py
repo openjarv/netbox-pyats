@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from typing import Iterable
 
 from .testbed import PLATFORM_SLUG_TO_PYATS_OS, UNSUPPORTED_OS, is_supported_os
+from .utils import worker_versions
 
 logger = logging.getLogger(__name__)
 
@@ -50,34 +51,6 @@ class CatalogRefreshResult:
     warnings: list = field(default_factory=list)
     genie_version: str = ""
     pyats_version: str = ""
-
-
-def _worker_versions() -> tuple[str, str]:
-    """Return ``(genie_version, pyats_version)`` from the worker environment.
-
-    Best-effort: returns empty strings if the version cannot be determined
-    (e.g. genie installed without metadata, or a stripped wheel). Mirrors
-    :func:`netbox_pyats.capture._worker_versions` so a version-lookup failure
-    never aborts a refresh — the catalog is still useful without the version
-    strings; they are metadata for diagnosing parser-coverage drift across
-    Genie releases.
-    """
-    genie_version = ""
-    pyats_version = ""
-    try:
-        import importlib.metadata as md
-
-        try:
-            genie_version = md.version("genie")
-        except Exception:  # noqa: BLE001 - metadata lookups are best-effort
-            pass
-        try:
-            pyats_version = md.version("pyats")
-        except Exception:  # noqa: BLE001 - metadata lookups are best-effort
-            pass
-    except Exception:  # noqa: BLE001 - importlib.metadata itself missing (very old Py)
-        pass
-    return genie_version, pyats_version
 
 
 def _stub_pyats_device(pyats_os: str):
@@ -151,7 +124,7 @@ def refresh_parser_catalog_for_os(pyats_os: str) -> CatalogRefreshResult:
     # stable checkbox ordering. Drop any non-string entries defensively.
     commands = sorted({str(c) for c in commands if c})
 
-    genie_version, pyats_version = _worker_versions()
+    genie_version, pyats_version = worker_versions()
     return CatalogRefreshResult(
         pyats_os=pyats_os,
         commands=commands,

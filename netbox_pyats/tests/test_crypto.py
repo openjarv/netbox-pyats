@@ -19,7 +19,7 @@ from netbox_pyats import crypto
 class GetFernetKeyTest(SimpleTestCase):
     def _set_config(self, cfg):
         # override_settings works on PLUGINS_CONFIG because it's a Django
-        # setting; we need the plugin's _get_config() to see our value.
+        # setting; we need the plugin's get_plugin_config() to see our value.
         return override_settings(PLUGINS_CONFIG={"netbox_pyats": cfg})
 
     def test_configured_key_used_when_set(self):
