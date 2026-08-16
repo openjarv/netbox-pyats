@@ -28,6 +28,7 @@ You are an engineer working on the plugin itself. You need the dev environment, 
 - [Graphify](developer/graphify.md) — the committed code graph and how to query it.
 - [Graphify MCP](developer/graphify-mcp.md) — stdio vs HTTP MCP transports for the graph server.
 - [Graphify MCP HTTP runbook](developer/graphify-mcp-http.md) — multi-host / shared-service bring-up for the graph server.
+- [Remote access over Tailscale](developer/remote-access.md) — reach the dev NetBox UI from your laptop via Tailscale HTTPS / SSH port forwarding.
 
 ## For everyone
 
