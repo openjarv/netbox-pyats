@@ -1,4 +1,4 @@
-# ADR-0007: Device-page tab via `register_model_view` + `ObjectView`
+# ADR-0007: Device-page tab via `register_model_view` + `ObjectView` + `ViewTab`
 
 Date: 2026-07-31
 Status: Accepted
