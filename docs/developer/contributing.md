@@ -153,9 +153,6 @@ Structural changes (package layout, background-work patterns, new model storage 
 - [ADR-0006 — PR-body hygiene](../adr/0006-pr-body-hygiene.md)
 - [ADR-0007 — Device-page tab via `register_model_view` + `ObjectView` + `ViewTab`](../adr/0007-device-page-tab.md)
 - [ADR-0008 — Scheduling surface for recurring snapshot capture](../adr/0008-scheduling-surface.md)
-- [ADR-0005 — PyatsJob unified job-tracking model](../adr/0005-pyatsjob-model.md)
-- [ADR-0006 — PR-body hygiene](../adr/0006-pr-body-hygiene.md)
-- [ADR-0007 — Device-page tab via `register_model_view` + `ObjectView`](../adr/0007-device-page-tab.md)
 
 The architectural baseline is the [architecture overview](https://github.com/openjarv/netbox-pyats) tracked on [ATW-23](/ATW/issues/ATW-23). Non-trivial PRs must fit the locked structure; if a PR would change it, open an ADR first and get CTO sign-off.
 
