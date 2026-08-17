@@ -182,8 +182,8 @@ The supported-platforms report at **PyATS/Genie → Jobs & Platforms → Support
 | `PyatsCredential` | fully editable | yes (ciphertext fields excluded) |
 | `PyatsSnapshot` | read-only in v1 | yes |
 | `PyatsSnapshotDiff` | read-only in v1 | yes |
-| `PyatsGoldenConfig` | fully editable | deferred |
-| `PyatsComplianceRun` | read-only in v1 | deferred |
+| `PyatsGoldenConfig` | fully editable | yes |
+| `PyatsComplianceRun` | read-only in v1 | yes |
 | `PyatsJob` | read-only in v1 | yes |
 | `PyatsParserCatalog` | read-only in v1 | yes |
 | `PyatsCaptureSchedule` | fully editable (`last_run_at` / `next_run_at` read-only) | yes |

@@ -156,7 +156,8 @@ def _extract_model_classes() -> set[str]:
 
 # Models documented in ``docs/user/usage.md`` as GraphQL-"deferred" in v1.
 # Source: docs/user/usage.md §"REST and GraphQL" table.
-DEFERRED_GRAPHQL_MODELS = {"PyatsGoldenConfig", "PyatsComplianceRun"}
+# Empty since ATW-905: PyatsGoldenConfig + PyatsComplianceRun now have types.
+DEFERRED_GRAPHQL_MODELS = set()
 
 
 class NavMenuUniquenessGuard(unittest.TestCase):
