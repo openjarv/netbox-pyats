@@ -2,7 +2,9 @@ from netbox.graphql.types import NetBoxObjectType
 
 from netbox_pyats.models import (
     PyatsCaptureSchedule,
+    PyatsComplianceRun,
     PyatsCredential,
+    PyatsGoldenConfig,
     PyatsJob,
     PyatsParserCatalog,
     PyatsParserCatalogRefreshSchedule,
@@ -188,6 +190,63 @@ class PyatsParserCatalogRefreshScheduleType(NetBoxObjectType):
             "enabled",
             "last_run_at",
             "next_run_at",
+            "tags",
+            "created",
+            "last_updated",
+        )
+
+
+class PyatsGoldenConfigType(NetBoxObjectType):
+    """GraphQL type for the PyatsGoldenConfig model (Phase 4, ATW-15).
+
+    Exposes the operator's golden / reference running-config (``config_text``
+    is free text, not a secret — secrets live only on PyatsCredential which
+    excludes password/enable_secret), the ``source`` provenance choice, and
+    the nullable ``source_snapshot`` link set when the golden was promoted
+    from a snapshot. Read-only by nature via GraphQL (operators author
+    goldens via REST/UI; GraphQL v1 does not define mutations).
+    """
+
+    class Meta:
+        model = PyatsGoldenConfig
+        fields = (
+            "id",
+            "device",
+            "name",
+            "config_text",
+            "source",
+            "source_snapshot",
+            "tags",
+            "created",
+            "last_updated",
+        )
+
+
+class PyatsComplianceRunType(NetBoxObjectType):
+    """GraphQL type for the PyatsComplianceRun model (Phase 4, ATW-15).
+
+    Exposes one compliance-check result: the ``result`` classification
+    (compliant / drift / error), the ``mode`` comparison semantics, the
+    nullable ``golden`` / ``snapshot`` links (nullable for the error-row
+    persistence contract — see PyatsSnapshotDiff.before/after), the full
+    JSONB ``diff`` tree + ``summary`` counts + ``parser_warnings`` list
+    (same shape as PyatsSnapshotDiff), and ``size_bytes``. Read-only by
+    nature (compliance runs are produced by the run_compliance job).
+    """
+
+    class Meta:
+        model = PyatsComplianceRun
+        fields = (
+            "id",
+            "device",
+            "golden",
+            "snapshot",
+            "result",
+            "diff",
+            "summary",
+            "parser_warnings",
+            "size_bytes",
+            "mode",
             "tags",
             "created",
             "last_updated",
