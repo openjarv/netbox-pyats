@@ -898,7 +898,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_capture",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": "capture.py"
     },
@@ -942,7 +942,7 @@
       "source_location": "L131",
       "_origin": "ast",
       "id": "netbox_pyats_capture_capture_config",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": "_capture_config()"
     },
@@ -953,7 +953,7 @@
       "source_location": "L200",
       "_origin": "ast",
       "id": "netbox_pyats_capture_capture_state",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": "_capture_state()"
     },
@@ -964,7 +964,7 @@
       "source_location": "L266",
       "_origin": "ast",
       "id": "netbox_pyats_capture_capture_parse",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": "_capture_parse()"
     },
@@ -975,7 +975,7 @@
       "source_location": "L336",
       "_origin": "ast",
       "id": "netbox_pyats_capture_capture_learn",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": "_capture_learn()"
     },
@@ -986,7 +986,7 @@
       "source_location": "L427",
       "_origin": "ast",
       "id": "netbox_pyats_capture_discover_ops_features",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": "_discover_ops_features()"
     },
@@ -1019,7 +1019,7 @@
       "source_location": "L625",
       "_origin": "ast",
       "id": "netbox_pyats_capture_capture_snapshot_for_netbox_device",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": "capture_snapshot_for_netbox_device()"
     },
@@ -1030,7 +1030,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_capture_rationale_1",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": "snapshot capture logic \u2014 the pyats/genie work, isolated from netbox/rq.  :func:`"
     },
@@ -1074,7 +1074,7 @@
       "source_location": "L132",
       "_origin": "ast",
       "id": "netbox_pyats_capture_rationale_132",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": "run parser-based config capture on a connected pyats device.      uses ``pyats.u"
     },
@@ -1085,7 +1085,7 @@
       "source_location": "L201",
       "_origin": "ast",
       "id": "netbox_pyats_capture_rationale_201",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": "run parser-based state capture on a connected pyats device.      runs the given"
     },
@@ -1096,7 +1096,7 @@
       "source_location": "L267",
       "_origin": "ast",
       "id": "netbox_pyats_capture_rationale_267",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": "run on-demand parser capture for an explicit, user-supplied command list.      t"
     },
@@ -1107,7 +1107,7 @@
       "source_location": "L337",
       "_origin": "ast",
       "id": "netbox_pyats_capture_rationale_337",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": "run the genie ops learn capture on a connected pyats device (atw-730).      geni"
     },
@@ -1118,7 +1118,7 @@
       "source_location": "L428",
       "_origin": "ast",
       "id": "netbox_pyats_capture_rationale_428",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": "return ``[(feature_name, ops_factory), ...]`` from a genie ops lookup.      feat"
     },
@@ -1140,7 +1140,7 @@
       "source_location": "L632",
       "_origin": "ast",
       "id": "netbox_pyats_capture_rationale_632",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": "build a single-device testbed, connect, capture, disconnect.      convenience wr"
     },
@@ -1151,7 +1151,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_choices",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "choices.py"
     },
@@ -1195,7 +1195,7 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "netbox_pyats_choices_snapshottriggerchoices",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": "snapshottriggerchoices"
     },
@@ -1206,7 +1206,7 @@
       "source_location": "L96",
       "_origin": "ast",
       "id": "netbox_pyats_choices_snapshotstatuschoices",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "snapshotstatuschoices"
     },
@@ -1283,7 +1283,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_choices_rationale_1",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "choice sets for the netbox-pyats plugin."
     },
@@ -1327,7 +1327,7 @@
       "source_location": "L83",
       "_origin": "ast",
       "id": "netbox_pyats_choices_rationale_83",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": "who/what triggered a snapshot capture.      ``user`` captures are initiated from"
     },
@@ -1338,7 +1338,7 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "netbox_pyats_choices_rationale_97",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "outcome of a snapshot capture attempt.      ``success`` means a jsonb ``data`` p"
     },
@@ -2999,8 +2999,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_graphql_schema",
-      "community": 21,
-      "community_name": "PyatsCaptureSchedule",
+      "community": 8,
+      "community_name": "PyatsCredential",
       "norm_label": "schema.py"
     },
     {
@@ -3010,8 +3010,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "netbox_pyats_graphql_schema_pyatscredentialtype",
-      "community": 21,
-      "community_name": "PyatsCaptureSchedule",
+      "community": 8,
+      "community_name": "PyatsCredential",
       "norm_label": "pyatscredentialtype"
     },
     {
@@ -3021,8 +3021,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "netboxobjecttype",
-      "community": 21,
-      "community_name": "PyatsCaptureSchedule",
+      "community": 8,
+      "community_name": "PyatsCredential",
       "norm_label": "netboxobjecttype"
     },
     {
@@ -3032,8 +3032,8 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "netbox_pyats_graphql_schema_meta",
-      "community": 21,
-      "community_name": "PyatsCaptureSchedule",
+      "community": 8,
+      "community_name": "PyatsCredential",
       "norm_label": "meta"
     },
     {
@@ -3043,8 +3043,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "netbox_pyats_graphql_schema_pyatssnapshottype",
-      "community": 21,
-      "community_name": "PyatsCaptureSchedule",
+      "community": 8,
+      "community_name": "PyatsCredential",
       "norm_label": "pyatssnapshottype"
     },
     {
@@ -3054,8 +3054,8 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "netbox_pyats_graphql_schema_pyatssnapshotdifftype",
-      "community": 21,
-      "community_name": "PyatsCaptureSchedule",
+      "community": 8,
+      "community_name": "PyatsCredential",
       "norm_label": "pyatssnapshotdifftype"
     },
     {
@@ -3065,8 +3065,8 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "netbox_pyats_graphql_schema_pyatsjobtype",
-      "community": 21,
-      "community_name": "PyatsCaptureSchedule",
+      "community": 8,
+      "community_name": "PyatsCredential",
       "norm_label": "pyatsjobtype"
     },
     {
@@ -3076,8 +3076,8 @@
       "source_location": "L127",
       "_origin": "ast",
       "id": "netbox_pyats_graphql_schema_pyatsparsercatalogtype",
-      "community": 21,
-      "community_name": "PyatsCaptureSchedule",
+      "community": 8,
+      "community_name": "PyatsCredential",
       "norm_label": "pyatsparsercatalogtype"
     },
     {
@@ -3087,8 +3087,8 @@
       "source_location": "L151",
       "_origin": "ast",
       "id": "netbox_pyats_graphql_schema_pyatscapturescheduletype",
-      "community": 21,
-      "community_name": "PyatsCaptureSchedule",
+      "community": 8,
+      "community_name": "PyatsCredential",
       "norm_label": "pyatscapturescheduletype"
     },
     {
@@ -3098,8 +3098,8 @@
       "source_location": "L176",
       "_origin": "ast",
       "id": "netbox_pyats_graphql_schema_pyatsparsercatalogrefreshscheduletype",
-      "community": 21,
-      "community_name": "PyatsCaptureSchedule",
+      "community": 8,
+      "community_name": "PyatsCredential",
       "norm_label": "pyatsparsercatalogrefreshscheduletype"
     },
     {
@@ -3109,8 +3109,8 @@
       "source_location": "L199",
       "_origin": "ast",
       "id": "netbox_pyats_graphql_schema_pyatsgoldenconfigtype",
-      "community": 21,
-      "community_name": "PyatsCaptureSchedule",
+      "community": 8,
+      "community_name": "PyatsCredential",
       "norm_label": "pyatsgoldenconfigtype"
     },
     {
@@ -3120,8 +3120,8 @@
       "source_location": "L225",
       "_origin": "ast",
       "id": "netbox_pyats_graphql_schema_pyatscomplianceruntype",
-      "community": 21,
-      "community_name": "PyatsCaptureSchedule",
+      "community": 8,
+      "community_name": "PyatsCredential",
       "norm_label": "pyatscomplianceruntype"
     },
     {
@@ -3131,8 +3131,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "netbox_pyats_graphql_schema_rationale_17",
-      "community": 21,
-      "community_name": "PyatsCaptureSchedule",
+      "community": 8,
+      "community_name": "PyatsCredential",
       "norm_label": "graphql type for the pyatscredential model.      ``password`` and ``enable_secre"
     },
     {
@@ -3142,8 +3142,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "netbox_pyats_graphql_schema_rationale_41",
-      "community": 21,
-      "community_name": "PyatsCaptureSchedule",
+      "community": 8,
+      "community_name": "PyatsCredential",
       "norm_label": "graphql type for the pyatssnapshot model.      exposes the full jsonb ``data`` p"
     },
     {
@@ -3153,8 +3153,8 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "netbox_pyats_graphql_schema_rationale_69",
-      "community": 21,
-      "community_name": "PyatsCaptureSchedule",
+      "community": 8,
+      "community_name": "PyatsCredential",
       "norm_label": "graphql type for the pyatssnapshotdiff model (phase 3, atw-14).      exposes the"
     },
     {
@@ -3164,8 +3164,8 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "netbox_pyats_graphql_schema_rationale_95",
-      "community": 21,
-      "community_name": "PyatsCaptureSchedule",
+      "community": 8,
+      "community_name": "PyatsCredential",
       "norm_label": "graphql type for the pyatsjob model (phase 5, atw-16).      exposes the job-trac"
     },
     {
@@ -3175,8 +3175,8 @@
       "source_location": "L128",
       "_origin": "ast",
       "id": "netbox_pyats_graphql_schema_rationale_128",
-      "community": 21,
-      "community_name": "PyatsCaptureSchedule",
+      "community": 8,
+      "community_name": "PyatsCredential",
       "norm_label": "graphql type for the pyatsparsercatalog model (atw-241 child 1).      exposes th"
     },
     {
@@ -3186,8 +3186,8 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "netbox_pyats_graphql_schema_rationale_152",
-      "community": 21,
-      "community_name": "PyatsCaptureSchedule",
+      "community": 8,
+      "community_name": "PyatsCredential",
       "norm_label": "graphql type for the pyatscaptureschedule model (atw-433).      exposes the sche"
     },
     {
@@ -3197,8 +3197,8 @@
       "source_location": "L177",
       "_origin": "ast",
       "id": "netbox_pyats_graphql_schema_rationale_177",
-      "community": 21,
-      "community_name": "PyatsCaptureSchedule",
+      "community": 8,
+      "community_name": "PyatsCredential",
       "norm_label": "graphql type for the pyatsparsercatalogrefreshschedule model (atw-581).      exp"
     },
     {
@@ -3208,8 +3208,8 @@
       "source_location": "L200",
       "_origin": "ast",
       "id": "netbox_pyats_graphql_schema_rationale_200",
-      "community": 21,
-      "community_name": "PyatsCaptureSchedule",
+      "community": 8,
+      "community_name": "PyatsCredential",
       "norm_label": "graphql type for the pyatsgoldenconfig model (phase 4, atw-15).      exposes the"
     },
     {
@@ -3219,8 +3219,8 @@
       "source_location": "L226",
       "_origin": "ast",
       "id": "netbox_pyats_graphql_schema_rationale_226",
-      "community": 21,
-      "community_name": "PyatsCaptureSchedule",
+      "community": 8,
+      "community_name": "PyatsCredential",
       "norm_label": "graphql type for the pyatscompliancerun model (phase 4, atw-15).      exposes on"
     },
     {
@@ -3945,7 +3945,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_migrations_0001_initial",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "0001_initial.py"
     },
@@ -3956,7 +3956,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "netbox_pyats_migrations_0001_initial_migration",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "migration"
     },
@@ -3967,7 +3967,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_migrations_0002_pyatssnapshot",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "0002_pyatssnapshot.py"
     },
@@ -3978,7 +3978,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "netbox_pyats_migrations_0002_pyatssnapshot_migration",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "migration"
     },
@@ -3989,7 +3989,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_migrations_0003_pyatssnapshotdiff",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "0003_pyatssnapshotdiff.py"
     },
@@ -4000,7 +4000,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "netbox_pyats_migrations_0003_pyatssnapshotdiff_migration",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "migration"
     },
@@ -4033,7 +4033,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_migrations_0005_compliance_engine",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "0005_compliance_engine.py"
     },
@@ -4044,7 +4044,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "netbox_pyats_migrations_0005_compliance_engine_migration",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "migration"
     },
@@ -4121,7 +4121,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_migrations_0009_pyatsjob",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "0009_pyatsjob.py"
     },
@@ -4132,7 +4132,7 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "netbox_pyats_migrations_0009_pyatsjob_migration",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "migration"
     },
@@ -4143,7 +4143,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_migrations_0010_parser_catalog_and_parse_kind",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "0010_parser_catalog_and_parse_kind.py"
     },
@@ -4154,7 +4154,7 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "netbox_pyats_migrations_0010_parser_catalog_and_parse_kind_migration",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "migration"
     },
@@ -4165,7 +4165,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_migrations_0010_parser_catalog_and_parse_kind_rationale_1",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "atw-241 child 1 (atw-249): add pyatsparsercatalog + the `kind='parse'` choice."
     },
@@ -4176,7 +4176,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_migrations_0011_pyatscaptureschedule",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "0011_pyatscaptureschedule.py"
     },
@@ -4187,7 +4187,7 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "netbox_pyats_migrations_0011_pyatscaptureschedule_migration",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "migration"
     },
@@ -4286,7 +4286,7 @@
       "source_location": "L102",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscredential",
-      "community": 7,
+      "community": 8,
       "community_name": "PyatsCredential",
       "norm_label": "pyatscredential"
     },
@@ -4319,7 +4319,7 @@
       "source_location": "L191",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscredential_str",
-      "community": 7,
+      "community": 8,
       "community_name": "PyatsCredential",
       "norm_label": ".__str__()"
     },
@@ -4330,7 +4330,7 @@
       "source_location": "L195",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscredential_get_absolute_url",
-      "community": 7,
+      "community": 8,
       "community_name": "PyatsCredential",
       "norm_label": ".get_absolute_url()"
     },
@@ -4341,7 +4341,7 @@
       "source_location": "L200",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscredential_set_password",
-      "community": 7,
+      "community": 8,
       "community_name": "PyatsCredential",
       "norm_label": ".set_password()"
     },
@@ -4352,7 +4352,7 @@
       "source_location": "L204",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscredential_get_password",
-      "community": 7,
+      "community": 8,
       "community_name": "PyatsCredential",
       "norm_label": ".get_password()"
     },
@@ -4363,7 +4363,7 @@
       "source_location": "L208",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscredential_set_enable_secret",
-      "community": 7,
+      "community": 8,
       "community_name": "PyatsCredential",
       "norm_label": ".set_enable_secret()"
     },
@@ -4374,7 +4374,7 @@
       "source_location": "L212",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscredential_get_enable_secret",
-      "community": 7,
+      "community": 8,
       "community_name": "PyatsCredential",
       "norm_label": ".get_enable_secret()"
     },
@@ -4583,7 +4583,7 @@
       "source_location": "L700",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscompliancerun",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "pyatscompliancerun"
     },
@@ -4594,7 +4594,7 @@
       "source_location": "L845",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscompliancerun_str",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": ".__str__()"
     },
@@ -4605,7 +4605,7 @@
       "source_location": "L852",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscompliancerun_get_absolute_url",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": ".get_absolute_url()"
     },
@@ -4627,7 +4627,7 @@
       "source_location": "L870",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscompliancerun_get_result_color",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": ".get_result_color()"
     },
@@ -4638,7 +4638,7 @@
       "source_location": "L879",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscompliancerun_has_drift",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": ".has_drift()"
     },
@@ -4649,7 +4649,7 @@
       "source_location": "L885",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscompliancerun_has_warnings",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": ".has_warnings()"
     },
@@ -4660,7 +4660,7 @@
       "source_location": "L890",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatsjob",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "pyatsjob"
     },
@@ -4671,7 +4671,7 @@
       "source_location": "L1045",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatsjob_str",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": ".__str__()"
     },
@@ -4682,7 +4682,7 @@
       "source_location": "L1055",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatsjob_get_absolute_url",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": ".get_absolute_url()"
     },
@@ -4693,7 +4693,7 @@
       "source_location": "L1058",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatsjob_get_status_color",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": ".get_status_color()"
     },
@@ -4704,7 +4704,7 @@
       "source_location": "L1074",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatsjob_related_result",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": ".related_result()"
     },
@@ -4737,7 +4737,7 @@
       "source_location": "L1170",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscaptureschedule",
-      "community": 21,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": "pyatscaptureschedule"
     },
@@ -4748,7 +4748,7 @@
       "source_location": "L1252",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscaptureschedule_str",
-      "community": 21,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": ".__str__()"
     },
@@ -4759,7 +4759,7 @@
       "source_location": "L1255",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscaptureschedule_get_absolute_url",
-      "community": 21,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": ".get_absolute_url()"
     },
@@ -4858,7 +4858,7 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_103",
-      "community": 7,
+      "community": 8,
       "community_name": "PyatsCredential",
       "norm_label": "a plugin-local, encrypted credential for connecting to a device via pyats."
     },
@@ -4869,7 +4869,7 @@
       "source_location": "L201",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_201",
-      "community": 7,
+      "community": 8,
       "community_name": "PyatsCredential",
       "norm_label": "encrypt and store the device password (ciphertext only)."
     },
@@ -4880,7 +4880,7 @@
       "source_location": "L205",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_205",
-      "community": 7,
+      "community": 8,
       "community_name": "PyatsCredential",
       "norm_label": "decrypt and return the device password (plaintext)."
     },
@@ -4891,7 +4891,7 @@
       "source_location": "L209",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_209",
-      "community": 7,
+      "community": 8,
       "community_name": "PyatsCredential",
       "norm_label": "encrypt and store the enable/privileged password (ciphertext only)."
     },
@@ -4902,7 +4902,7 @@
       "source_location": "L213",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_213",
-      "community": 7,
+      "community": 8,
       "community_name": "PyatsCredential",
       "norm_label": "decrypt and return the enable/privileged password (plaintext)."
     },
@@ -5012,7 +5012,7 @@
       "source_location": "L701",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_701",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "one compliance check result: golden config vs. captured snapshot (phase 4, atw-1"
     },
@@ -5023,7 +5023,7 @@
       "source_location": "L871",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_871",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "map result to a netbox color label for table badges."
     },
@@ -5034,7 +5034,7 @@
       "source_location": "L880",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_880",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "true if the diff found any added/removed/changed leaves (drift)."
     },
@@ -5045,7 +5045,7 @@
       "source_location": "L886",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_886",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "true if this compliance run row carries warnings / error context."
     },
@@ -5056,7 +5056,7 @@
       "source_location": "L891",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_891",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "one plugin job-tracking row across capture / diff / compliance / batch (phase 5,"
     },
@@ -5067,7 +5067,7 @@
       "source_location": "L1059",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_1059",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "map status to a netbox color label for table badges.          ``success`` / ``er"
     },
@@ -5078,7 +5078,7 @@
       "source_location": "L1075",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_1075",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "the result row this job produced, regardless of type, or none.          convenie"
     },
@@ -5100,7 +5100,7 @@
       "source_location": "L1171",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_1171",
-      "community": 21,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": "an operator-authored intent to capture snapshots on a recurring schedule (atw-43"
     },
@@ -5155,7 +5155,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_panel_support",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "panel_support.py"
     },
@@ -5177,7 +5177,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_panel_support_rationale_1",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "platform-support decision for the device-page pyats panel (atw-184).  pure-pytho"
     },
@@ -5309,7 +5309,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_search",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "search.py"
     },
@@ -5320,7 +5320,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "netbox_pyats_search_pyatscredentialindex",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "pyatscredentialindex"
     },
@@ -5331,7 +5331,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "searchindex",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "searchindex"
     },
@@ -5342,7 +5342,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "netbox_pyats_search_pyatssnapshotindex",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "pyatssnapshotindex"
     },
@@ -5353,7 +5353,7 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "netbox_pyats_search_pyatssnapshotdiffindex",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "pyatssnapshotdiffindex"
     },
@@ -5364,7 +5364,7 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "netbox_pyats_search_pyatsgoldenconfigindex",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "pyatsgoldenconfigindex"
     },
@@ -5375,7 +5375,7 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "netbox_pyats_search_pyatscompliancerunindex",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "pyatscompliancerunindex"
     },
@@ -5386,7 +5386,7 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "netbox_pyats_search_pyatsjobindex",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "pyatsjobindex"
     },
@@ -5397,7 +5397,7 @@
       "source_location": "L110",
       "_origin": "ast",
       "id": "netbox_pyats_search_pyatscapturescheduleindex",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "pyatscapturescheduleindex"
     },
@@ -5408,7 +5408,7 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "netbox_pyats_search_pyatsparsercatalogindex",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "pyatsparsercatalogindex"
     },
@@ -5419,7 +5419,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "netbox_pyats_search_rationale_26",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "search index for pyatssnapshot.      indexes the device (fk stringified to its `"
     },
@@ -5430,7 +5430,7 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "netbox_pyats_search_rationale_44",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "search index for pyatssnapshotdiff (phase 3, atw-14).      indexes the device (f"
     },
@@ -5441,7 +5441,7 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "netbox_pyats_search_rationale_61",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "search index for pyatsgoldenconfig (phase 4, atw-15).      indexes the device an"
     },
@@ -5452,7 +5452,7 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "netbox_pyats_search_rationale_77",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "search index for pyatscompliancerun (phase 4, atw-15).      indexes the device a"
     },
@@ -5463,7 +5463,7 @@
       "source_location": "L93",
       "_origin": "ast",
       "id": "netbox_pyats_search_rationale_93",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "search index for pyatsjob (phase 5, atw-16).      indexes the device (fk stringi"
     },
@@ -5474,7 +5474,7 @@
       "source_location": "L111",
       "_origin": "ast",
       "id": "netbox_pyats_search_rationale_111",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "search index for pyatscaptureschedule (atw-433).      indexes the schedule name"
     },
@@ -5485,7 +5485,7 @@
       "source_location": "L127",
       "_origin": "ast",
       "id": "netbox_pyats_search_rationale_127",
-      "community": 16,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "search index for pyatsparsercatalog (atw-241/249, atw-816 cr-3).      indexes th"
     },
@@ -5540,7 +5540,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tables",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "tables.py"
     },
@@ -5551,7 +5551,7 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "netbox_pyats_tables_pyatscredentialtable",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "pyatscredentialtable"
     },
@@ -5562,7 +5562,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "netboxtable",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "netboxtable"
     },
@@ -5573,7 +5573,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "netbox_pyats_tables_meta",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "meta"
     },
@@ -5584,7 +5584,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "netbox_pyats_tables_pyatssnapshottable",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "pyatssnapshottable"
     },
@@ -5595,7 +5595,7 @@
       "source_location": "L108",
       "_origin": "ast",
       "id": "netbox_pyats_tables_pyatssnapshotdifftable",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "pyatssnapshotdifftable"
     },
@@ -5606,7 +5606,7 @@
       "source_location": "L160",
       "_origin": "ast",
       "id": "netbox_pyats_tables_pyatsgoldenconfigtable",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "pyatsgoldenconfigtable"
     },
@@ -5617,7 +5617,7 @@
       "source_location": "L194",
       "_origin": "ast",
       "id": "netbox_pyats_tables_pyatscomplianceruntable",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "pyatscomplianceruntable"
     },
@@ -5628,7 +5628,7 @@
       "source_location": "L254",
       "_origin": "ast",
       "id": "netbox_pyats_tables_pyatsjobtable",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "pyatsjobtable"
     },
@@ -5639,7 +5639,7 @@
       "source_location": "L308",
       "_origin": "ast",
       "id": "netbox_pyats_tables_pyatscapturescheduletable",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "pyatscapturescheduletable"
     },
@@ -5650,7 +5650,7 @@
       "source_location": "L345",
       "_origin": "ast",
       "id": "netbox_pyats_tables_pyatsparsercatalogrefreshscheduletable",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "pyatsparsercatalogrefreshscheduletable"
     },
@@ -5661,7 +5661,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "netbox_pyats_tables_rationale_20",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "table configuration for the pyatscredential list view."
     },
@@ -5672,7 +5672,7 @@
       "source_location": "L56",
       "_origin": "ast",
       "id": "netbox_pyats_tables_rationale_56",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "table configuration for the pyatssnapshot list view.      renders the snapshot's"
     },
@@ -5683,7 +5683,7 @@
       "source_location": "L109",
       "_origin": "ast",
       "id": "netbox_pyats_tables_rationale_109",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "table configuration for the pyatssnapshotdiff list view.      renders the diff's"
     },
@@ -5694,7 +5694,7 @@
       "source_location": "L161",
       "_origin": "ast",
       "id": "netbox_pyats_tables_rationale_161",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "table configuration for the pyatsgoldenconfig list view (phase 4).      renders"
     },
@@ -5705,7 +5705,7 @@
       "source_location": "L195",
       "_origin": "ast",
       "id": "netbox_pyats_tables_rationale_195",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "table configuration for the pyatscompliancerun list view (phase 4).      renders"
     },
@@ -5716,7 +5716,7 @@
       "source_location": "L255",
       "_origin": "ast",
       "id": "netbox_pyats_tables_rationale_255",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "table configuration for the pyatsjob list view (phase 5, atw-16).      renders t"
     },
@@ -5727,7 +5727,7 @@
       "source_location": "L309",
       "_origin": "ast",
       "id": "netbox_pyats_tables_rationale_309",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "table configuration for the pyatscaptureschedule list view (atw-433).      rende"
     },
@@ -5738,7 +5738,7 @@
       "source_location": "L346",
       "_origin": "ast",
       "id": "netbox_pyats_tables_rationale_346",
-      "community": 17,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "table for the pyatsparsercatalogrefreshschedule list view (atw-581).      the mo"
     },
@@ -5848,7 +5848,7 @@
       "source_location": "L253",
       "_origin": "ast",
       "id": "netbox_pyats_testbed_build_testbed",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": "build_testbed()"
     },
@@ -6057,7 +6057,7 @@
       "source_location": "L260",
       "_origin": "ast",
       "id": "netbox_pyats_testbed_rationale_260",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": "build a pyats :class:`testbed` from a netbox device queryset.      this is the c"
     },
@@ -6233,7 +6233,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_append_only_list_views",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": "test_append_only_list_views.py"
     },
@@ -6244,7 +6244,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_append_only_list_views_appendonlylistviewsbase",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": "_appendonlylistviewsbase"
     },
@@ -6266,7 +6266,7 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_append_only_list_views_appendonlylistviewsbase_setuptestdata",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": ".setuptestdata()"
     },
@@ -6277,7 +6277,7 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_append_only_list_views_appendonlylistviewsbase_make_snapshot",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": "._make_snapshot()"
     },
@@ -6288,7 +6288,7 @@
       "source_location": "L84",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_append_only_list_views_pyatssnapshotlistviewrendertest",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": "pyatssnapshotlistviewrendertest"
     },
@@ -6299,7 +6299,7 @@
       "source_location": "L87",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_append_only_list_views_pyatssnapshotlistviewrendertest_test_list_view_renders_200_with_row",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": ".test_list_view_renders_200_with_row()"
     },
@@ -6310,7 +6310,7 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_append_only_list_views_pyatssnapshotlistviewrendertest_test_list_view_renders_200_empty",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": ".test_list_view_renders_200_empty()"
     },
@@ -6321,7 +6321,7 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_append_only_list_views_pyatssnapshotdifflistviewrendertest",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": "pyatssnapshotdifflistviewrendertest"
     },
@@ -6332,7 +6332,7 @@
       "source_location": "L106",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_append_only_list_views_pyatssnapshotdifflistviewrendertest_test_list_view_renders_200_with_row",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": ".test_list_view_renders_200_with_row()"
     },
@@ -6343,7 +6343,7 @@
       "source_location": "L129",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_append_only_list_views_pyatssnapshotdifflistviewrendertest_test_list_view_renders_200_empty",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": ".test_list_view_renders_200_empty()"
     },
@@ -6354,7 +6354,7 @@
       "source_location": "L135",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_append_only_list_views_pyatscompliancerunlistviewrendertest",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": "pyatscompliancerunlistviewrendertest"
     },
@@ -6365,7 +6365,7 @@
       "source_location": "L138",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_append_only_list_views_pyatscompliancerunlistviewrendertest_test_list_view_renders_200_with_row",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": ".test_list_view_renders_200_with_row()"
     },
@@ -6376,7 +6376,7 @@
       "source_location": "L168",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_append_only_list_views_pyatscompliancerunlistviewrendertest_test_list_view_renders_200_empty",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": ".test_list_view_renders_200_empty()"
     },
@@ -6387,7 +6387,7 @@
       "source_location": "L174",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_append_only_list_views_pyatsjoblistviewrendertest",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": "pyatsjoblistviewrendertest"
     },
@@ -6398,7 +6398,7 @@
       "source_location": "L177",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_append_only_list_views_pyatsjoblistviewrendertest_test_list_view_renders_200_with_row",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": ".test_list_view_renders_200_with_row()"
     },
@@ -6409,7 +6409,7 @@
       "source_location": "L194",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_append_only_list_views_pyatsjoblistviewrendertest_test_list_view_renders_200_empty",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": ".test_list_view_renders_200_empty()"
     },
@@ -6420,7 +6420,7 @@
       "source_location": "L199",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_append_only_list_views_pyatsjoblistviewrendertest_test_list_view_queryset_uses_select_related_for_result_fks",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": ".test_list_view_queryset_uses_select_related_for_result_fks()"
     },
@@ -6431,7 +6431,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_append_only_list_views_rationale_1",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": "regression tests for the four append-only plugin list views (atw-183).  the list"
     },
@@ -6442,7 +6442,7 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_append_only_list_views_rationale_46",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": "shared fixture: one device + the four model rows a list view needs.      subclas"
     },
@@ -6453,7 +6453,7 @@
       "source_location": "L85",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_append_only_list_views_rationale_85",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": "``/plugins/pyats/snapshots/`` must render 200 (atw-183 regression)."
     },
@@ -6464,7 +6464,7 @@
       "source_location": "L104",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_append_only_list_views_rationale_104",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": "``/plugins/pyats/diffs/`` must render 200 (atw-183 regression)."
     },
@@ -6475,7 +6475,7 @@
       "source_location": "L136",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_append_only_list_views_rationale_136",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": "``/plugins/pyats/compliance-runs/`` must render 200 (atw-183 regression)."
     },
@@ -6486,7 +6486,7 @@
       "source_location": "L175",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_append_only_list_views_rationale_175",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": "``/plugins/pyats/jobs/`` must render 200 (atw-183 regression)."
     },
@@ -6497,7 +6497,7 @@
       "source_location": "L200",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_append_only_list_views_rationale_200",
-      "community": 20,
+      "community": 21,
       "community_name": "SnapshotTriggerChoices",
       "norm_label": "pyatsjoblistview must select_related the result-row fks + device.          the `"
     },
@@ -7201,7 +7201,7 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_fakeopsinstance",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": "fakeopsinstance"
     },
@@ -7212,7 +7212,7 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_fakeopsinstance_init",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": ".__init__()"
     },
@@ -7223,7 +7223,7 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_fakeopsinstance_learn",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": ".learn()"
     },
@@ -7234,7 +7234,7 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_fakeopsinstance_ops",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": ".ops()"
     },
@@ -7267,7 +7267,7 @@
       "source_location": "L59",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_fakeopsfactory_call",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": ".__call__()"
     },
@@ -7553,7 +7553,7 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_rationale_33",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": "duck-typed genie ops instance returned by an ops class factory.      ``_capture_"
     },
@@ -10193,7 +10193,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_diff_form",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "test_diff_form.py"
     },
@@ -10402,7 +10402,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_diff_form_rationale_1",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "tests for the ``devicediffform`` kind filter (atw-241 child 4 / atw-252).  netbo"
     },
@@ -10908,7 +10908,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_diff_tree_render",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "test_diff_tree_render.py"
     },
@@ -10985,7 +10985,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_diff_tree_render_rationale_1",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "integration render test for the side-by-side diff table (atw-524/atw-525).  repl"
     },
@@ -12910,7 +12910,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "test_navmenu_uniqueness_guard.py"
     },
@@ -12921,7 +12921,7 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_extract_menu_item_kwargs",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "_extract_menu_item_kwargs()"
     },
@@ -12932,7 +12932,7 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_is_menu_var",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "_is_menu_var()"
     },
@@ -12943,7 +12943,7 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_extract_menu_links",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "_extract_menu_links()"
     },
@@ -12954,7 +12954,7 @@
       "source_location": "L110",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_str_kw",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "_str_kw()"
     },
@@ -12965,7 +12965,7 @@
       "source_location": "L122",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_extract_schema_type_models",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "_extract_schema_type_models()"
     },
@@ -12976,7 +12976,7 @@
       "source_location": "L151",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_extract_model_classes",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "_extract_model_classes()"
     },
@@ -12987,7 +12987,7 @@
       "source_location": "L163",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_navmenuuniquenessguard",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "navmenuuniquenessguard"
     },
@@ -12998,7 +12998,7 @@
       "source_location": "L166",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_navmenuuniquenessguard_test_menu_items_is_non_empty",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": ".test_menu_items_is_non_empty()"
     },
@@ -13009,7 +13009,7 @@
       "source_location": "L170",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_navmenuuniquenessguard_test_menu_links_are_unique",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": ".test_menu_links_are_unique()"
     },
@@ -13020,7 +13020,7 @@
       "source_location": "L182",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_navmenuuniquenessguard_test_menu_texts_are_unique",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": ".test_menu_texts_are_unique()"
     },
@@ -13031,7 +13031,7 @@
       "source_location": "L195",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_navmenuuniquenessguard_test_canonical_ordering_ends_with_supported_platforms",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": ".test_canonical_ordering_ends_with_supported_platforms()"
     },
@@ -13042,7 +13042,7 @@
       "source_location": "L208",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_graphqlschemacompletenessguard",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "graphqlschemacompletenessguard"
     },
@@ -13053,7 +13053,7 @@
       "source_location": "L215",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_graphqlschemacompletenessguard_test_every_model_has_type_or_is_documented_deferred",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": ".test_every_model_has_type_or_is_documented_deferred()"
     },
@@ -13064,7 +13064,7 @@
       "source_location": "L243",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_graphqlschemacompletenessguard_test_no_type_references_nonexistent_model",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": ".test_no_type_references_nonexistent_model()"
     },
@@ -13075,7 +13075,7 @@
       "source_location": "L254",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_graphqlschemacompletenessguard_test_each_model_has_at_most_one_type",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": ".test_each_model_has_at_most_one_type()"
     },
@@ -13086,7 +13086,7 @@
       "source_location": "L282",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_graphqlschemacompletenessguard_test_deferred_models_documented_match_code",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": ".test_deferred_models_documented_match_code()"
     },
@@ -13097,7 +13097,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_rationale_1",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "hardening guard for the navigation menu and graphql schema surface.  these tests"
     },
@@ -13108,7 +13108,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_rationale_45",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "return ``(link, link_text)`` from a ``pluginmenuitem(...)`` call."
     },
@@ -13119,7 +13119,7 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_rationale_68",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "return ``[(link, link_text), ...]`` parsed from every top-level menu.      walks"
     },
@@ -13130,7 +13130,7 @@
       "source_location": "L111",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_rationale_111",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "resolve a keyword value to its string literal, unwrapping ``_(...)``."
     },
@@ -13141,7 +13141,7 @@
       "source_location": "L123",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_rationale_123",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "return ``{model_name: type_class_name}`` parsed from ``schema.py``.      each ``"
     },
@@ -13152,7 +13152,7 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_rationale_152",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "return the set of top-level class names in ``models.py``."
     },
@@ -13163,7 +13163,7 @@
       "source_location": "L164",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_rationale_164",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "c1 regression guard: navigation menu items must have unique links."
     },
@@ -13174,7 +13174,7 @@
       "source_location": "L183",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_rationale_183",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "display text should also be unique to avoid operator confusion."
     },
@@ -13185,7 +13185,7 @@
       "source_location": "L196",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_rationale_196",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "the static supported-platforms report is the final menu entry.          per adr-"
     },
@@ -13196,7 +13196,7 @@
       "source_location": "L209",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_rationale_209",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "asserts graphql/schema.py types match the docs' claimed model set.      two-side"
     },
@@ -13207,7 +13207,7 @@
       "source_location": "L283",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_rationale_283",
-      "community": 15,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "the docs' deferred set must match the code's deferred set.          catches the"
     },
@@ -13218,7 +13218,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_panel",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "test_panel.py"
     },
@@ -13394,7 +13394,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_panel_rationale_1",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "tests for the device-page panel platform-support decision (atw-184).  pure-pytho"
     },
@@ -15187,7 +15187,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_snapshots",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "test_snapshots.py"
     },
@@ -15418,7 +15418,7 @@
       "source_location": "L308",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_snapshots_rundiffjobdoesnotexisttest",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "rundiffjobdoesnotexisttest"
     },
@@ -15429,7 +15429,7 @@
       "source_location": "L317",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_snapshots_rundiffjobdoesnotexisttest_setuptestdata",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": ".setuptestdata()"
     },
@@ -15440,7 +15440,7 @@
       "source_location": "L324",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_snapshots_rundiffjobdoesnotexisttest_test_doesnotexist_writes_error_row_with_null_fks_and_reraises",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": ".test_doesnotexist_writes_error_row_with_null_fks_and_reraises()"
     },
@@ -15451,7 +15451,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_snapshots_rationale_1",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "tests for :class:`netbox_pyats.models.pyatssnapshot`.  requires a running netbox"
     },
@@ -15495,7 +15495,7 @@
       "source_location": "L309",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_snapshots_rationale_309",
-      "community": 8,
+      "community": 7,
       "community_name": "SnapshotStatusChoices",
       "norm_label": "regression for atw-68: ``run_diff_job``'s ``doesnotexist`` branch must     write"
     },
@@ -16199,7 +16199,7 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_fakedevice",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": "fakedevice"
     },
@@ -16221,7 +16221,7 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_fakecredential",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": "fakecredential"
     },
@@ -16232,7 +16232,7 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_fakecredential_init",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": ".__init__()"
     },
@@ -16243,7 +16243,7 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_fakecredential_get_password",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": ".get_password()"
     },
@@ -16254,7 +16254,7 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_fakecredential_get_enable_secret",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": ".get_enable_secret()"
     },
@@ -16441,7 +16441,7 @@
       "source_location": "L157",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_cred_resolver_factory",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": "_cred_resolver_factory()"
     },
@@ -16452,7 +16452,7 @@
       "source_location": "L166",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testbuildtestbed",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": "testbuildtestbed"
     },
@@ -16463,7 +16463,7 @@
       "source_location": "L167",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testbuildtestbed_test_supported_device_attached_with_os_and_mgmt_ip",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": ".test_supported_device_attached_with_os_and_mgmt_ip()"
     },
@@ -16474,7 +16474,7 @@
       "source_location": "L183",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testbuildtestbed_test_unsupported_device_flagged_by_default",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": ".test_unsupported_device_flagged_by_default()"
     },
@@ -16485,7 +16485,7 @@
       "source_location": "L195",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testbuildtestbed_test_unsupported_device_skipped_when_on_unsupported_skip",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": ".test_unsupported_device_skipped_when_on_unsupported_skip()"
     },
@@ -16496,7 +16496,7 @@
       "source_location": "L202",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testbuildtestbed_test_mixed_queryset_report_summary",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": ".test_mixed_queryset_report_summary()"
     },
@@ -16507,7 +16507,7 @@
       "source_location": "L214",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testbuildtestbed_test_no_supported_devices_report_not_ok",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": ".test_no_supported_devices_report_not_ok()"
     },
@@ -16518,7 +16518,7 @@
       "source_location": "L220",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testbuildtestbed_test_missing_mgmt_ip_leaves_ip_none",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": ".test_missing_mgmt_ip_leaves_ip_none()"
     },
@@ -16529,7 +16529,7 @@
       "source_location": "L226",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testbuildtestbed_test_protocol_from_credential",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": ".test_protocol_from_credential()"
     },
@@ -16540,7 +16540,7 @@
       "source_location": "L232",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testbuildtestbed_test_invalid_on_unsupported_raises",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": ".test_invalid_on_unsupported_raises()"
     },
@@ -16551,7 +16551,7 @@
       "source_location": "L236",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testbuildtestbed_test_enable_secret_attached_when_set",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": ".test_enable_secret_attached_when_set()"
     },
@@ -16562,7 +16562,7 @@
       "source_location": "L242",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testbuildtestbed_test_enable_secret_absent_when_not_set",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": ".test_enable_secret_absent_when_not_set()"
     },
@@ -16573,7 +16573,7 @@
       "source_location": "L248",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testbuildtestbed_test_ssh_port_from_credential",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": ".test_ssh_port_from_credential()"
     },
@@ -16584,7 +16584,7 @@
       "source_location": "L254",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testbuildtestbed_test_none_name_falls_back_to_netbox_device_pk",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": ".test_none_name_falls_back_to_netbox_device_pk()"
     },
@@ -16595,7 +16595,7 @@
       "source_location": "L279",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testbuildtestbed_test_none_name_unsupported_report_entry_uses_fallback_name",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": ".test_none_name_unsupported_report_entry_uses_fallback_name()"
     },
@@ -16650,7 +16650,7 @@
       "source_location": "L334",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testbuildtestbedcredentialdecryptfailure_test_get_password_invalid_token_raises_credential_decrypt_error",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": ".test_get_password_invalid_token_raises_credential_decrypt_error()"
     },
@@ -16705,7 +16705,7 @@
       "source_location": "L397",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testbuildtestbedduplicatenarrowing_test_duplicate_device_error_is_skipped_as_unsupported",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": ".test_duplicate_device_error_is_skipped_as_unsupported()"
     },
@@ -16716,7 +16716,7 @@
       "source_location": "L408",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testbuildtestbedduplicatenarrowing_test_non_duplicate_error_is_raised_not_swallowed",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": ".test_non_duplicate_error_is_raised_not_swallowed()"
     },
@@ -16738,7 +16738,7 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_rationale_69",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": "duck-typed pyatscredential (avoids db/netbox in unit tests)."
     },
@@ -16749,7 +16749,7 @@
       "source_location": "L158",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_rationale_158",
-      "community": 18,
+      "community": 19,
       "community_name": "build_testbed",
       "norm_label": "return a credential_resolver that always returns ``cred`` (or none)."
     },
@@ -17200,7 +17200,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_utils",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": "utils.py"
     },
@@ -17211,7 +17211,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "netbox_pyats_utils_get_plugin_config",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": "get_plugin_config()"
     },
@@ -17222,7 +17222,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "netbox_pyats_utils_worker_versions",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": "worker_versions()"
     },
@@ -17233,7 +17233,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_utils_rationale_1",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": "shared internal helpers \u2014 single source for cross-module utilities.  small helpe"
     },
@@ -17244,7 +17244,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "netbox_pyats_utils_rationale_14",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": "return the plugin's ``plugins_config['netbox_pyats']`` block.      empty dict if"
     },
@@ -17255,7 +17255,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "netbox_pyats_utils_rationale_24",
-      "community": 19,
+      "community": 20,
       "community_name": "capture.py",
       "norm_label": "return ``(genie_version, pyats_version)`` from the worker environment.      best"
     },
@@ -17475,8 +17475,8 @@
       "source_location": "L277",
       "_origin": "ast",
       "id": "netbox_pyats_views_devicecaptureview",
-      "community": 7,
-      "community_name": "PyatsCredential",
+      "community": 15,
+      "community_name": "PyatsCaptureSchedule",
       "norm_label": "devicecaptureview"
     },
     {
@@ -17486,8 +17486,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "permissionrequiredmixin",
-      "community": 7,
-      "community_name": "PyatsCredential",
+      "community": 15,
+      "community_name": "PyatsCaptureSchedule",
       "norm_label": "permissionrequiredmixin"
     },
     {
@@ -17497,8 +17497,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "view",
-      "community": 7,
-      "community_name": "PyatsCredential",
+      "community": 15,
+      "community_name": "PyatsCaptureSchedule",
       "norm_label": "view"
     },
     {
@@ -17508,8 +17508,8 @@
       "source_location": "L290",
       "_origin": "ast",
       "id": "netbox_pyats_views_devicecaptureview_post",
-      "community": 7,
-      "community_name": "PyatsCredential",
+      "community": 15,
+      "community_name": "PyatsCaptureSchedule",
       "norm_label": ".post()"
     },
     {
@@ -17574,8 +17574,8 @@
       "source_location": "L361",
       "_origin": "ast",
       "id": "netbox_pyats_views_devicediffview",
-      "community": 7,
-      "community_name": "PyatsCredential",
+      "community": 15,
+      "community_name": "PyatsCaptureSchedule",
       "norm_label": "devicediffview"
     },
     {
@@ -17585,8 +17585,8 @@
       "source_location": "L374",
       "_origin": "ast",
       "id": "netbox_pyats_views_devicediffview_post",
-      "community": 7,
-      "community_name": "PyatsCredential",
+      "community": 15,
+      "community_name": "PyatsCaptureSchedule",
       "norm_label": ".post()"
     },
     {
@@ -17706,8 +17706,8 @@
       "source_location": "L504",
       "_origin": "ast",
       "id": "netbox_pyats_views_devicecomplianceview",
-      "community": 7,
-      "community_name": "PyatsCredential",
+      "community": 15,
+      "community_name": "PyatsCaptureSchedule",
       "norm_label": "devicecomplianceview"
     },
     {
@@ -17816,8 +17816,8 @@
       "source_location": "L694",
       "_origin": "ast",
       "id": "netbox_pyats_views_supportedplatformsreportview",
-      "community": 7,
-      "community_name": "PyatsCredential",
+      "community": 15,
+      "community_name": "PyatsCaptureSchedule",
       "norm_label": "supportedplatformsreportview"
     },
     {
@@ -17849,8 +17849,8 @@
       "source_location": "L801",
       "_origin": "ast",
       "id": "netbox_pyats_views_deviceparseview",
-      "community": 7,
-      "community_name": "PyatsCredential",
+      "community": 15,
+      "community_name": "PyatsCaptureSchedule",
       "norm_label": "deviceparseview"
     },
     {
@@ -17893,8 +17893,8 @@
       "source_location": "L906",
       "_origin": "ast",
       "id": "netbox_pyats_views_devicerefreshcatalogview",
-      "community": 7,
-      "community_name": "PyatsCredential",
+      "community": 15,
+      "community_name": "PyatsCaptureSchedule",
       "norm_label": "devicerefreshcatalogview"
     },
     {
@@ -17904,8 +17904,8 @@
       "source_location": "L925",
       "_origin": "ast",
       "id": "netbox_pyats_views_devicerefreshcatalogview_post",
-      "community": 7,
-      "community_name": "PyatsCredential",
+      "community": 15,
+      "community_name": "PyatsCaptureSchedule",
       "norm_label": ".post()"
     },
     {
@@ -18047,8 +18047,8 @@
       "source_location": "L1071",
       "_origin": "ast",
       "id": "netbox_pyats_views_genielearnview",
-      "community": 7,
-      "community_name": "PyatsCredential",
+      "community": 15,
+      "community_name": "PyatsCaptureSchedule",
       "norm_label": "genielearnview"
     },
     {
@@ -18080,8 +18080,8 @@
       "source_location": "L1174",
       "_origin": "ast",
       "id": "netbox_pyats_views_genieparseview",
-      "community": 7,
-      "community_name": "PyatsCredential",
+      "community": 15,
+      "community_name": "PyatsCaptureSchedule",
       "norm_label": "genieparseview"
     },
     {
@@ -18124,8 +18124,8 @@
       "source_location": "L1328",
       "_origin": "ast",
       "id": "netbox_pyats_views_geniediffview",
-      "community": 7,
-      "community_name": "PyatsCredential",
+      "community": 15,
+      "community_name": "PyatsCaptureSchedule",
       "norm_label": "geniediffview"
     },
     {
@@ -18146,8 +18146,8 @@
       "source_location": "L1416",
       "_origin": "ast",
       "id": "netbox_pyats_views_geniediffview_post",
-      "community": 7,
-      "community_name": "PyatsCredential",
+      "community": 15,
+      "community_name": "PyatsCaptureSchedule",
       "norm_label": ".post()"
     },
     {
@@ -18289,8 +18289,8 @@
       "source_location": "L278",
       "_origin": "ast",
       "id": "netbox_pyats_views_rationale_278",
-      "community": 7,
-      "community_name": "PyatsCredential",
+      "community": 15,
+      "community_name": "PyatsCaptureSchedule",
       "norm_label": "endpoint the device-page pyats panel posts to.      accepts a ``kind`` (config /"
     },
     {
@@ -18322,8 +18322,8 @@
       "source_location": "L362",
       "_origin": "ast",
       "id": "netbox_pyats_views_rationale_362",
-      "community": 7,
-      "community_name": "PyatsCredential",
+      "community": 15,
+      "community_name": "PyatsCaptureSchedule",
       "norm_label": "endpoint the device-page pyats panel posts to.      accepts ``before_id`` and ``"
     },
     {
@@ -18388,8 +18388,8 @@
       "source_location": "L505",
       "_origin": "ast",
       "id": "netbox_pyats_views_rationale_505",
-      "community": 7,
-      "community_name": "PyatsCredential",
+      "community": 15,
+      "community_name": "PyatsCaptureSchedule",
       "norm_label": "endpoint the device-page pyats compliance sub-tab posts to.      accepts ``golde"
     },
     {
@@ -18454,8 +18454,8 @@
       "source_location": "L695",
       "_origin": "ast",
       "id": "netbox_pyats_views_rationale_695",
-      "community": 7,
-      "community_name": "PyatsCredential",
+      "community": 15,
+      "community_name": "PyatsCaptureSchedule",
       "norm_label": "static \"supported platforms\" report (phase 5, atw-16, option a).      adr-0001 \u00a7"
     },
     {
@@ -18476,8 +18476,8 @@
       "source_location": "L802",
       "_origin": "ast",
       "id": "netbox_pyats_views_rationale_802",
-      "community": 7,
-      "community_name": "PyatsCredential",
+      "community": 15,
+      "community_name": "PyatsCaptureSchedule",
       "norm_label": "device-page \"parse\" sub-tab (atw-241 child 2, atw-250).      a get form view + p"
     },
     {
@@ -18487,8 +18487,8 @@
       "source_location": "L907",
       "_origin": "ast",
       "id": "netbox_pyats_views_rationale_907",
-      "community": 7,
-      "community_name": "PyatsCredential",
+      "community": 15,
+      "community_name": "PyatsCaptureSchedule",
       "norm_label": "device-page \"refresh parser list\" button (atw-241 child 2, atw-250).      a smal"
     },
     {
@@ -18619,8 +18619,8 @@
       "source_location": "L1072",
       "_origin": "ast",
       "id": "netbox_pyats_views_rationale_1072",
-      "community": 7,
-      "community_name": "PyatsCredential",
+      "community": 15,
+      "community_name": "PyatsCaptureSchedule",
       "norm_label": "dedicated genie learn page (atw-730).      promotes learn from the interim landi"
     },
     {
@@ -18630,8 +18630,8 @@
       "source_location": "L1175",
       "_origin": "ast",
       "id": "netbox_pyats_views_rationale_1175",
-      "community": 7,
-      "community_name": "PyatsCredential",
+      "community": 15,
+      "community_name": "PyatsCaptureSchedule",
       "norm_label": "dedicated genie parse page (atw-729).      promotes parse from a device-page sub"
     },
     {
@@ -18641,8 +18641,8 @@
       "source_location": "L1329",
       "_origin": "ast",
       "id": "netbox_pyats_views_rationale_1329",
-      "community": 7,
-      "community_name": "PyatsCredential",
+      "community": 15,
+      "community_name": "PyatsCaptureSchedule",
       "norm_label": "dedicated genie diff page (atw-731).      promotes snapshot diff from the device"
     },
     {
@@ -88722,5 +88722,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "8fcc531145c218d8234daf4a8b914e5e3a0a0957"
+  "built_at_commit": "eff9a6d7a3c5984da88f9d3cca851af8d77aab5b"
 }
