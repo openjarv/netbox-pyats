@@ -1,4 +1,4 @@
-# Graph Report - .  (2026-08-26)
+# Graph Report - .  (2026-08-27)
 
 ## Corpus Check
 - cluster-only mode — file stats not available
@@ -9,7 +9,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `8fcc5311`
+- Built from commit: `eff9a6d7`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -21,21 +21,21 @@
 - refresh_parser_catalog_for_os
 - resolve_panel_platform_support
 - capture_snapshot
-- PyatsCredential
 - SnapshotStatusChoices
+- PyatsCredential
 - _flagged
 - test_graphify_scrub_guard.py
 - diff_snapshots
 - CaptureResult
 - flatten_diff_tree
 - test_capture_learn.py
+- PyatsCaptureSchedule
 - test_navmenu_uniqueness_guard.py
 - PyatsComplianceRun
 - PyatsJob
 - build_testbed
 - capture.py
 - SnapshotTriggerChoices
-- PyatsCaptureSchedule
 - What You Must Do When Invoked
 - SnapshotKindChoices
 - PyatsCredentialModelTest
@@ -217,13 +217,13 @@ Nodes (25): Return ``(platform_supported, os_value)`` for the device-page panel.
 Cohesion: 0.12
 Nodes (11): capture_snapshot(), Capture a snapshot from a single, already-connected pyATS Device.      This is t, FakePyatsDevice, kind='parse' runs device.parse() per user-supplied command and writes     the sa, Duck-typed pyATS Device for capture tests.      Only the attributes/methods :fun, ATW-432: capture_snapshot with kind='state' uses the per-OS command     set when, TestBadKind, TestConfigCapture (+3 more)
 
-### Community 7 - "PyatsCredential"
-Cohesion: 0.08
-Nodes (26): PyatsCredential, A plugin-local, encrypted credential for connecting to a device via pyATS., Encrypt and store the device password (ciphertext only)., Decrypt and return the device password (plaintext)., Encrypt and store the enable/privileged password (ciphertext only)., Decrypt and return the enable/privileged password (plaintext)., DeviceCaptureView, DeviceComplianceView (+18 more)
-
-### Community 8 - "SnapshotStatusChoices"
+### Community 7 - "SnapshotStatusChoices"
 Cohesion: 0.07
 Nodes (18): Choice sets for the netbox-pyats plugin., Outcome of a snapshot capture attempt.      ``success`` means a JSONB ``data`` p, SnapshotStatusChoices, Migration, Migration, Migration, Migration, Migration (+10 more)
+
+### Community 8 - "PyatsCredential"
+Cohesion: 0.09
+Nodes (26): Meta, PyatsCaptureScheduleType, PyatsComplianceRunType, PyatsCredentialType, PyatsGoldenConfigType, PyatsJobType, PyatsParserCatalogRefreshScheduleType, PyatsParserCatalogType (+18 more)
 
 ### Community 9 - "_flagged"
 Cohesion: 0.10
@@ -249,33 +249,33 @@ Nodes (10): DiffLine, flatten_diff_tree(), One flat row in a side-by-side diff t
 Cohesion: 0.15
 Nodes (15): FakeLookup, _FakeModuleInfo, FakeOpsFactory, FakeOpsNamespace, FakePyatsDevice, _patch_genie_ops(), Tests for the Genie Ops Learn capture (ATW-730).  Pure-Python: exercises :func:`, Duck-typed ``pkgutil.ModuleInfo`` for ``pkgutil.iter_modules``. (+7 more)
 
-### Community 15 - "test_navmenu_uniqueness_guard.py"
+### Community 15 - "PyatsCaptureSchedule"
+Cohesion: 0.11
+Nodes (22): PyatsCaptureSchedule, An operator-authored intent to capture snapshots on a recurring schedule (ATW-43, DeviceCaptureView, DeviceComplianceView, DeviceDiffView, DeviceParseView, DeviceRefreshCatalogView, GenieDiffView (+14 more)
+
+### Community 16 - "test_navmenu_uniqueness_guard.py"
 Cohesion: 0.10
 Nodes (19): _extract_menu_item_kwargs(), _extract_menu_links(), _extract_model_classes(), _extract_schema_type_models(), GraphQLSchemaCompletenessGuard, _is_menu_var(), NavMenuUniquenessGuard, Hardening guard for the navigation menu and GraphQL schema surface.  These tests (+11 more)
 
-### Community 16 - "PyatsComplianceRun"
+### Community 17 - "PyatsComplianceRun"
 Cohesion: 0.12
 Nodes (21): PyatsComplianceRun, One compliance check result: golden config vs. captured snapshot (Phase 4, ATW-1, Map result to a NetBox color label for table badges., True if the diff found any added/removed/changed leaves (drift)., True if this compliance run row carries warnings / error context., PyatsCaptureScheduleIndex, PyatsComplianceRunIndex, PyatsCredentialIndex (+13 more)
 
-### Community 17 - "PyatsJob"
+### Community 18 - "PyatsJob"
 Cohesion: 0.12
 Nodes (22): PyatsJob, Map status to a NetBox color label for table badges.          ``success`` / ``er, The result row this job produced, regardless of type, or None.          Convenie, One plugin job-tracking row across capture / diff / compliance / batch (Phase 5,, Meta, PyatsCaptureScheduleTable, PyatsComplianceRunTable, PyatsCredentialTable (+14 more)
 
-### Community 18 - "build_testbed"
+### Community 19 - "build_testbed"
 Cohesion: 0.21
 Nodes (8): build_testbed(), Build a pyATS :class:`Testbed` from a NetBox Device queryset.      This is the c, _cred_resolver_factory(), FakeCredential, FakeDevice, Return a credential_resolver that always returns ``cred`` (or None)., Duck-typed PyatsCredential (avoids DB/NetBox in unit tests)., TestBuildTestbed
 
-### Community 19 - "capture.py"
+### Community 20 - "capture.py"
 Cohesion: 0.09
 Nodes (20): _capture_config(), _capture_learn(), _capture_parse(), capture_snapshot_for_netbox_device(), _capture_state(), _discover_ops_features(), Snapshot capture logic — the pyATS/Genie work, isolated from NetBox/RQ.  :func:`, Run parser-based config capture on a connected pyATS Device.      Uses ``pyats.u (+12 more)
 
-### Community 20 - "SnapshotTriggerChoices"
+### Community 21 - "SnapshotTriggerChoices"
 Cohesion: 0.11
 Nodes (14): Who/what triggered a snapshot capture.      ``user`` captures are initiated from, SnapshotTriggerChoices, _AppendOnlyListViewsBase, PyatsComplianceRunListViewRenderTest, PyatsJobListViewRenderTest, PyatsSnapshotDiffListViewRenderTest, PyatsSnapshotListViewRenderTest, Regression tests for the four append-only plugin list views (ATW-183).  The list (+6 more)
-
-### Community 21 - "PyatsCaptureSchedule"
-Cohesion: 0.14
-Nodes (22): Meta, PyatsCaptureScheduleType, PyatsComplianceRunType, PyatsCredentialType, PyatsGoldenConfigType, PyatsJobType, PyatsParserCatalogRefreshScheduleType, PyatsParserCatalogType (+14 more)
 
 ### Community 22 - "What You Must Do When Invoked"
 Cohesion: 0.08
@@ -625,11 +625,11 @@ Nodes (3): For --cluster-only, For --update (incremental re-extraction), graphif
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `SnapshotKindChoices` connect `SnapshotKindChoices` to `PyatsSnapshot`, `ComplianceResultChoices`, `run_capture_schedules_job`, `resolve_panel_platform_support`, `capture_snapshot`, `PyatsCredential`, `SnapshotStatusChoices`, `CaptureResult`, `test_capture_learn.py`, `PyatsComplianceRun`, `PyatsJob`, `capture.py`, `SnapshotTriggerChoices`, `PyatsCaptureSchedule`, `PyatsCredentialModelTest`, `PyatsComplianceRunFilterSetTest`, `DeviceDiffFormKindFilterTest`, `PyatsComplianceRunCleanTest`, `test_capture.py`, `jobs.py`, `PyatsSnapshotDiff`, `GoldenConfigSourceChoices`, `PyatsComplianceRunViewTest`, `PyatsGoldenConfigAPITest`, `PyatsComplianceRunModelTest`, `PyatsSnapshotDiffModelTest`, `test_pyatsjob.py`, `PyatsJobModelTest`, `PyatsSnapshotModelTest`, `FakeOpsClassModule`, `TestStateCapture`, `DiffTableRenderTest`?**
+- **Why does `SnapshotKindChoices` connect `SnapshotKindChoices` to `PyatsSnapshot`, `ComplianceResultChoices`, `run_capture_schedules_job`, `resolve_panel_platform_support`, `capture_snapshot`, `SnapshotStatusChoices`, `PyatsCredential`, `CaptureResult`, `test_capture_learn.py`, `PyatsCaptureSchedule`, `PyatsComplianceRun`, `PyatsJob`, `capture.py`, `SnapshotTriggerChoices`, `PyatsCredentialModelTest`, `PyatsComplianceRunFilterSetTest`, `DeviceDiffFormKindFilterTest`, `PyatsComplianceRunCleanTest`, `test_capture.py`, `jobs.py`, `PyatsSnapshotDiff`, `GoldenConfigSourceChoices`, `PyatsComplianceRunViewTest`, `PyatsGoldenConfigAPITest`, `PyatsComplianceRunModelTest`, `PyatsSnapshotDiffModelTest`, `test_pyatsjob.py`, `PyatsJobModelTest`, `PyatsSnapshotModelTest`, `FakeOpsClassModule`, `TestStateCapture`, `DiffTableRenderTest`?**
   _High betweenness centrality (0.075) - this node is a cross-community bridge._
-- **Why does `PyatsSnapshot` connect `PyatsSnapshot` to `views.py`, `ComplianceResultChoices`, `PyatsCredential`, `SnapshotStatusChoices`, `CaptureResult`, `PyatsComplianceRun`, `PyatsJob`, `SnapshotTriggerChoices`, `PyatsCaptureSchedule`, `SnapshotKindChoices`, `PyatsCredentialModelTest`, `run_diff_job`, `PyatsComplianceRunFilterSetTest`, `DeviceDiffFormKindFilterTest`, `PyatsComplianceRunCleanTest`, `jobs.py`, `PyatsSnapshotDiff`, `GoldenConfigSourceChoices`, `PyatsComplianceRunViewTest`, `PyatsGoldenConfigAPITest`, `GenieDiffViewTest`, `GenieParseViewTest`, `PyatsComplianceRunModelTest`, `PyatsSnapshotDiffModelTest`, `GenieLearnViewTest`, `test_pyatsjob.py`, `PyatsJobModelTest`, `PyatsSnapshotModelTest`, `DiffTableRenderTest`, `batch_capture_job`?**
+- **Why does `PyatsSnapshot` connect `PyatsSnapshot` to `views.py`, `ComplianceResultChoices`, `SnapshotStatusChoices`, `PyatsCredential`, `CaptureResult`, `PyatsCaptureSchedule`, `PyatsComplianceRun`, `PyatsJob`, `SnapshotTriggerChoices`, `SnapshotKindChoices`, `PyatsCredentialModelTest`, `run_diff_job`, `PyatsComplianceRunFilterSetTest`, `DeviceDiffFormKindFilterTest`, `PyatsComplianceRunCleanTest`, `jobs.py`, `PyatsSnapshotDiff`, `GoldenConfigSourceChoices`, `PyatsComplianceRunViewTest`, `PyatsGoldenConfigAPITest`, `GenieDiffViewTest`, `GenieParseViewTest`, `PyatsComplianceRunModelTest`, `PyatsSnapshotDiffModelTest`, `GenieLearnViewTest`, `test_pyatsjob.py`, `PyatsJobModelTest`, `PyatsSnapshotModelTest`, `DiffTableRenderTest`, `batch_capture_job`?**
   _High betweenness centrality (0.059) - this node is a cross-community bridge._
-- **Why does `SnapshotStatusChoices` connect `SnapshotStatusChoices` to `PyatsSnapshot`, `ComplianceResultChoices`, `resolve_panel_platform_support`, `capture_snapshot`, `PyatsCredential`, `CaptureResult`, `test_capture_learn.py`, `PyatsComplianceRun`, `PyatsJob`, `capture.py`, `SnapshotTriggerChoices`, `PyatsCaptureSchedule`, `SnapshotKindChoices`, `PyatsCredentialModelTest`, `PyatsComplianceRunFilterSetTest`, `DeviceDiffFormKindFilterTest`, `PyatsComplianceRunCleanTest`, `test_capture.py`, `jobs.py`, `PyatsSnapshotDiff`, `GoldenConfigSourceChoices`, `PyatsComplianceRunViewTest`, `PyatsGoldenConfigAPITest`, `PyatsComplianceRunModelTest`, `PyatsSnapshotDiffModelTest`, `test_pyatsjob.py`, `PyatsJobModelTest`, `PyatsSnapshotModelTest`, `FakeOpsClassModule`, `TestStateCapture`, `DiffTableRenderTest`?**
+- **Why does `SnapshotStatusChoices` connect `SnapshotStatusChoices` to `PyatsSnapshot`, `ComplianceResultChoices`, `resolve_panel_platform_support`, `capture_snapshot`, `PyatsCredential`, `CaptureResult`, `test_capture_learn.py`, `PyatsCaptureSchedule`, `PyatsComplianceRun`, `PyatsJob`, `capture.py`, `SnapshotTriggerChoices`, `SnapshotKindChoices`, `PyatsCredentialModelTest`, `PyatsComplianceRunFilterSetTest`, `DeviceDiffFormKindFilterTest`, `PyatsComplianceRunCleanTest`, `test_capture.py`, `jobs.py`, `PyatsSnapshotDiff`, `GoldenConfigSourceChoices`, `PyatsComplianceRunViewTest`, `PyatsGoldenConfigAPITest`, `PyatsComplianceRunModelTest`, `PyatsSnapshotDiffModelTest`, `test_pyatsjob.py`, `PyatsJobModelTest`, `PyatsSnapshotModelTest`, `FakeOpsClassModule`, `TestStateCapture`, `DiffTableRenderTest`?**
   _High betweenness centrality (0.053) - this node is a cross-community bridge._
 - **Are the 175 inferred relationships involving `PyatsSnapshot` (e.g. with `Meta` and `PyatsCaptureScheduleSerializer`) actually correct?**
   _`PyatsSnapshot` has 175 INFERRED edges - model-reasoned connections that need verification._
