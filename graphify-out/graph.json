@@ -1228,7 +1228,7 @@
       "source_location": "L128",
       "_origin": "ast",
       "id": "netbox_pyats_choices_goldenconfigsourcechoices",
-      "community": 45,
+      "community": 46,
       "community_name": "GoldenConfigSourceChoices",
       "norm_label": "goldenconfigsourcechoices"
     },
@@ -1360,7 +1360,7 @@
       "source_location": "L129",
       "_origin": "ast",
       "id": "netbox_pyats_choices_rationale_129",
-      "community": 45,
+      "community": 46,
       "community_name": "GoldenConfigSourceChoices",
       "norm_label": "how a :class:`pyatsgoldenconfig` row was authored (phase 4, atw-15).      ``manu"
     },
@@ -3340,7 +3340,7 @@
       "source_location": "L303",
       "_origin": "ast",
       "id": "netbox_pyats_jobs_extract_snapshot_raw_config",
-      "community": 46,
+      "community": 47,
       "community_name": "extract_snapshot_raw_config",
       "norm_label": "extract_snapshot_raw_config()"
     },
@@ -3527,8 +3527,8 @@
       "source_location": "L1634",
       "_origin": "ast",
       "id": "netbox_pyats_jobs_runcaptureschedulesjob",
-      "community": 59,
-      "community_name": "PyatsJob",
+      "community": 45,
+      "community_name": "PyatsSnapshotDiff",
       "norm_label": "runcaptureschedulesjob"
     },
     {
@@ -3538,8 +3538,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "jobrunner",
-      "community": 59,
-      "community_name": "PyatsJob",
+      "community": 45,
+      "community_name": "PyatsSnapshotDiff",
       "norm_label": "jobrunner"
     },
     {
@@ -3582,8 +3582,8 @@
       "source_location": "L1727",
       "_origin": "ast",
       "id": "netbox_pyats_jobs_runparsercatalogrefreshschedulesjob",
-      "community": 59,
-      "community_name": "PyatsJob",
+      "community": 45,
+      "community_name": "PyatsSnapshotDiff",
       "norm_label": "runparsercatalogrefreshschedulesjob"
     },
     {
@@ -3703,7 +3703,7 @@
       "source_location": "L304",
       "_origin": "ast",
       "id": "netbox_pyats_jobs_rationale_304",
-      "community": 46,
+      "community": 47,
       "community_name": "extract_snapshot_raw_config",
       "norm_label": "extract the snapshot's raw running-config text (the compliance \"actual\").      v"
     },
@@ -3890,8 +3890,8 @@
       "source_location": "L1635",
       "_origin": "ast",
       "id": "netbox_pyats_jobs_rationale_1635",
-      "community": 59,
-      "community_name": "PyatsJob",
+      "community": 45,
+      "community_name": "PyatsSnapshotDiff",
       "norm_label": "recurring dispatcher for capture schedules (atw-433, adr-0008).      a registere"
     },
     {
@@ -3923,8 +3923,8 @@
       "source_location": "L1728",
       "_origin": "ast",
       "id": "netbox_pyats_jobs_rationale_1728",
-      "community": 59,
-      "community_name": "PyatsJob",
+      "community": 45,
+      "community_name": "PyatsSnapshotDiff",
       "norm_label": "recurring dispatcher for the parser catalog refresh (atw-581).      a registered"
     },
     {
@@ -4253,7 +4253,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_models",
-      "community": 45,
+      "community": 46,
       "community_name": "GoldenConfigSourceChoices",
       "norm_label": "models.py"
     },
@@ -4308,7 +4308,7 @@
       "source_location": "L171",
       "_origin": "ast",
       "id": "netbox_pyats_models_meta",
-      "community": 45,
+      "community": 46,
       "community_name": "GoldenConfigSourceChoices",
       "norm_label": "meta"
     },
@@ -4451,7 +4451,7 @@
       "source_location": "L401",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatssnapshotdiff",
-      "community": 14,
+      "community": 45,
       "community_name": "PyatsSnapshotDiff",
       "norm_label": "pyatssnapshotdiff"
     },
@@ -4462,7 +4462,7 @@
       "source_location": "L540",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatssnapshotdiff_str",
-      "community": 14,
+      "community": 45,
       "community_name": "PyatsSnapshotDiff",
       "norm_label": ".__str__()"
     },
@@ -4473,7 +4473,7 @@
       "source_location": "L548",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatssnapshotdiff_get_absolute_url",
-      "community": 14,
+      "community": 45,
       "community_name": "PyatsSnapshotDiff",
       "norm_label": ".get_absolute_url()"
     },
@@ -4495,7 +4495,7 @@
       "source_location": "L568",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatssnapshotdiff_get_status_color",
-      "community": 14,
+      "community": 45,
       "community_name": "PyatsSnapshotDiff",
       "norm_label": ".get_status_color()"
     },
@@ -4506,7 +4506,7 @@
       "source_location": "L577",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatssnapshotdiff_has_changes",
-      "community": 14,
+      "community": 45,
       "community_name": "PyatsSnapshotDiff",
       "norm_label": ".has_changes()"
     },
@@ -4517,7 +4517,7 @@
       "source_location": "L583",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatssnapshotdiff_has_warnings",
-      "community": 14,
+      "community": 45,
       "community_name": "PyatsSnapshotDiff",
       "norm_label": ".has_warnings()"
     },
@@ -4583,7 +4583,7 @@
       "source_location": "L700",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscompliancerun",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "pyatscompliancerun"
     },
@@ -4594,7 +4594,7 @@
       "source_location": "L845",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscompliancerun_str",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": ".__str__()"
     },
@@ -4605,7 +4605,7 @@
       "source_location": "L852",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscompliancerun_get_absolute_url",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": ".get_absolute_url()"
     },
@@ -4627,7 +4627,7 @@
       "source_location": "L870",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscompliancerun_get_result_color",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": ".get_result_color()"
     },
@@ -4638,7 +4638,7 @@
       "source_location": "L879",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscompliancerun_has_drift",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": ".has_drift()"
     },
@@ -4649,7 +4649,7 @@
       "source_location": "L885",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscompliancerun_has_warnings",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": ".has_warnings()"
     },
@@ -4660,7 +4660,7 @@
       "source_location": "L890",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatsjob",
-      "community": 59,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "pyatsjob"
     },
@@ -4671,7 +4671,7 @@
       "source_location": "L1045",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatsjob_str",
-      "community": 59,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": ".__str__()"
     },
@@ -4682,7 +4682,7 @@
       "source_location": "L1055",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatsjob_get_absolute_url",
-      "community": 59,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": ".get_absolute_url()"
     },
@@ -4693,7 +4693,7 @@
       "source_location": "L1058",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatsjob_get_status_color",
-      "community": 59,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": ".get_status_color()"
     },
@@ -4704,7 +4704,7 @@
       "source_location": "L1074",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatsjob_related_result",
-      "community": 59,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": ".related_result()"
     },
@@ -4737,7 +4737,7 @@
       "source_location": "L1170",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscaptureschedule",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": "pyatscaptureschedule"
     },
@@ -4748,7 +4748,7 @@
       "source_location": "L1252",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscaptureschedule_str",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": ".__str__()"
     },
@@ -4759,7 +4759,7 @@
       "source_location": "L1255",
       "_origin": "ast",
       "id": "netbox_pyats_models_pyatscaptureschedule_get_absolute_url",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": ".get_absolute_url()"
     },
@@ -4825,7 +4825,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_1",
-      "community": 45,
+      "community": 46,
       "community_name": "GoldenConfigSourceChoices",
       "norm_label": "models for the netbox-pyats plugin.  phase 1 (atw-12) shipped :class:`pyatscrede"
     },
@@ -4946,7 +4946,7 @@
       "source_location": "L402",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_402",
-      "community": 14,
+      "community": 45,
       "community_name": "PyatsSnapshotDiff",
       "norm_label": "one structured diff between two :class:`pyatssnapshot` rows of a device.      po"
     },
@@ -4957,7 +4957,7 @@
       "source_location": "L569",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_569",
-      "community": 14,
+      "community": 45,
       "community_name": "PyatsSnapshotDiff",
       "norm_label": "map status to a netbox color label for table badges."
     },
@@ -4968,7 +4968,7 @@
       "source_location": "L578",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_578",
-      "community": 14,
+      "community": 45,
       "community_name": "PyatsSnapshotDiff",
       "norm_label": "true if the diff found any added/removed/changed leaves."
     },
@@ -4979,7 +4979,7 @@
       "source_location": "L584",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_584",
-      "community": 14,
+      "community": 45,
       "community_name": "PyatsSnapshotDiff",
       "norm_label": "true if this diff row carries warnings / error context."
     },
@@ -5012,7 +5012,7 @@
       "source_location": "L701",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_701",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "one compliance check result: golden config vs. captured snapshot (phase 4, atw-1"
     },
@@ -5023,7 +5023,7 @@
       "source_location": "L871",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_871",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "map result to a netbox color label for table badges."
     },
@@ -5034,7 +5034,7 @@
       "source_location": "L880",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_880",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "true if the diff found any added/removed/changed leaves (drift)."
     },
@@ -5045,7 +5045,7 @@
       "source_location": "L886",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_886",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "true if this compliance run row carries warnings / error context."
     },
@@ -5056,7 +5056,7 @@
       "source_location": "L891",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_891",
-      "community": 59,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "one plugin job-tracking row across capture / diff / compliance / batch (phase 5,"
     },
@@ -5067,7 +5067,7 @@
       "source_location": "L1059",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_1059",
-      "community": 59,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "map status to a netbox color label for table badges.          ``success`` / ``er"
     },
@@ -5078,7 +5078,7 @@
       "source_location": "L1075",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_1075",
-      "community": 59,
+      "community": 18,
       "community_name": "PyatsJob",
       "norm_label": "the result row this job produced, regardless of type, or none.          convenie"
     },
@@ -5100,7 +5100,7 @@
       "source_location": "L1171",
       "_origin": "ast",
       "id": "netbox_pyats_models_rationale_1171",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": "an operator-authored intent to capture snapshots on a recurring schedule (atw-43"
     },
@@ -5309,7 +5309,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_search",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "search.py"
     },
@@ -5320,7 +5320,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "netbox_pyats_search_pyatscredentialindex",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "pyatscredentialindex"
     },
@@ -5331,7 +5331,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "searchindex",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "searchindex"
     },
@@ -5342,7 +5342,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "netbox_pyats_search_pyatssnapshotindex",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "pyatssnapshotindex"
     },
@@ -5353,7 +5353,7 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "netbox_pyats_search_pyatssnapshotdiffindex",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "pyatssnapshotdiffindex"
     },
@@ -5364,7 +5364,7 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "netbox_pyats_search_pyatsgoldenconfigindex",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "pyatsgoldenconfigindex"
     },
@@ -5375,7 +5375,7 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "netbox_pyats_search_pyatscompliancerunindex",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "pyatscompliancerunindex"
     },
@@ -5386,7 +5386,7 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "netbox_pyats_search_pyatsjobindex",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "pyatsjobindex"
     },
@@ -5397,7 +5397,7 @@
       "source_location": "L110",
       "_origin": "ast",
       "id": "netbox_pyats_search_pyatscapturescheduleindex",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "pyatscapturescheduleindex"
     },
@@ -5408,7 +5408,7 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "netbox_pyats_search_pyatsparsercatalogindex",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "pyatsparsercatalogindex"
     },
@@ -5419,7 +5419,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "netbox_pyats_search_rationale_26",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "search index for pyatssnapshot.      indexes the device (fk stringified to its `"
     },
@@ -5430,7 +5430,7 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "netbox_pyats_search_rationale_44",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "search index for pyatssnapshotdiff (phase 3, atw-14).      indexes the device (f"
     },
@@ -5441,7 +5441,7 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "netbox_pyats_search_rationale_61",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "search index for pyatsgoldenconfig (phase 4, atw-15).      indexes the device an"
     },
@@ -5452,7 +5452,7 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "netbox_pyats_search_rationale_77",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "search index for pyatscompliancerun (phase 4, atw-15).      indexes the device a"
     },
@@ -5463,7 +5463,7 @@
       "source_location": "L93",
       "_origin": "ast",
       "id": "netbox_pyats_search_rationale_93",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "search index for pyatsjob (phase 5, atw-16).      indexes the device (fk stringi"
     },
@@ -5474,7 +5474,7 @@
       "source_location": "L111",
       "_origin": "ast",
       "id": "netbox_pyats_search_rationale_111",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "search index for pyatscaptureschedule (atw-433).      indexes the schedule name"
     },
@@ -5485,7 +5485,7 @@
       "source_location": "L127",
       "_origin": "ast",
       "id": "netbox_pyats_search_rationale_127",
-      "community": 18,
+      "community": 17,
       "community_name": "PyatsComplianceRun",
       "norm_label": "search index for pyatsparsercatalog (atw-241/249, atw-816 cr-3).      indexes th"
     },
@@ -5540,8 +5540,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tables",
-      "community": 14,
-      "community_name": "PyatsSnapshotDiff",
+      "community": 18,
+      "community_name": "PyatsJob",
       "norm_label": "tables.py"
     },
     {
@@ -5551,8 +5551,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "netbox_pyats_tables_pyatscredentialtable",
-      "community": 14,
-      "community_name": "PyatsSnapshotDiff",
+      "community": 18,
+      "community_name": "PyatsJob",
       "norm_label": "pyatscredentialtable"
     },
     {
@@ -5562,8 +5562,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "netboxtable",
-      "community": 14,
-      "community_name": "PyatsSnapshotDiff",
+      "community": 18,
+      "community_name": "PyatsJob",
       "norm_label": "netboxtable"
     },
     {
@@ -5573,8 +5573,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "netbox_pyats_tables_meta",
-      "community": 14,
-      "community_name": "PyatsSnapshotDiff",
+      "community": 18,
+      "community_name": "PyatsJob",
       "norm_label": "meta"
     },
     {
@@ -5584,8 +5584,8 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "netbox_pyats_tables_pyatssnapshottable",
-      "community": 14,
-      "community_name": "PyatsSnapshotDiff",
+      "community": 18,
+      "community_name": "PyatsJob",
       "norm_label": "pyatssnapshottable"
     },
     {
@@ -5595,8 +5595,8 @@
       "source_location": "L108",
       "_origin": "ast",
       "id": "netbox_pyats_tables_pyatssnapshotdifftable",
-      "community": 14,
-      "community_name": "PyatsSnapshotDiff",
+      "community": 18,
+      "community_name": "PyatsJob",
       "norm_label": "pyatssnapshotdifftable"
     },
     {
@@ -5606,8 +5606,8 @@
       "source_location": "L160",
       "_origin": "ast",
       "id": "netbox_pyats_tables_pyatsgoldenconfigtable",
-      "community": 14,
-      "community_name": "PyatsSnapshotDiff",
+      "community": 18,
+      "community_name": "PyatsJob",
       "norm_label": "pyatsgoldenconfigtable"
     },
     {
@@ -5617,8 +5617,8 @@
       "source_location": "L194",
       "_origin": "ast",
       "id": "netbox_pyats_tables_pyatscomplianceruntable",
-      "community": 14,
-      "community_name": "PyatsSnapshotDiff",
+      "community": 18,
+      "community_name": "PyatsJob",
       "norm_label": "pyatscomplianceruntable"
     },
     {
@@ -5628,8 +5628,8 @@
       "source_location": "L254",
       "_origin": "ast",
       "id": "netbox_pyats_tables_pyatsjobtable",
-      "community": 14,
-      "community_name": "PyatsSnapshotDiff",
+      "community": 18,
+      "community_name": "PyatsJob",
       "norm_label": "pyatsjobtable"
     },
     {
@@ -5639,8 +5639,8 @@
       "source_location": "L308",
       "_origin": "ast",
       "id": "netbox_pyats_tables_pyatscapturescheduletable",
-      "community": 14,
-      "community_name": "PyatsSnapshotDiff",
+      "community": 18,
+      "community_name": "PyatsJob",
       "norm_label": "pyatscapturescheduletable"
     },
     {
@@ -5650,8 +5650,8 @@
       "source_location": "L345",
       "_origin": "ast",
       "id": "netbox_pyats_tables_pyatsparsercatalogrefreshscheduletable",
-      "community": 14,
-      "community_name": "PyatsSnapshotDiff",
+      "community": 18,
+      "community_name": "PyatsJob",
       "norm_label": "pyatsparsercatalogrefreshscheduletable"
     },
     {
@@ -5661,8 +5661,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "netbox_pyats_tables_rationale_20",
-      "community": 14,
-      "community_name": "PyatsSnapshotDiff",
+      "community": 18,
+      "community_name": "PyatsJob",
       "norm_label": "table configuration for the pyatscredential list view."
     },
     {
@@ -5672,8 +5672,8 @@
       "source_location": "L56",
       "_origin": "ast",
       "id": "netbox_pyats_tables_rationale_56",
-      "community": 14,
-      "community_name": "PyatsSnapshotDiff",
+      "community": 18,
+      "community_name": "PyatsJob",
       "norm_label": "table configuration for the pyatssnapshot list view.      renders the snapshot's"
     },
     {
@@ -5683,8 +5683,8 @@
       "source_location": "L109",
       "_origin": "ast",
       "id": "netbox_pyats_tables_rationale_109",
-      "community": 14,
-      "community_name": "PyatsSnapshotDiff",
+      "community": 18,
+      "community_name": "PyatsJob",
       "norm_label": "table configuration for the pyatssnapshotdiff list view.      renders the diff's"
     },
     {
@@ -5694,8 +5694,8 @@
       "source_location": "L161",
       "_origin": "ast",
       "id": "netbox_pyats_tables_rationale_161",
-      "community": 14,
-      "community_name": "PyatsSnapshotDiff",
+      "community": 18,
+      "community_name": "PyatsJob",
       "norm_label": "table configuration for the pyatsgoldenconfig list view (phase 4).      renders"
     },
     {
@@ -5705,8 +5705,8 @@
       "source_location": "L195",
       "_origin": "ast",
       "id": "netbox_pyats_tables_rationale_195",
-      "community": 14,
-      "community_name": "PyatsSnapshotDiff",
+      "community": 18,
+      "community_name": "PyatsJob",
       "norm_label": "table configuration for the pyatscompliancerun list view (phase 4).      renders"
     },
     {
@@ -5716,8 +5716,8 @@
       "source_location": "L255",
       "_origin": "ast",
       "id": "netbox_pyats_tables_rationale_255",
-      "community": 14,
-      "community_name": "PyatsSnapshotDiff",
+      "community": 18,
+      "community_name": "PyatsJob",
       "norm_label": "table configuration for the pyatsjob list view (phase 5, atw-16).      renders t"
     },
     {
@@ -5727,8 +5727,8 @@
       "source_location": "L309",
       "_origin": "ast",
       "id": "netbox_pyats_tables_rationale_309",
-      "community": 14,
-      "community_name": "PyatsSnapshotDiff",
+      "community": 18,
+      "community_name": "PyatsJob",
       "norm_label": "table configuration for the pyatscaptureschedule list view (atw-433).      rende"
     },
     {
@@ -5738,8 +5738,8 @@
       "source_location": "L346",
       "_origin": "ast",
       "id": "netbox_pyats_tables_rationale_346",
-      "community": 14,
-      "community_name": "PyatsSnapshotDiff",
+      "community": 18,
+      "community_name": "PyatsJob",
       "norm_label": "table for the pyatsparsercatalogrefreshschedule list view (atw-581).      the mo"
     },
     {
@@ -5771,7 +5771,7 @@
       "source_location": "L99",
       "_origin": "ast",
       "id": "netbox_pyats_testbed_platform_to_pyats_os",
-      "community": 52,
+      "community": 53,
       "community_name": "platform_to_pyats_os",
       "norm_label": "platform_to_pyats_os()"
     },
@@ -5980,7 +5980,7 @@
       "source_location": "L100",
       "_origin": "ast",
       "id": "netbox_pyats_testbed_rationale_100",
-      "community": 52,
+      "community": 53,
       "community_name": "platform_to_pyats_os",
       "norm_label": "map a netbox ``platform`` to a pyats ``os`` string.      returns the :data:`unsu"
     },
@@ -6145,7 +6145,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "apitestcase",
-      "community": 49,
+      "community": 50,
       "community_name": "PyatsGoldenConfigAPITest",
       "norm_label": "apitestcase"
     },
@@ -7190,7 +7190,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": "test_capture_learn.py"
     },
@@ -7245,7 +7245,7 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_fakeopsfactory",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": "fakeopsfactory"
     },
@@ -7256,7 +7256,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_fakeopsfactory_init",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": ".__init__()"
     },
@@ -7322,7 +7322,7 @@
       "source_location": "L86",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_fakeopsnamespace",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": "fakeopsnamespace"
     },
@@ -7344,7 +7344,7 @@
       "source_location": "L96",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_fakelookup",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": "fakelookup"
     },
@@ -7355,7 +7355,7 @@
       "source_location": "L99",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_fakelookup_init",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": ".__init__()"
     },
@@ -7366,7 +7366,7 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_fakemoduleinfo",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": "_fakemoduleinfo"
     },
@@ -7377,7 +7377,7 @@
       "source_location": "L106",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_fakemoduleinfo_init",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": ".__init__()"
     },
@@ -7388,7 +7388,7 @@
       "source_location": "L110",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_patch_genie_ops",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": "_patch_genie_ops()"
     },
@@ -7399,7 +7399,7 @@
       "source_location": "L167",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_fakepyatsdevice",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": "fakepyatsdevice"
     },
@@ -7410,7 +7410,7 @@
       "source_location": "L174",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_fakepyatsdevice_init",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": ".__init__()"
     },
@@ -7421,7 +7421,7 @@
       "source_location": "L179",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_testlearnunsupportedplatform",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": "testlearnunsupportedplatform"
     },
@@ -7432,7 +7432,7 @@
       "source_location": "L180",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_testlearnunsupportedplatform_test_unsupported_os_short_circuits_before_genie_import",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": ".test_unsupported_os_short_circuits_before_genie_import()"
     },
@@ -7443,7 +7443,7 @@
       "source_location": "L190",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_testlearncapture",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": "testlearncapture"
     },
@@ -7454,7 +7454,7 @@
       "source_location": "L191",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_testlearncapture_test_successful_learn_writes_data_keyed_by_feature",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": ".test_successful_learn_writes_data_keyed_by_feature()"
     },
@@ -7465,7 +7465,7 @@
       "source_location": "L206",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_testlearncapture_test_learn_carries_parsed_os",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": ".test_learn_carries_parsed_os()"
     },
@@ -7476,7 +7476,7 @@
       "source_location": "L214",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_testlearncapture_test_per_feature_failure_is_warning_not_fatal",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": ".test_per_feature_failure_is_warning_not_fatal()"
     },
@@ -7487,7 +7487,7 @@
       "source_location": "L230",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_testlearncapture_test_attribute_error_feature_is_silently_skipped",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": ".test_attribute_error_feature_is_silently_skipped()"
     },
@@ -7498,7 +7498,7 @@
       "source_location": "L248",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_testlearncapture_test_no_features_discovered_is_error_with_warning",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": ".test_no_features_discovered_is_error_with_warning()"
     },
@@ -7509,7 +7509,7 @@
       "source_location": "L257",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_testlearncapture_test_lookup_from_device_failure_is_error",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": ".test_lookup_from_device_failure_is_error()"
     },
@@ -7520,7 +7520,7 @@
       "source_location": "L265",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_testlearncapture_test_genie_ops_import_failure_is_error",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": ".test_genie_ops_import_failure_is_error()"
     },
@@ -7531,7 +7531,7 @@
       "source_location": "L280",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_testlearncapture_test_feature_with_no_payload_is_warning_and_omitted",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": ".test_feature_with_no_payload_is_warning_and_omitted()"
     },
@@ -7542,7 +7542,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_rationale_1",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": "tests for the genie ops learn capture (atw-730).  pure-python: exercises :func:`"
     },
@@ -7564,7 +7564,7 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_rationale_53",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": "callable that returns a :class:`fakeopsinstance` when called with a device."
     },
@@ -7597,7 +7597,7 @@
       "source_location": "L87",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_rationale_87",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": "duck-typed ``lookup.ops`` namespace exposing 2-level feature modules."
     },
@@ -7608,7 +7608,7 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_rationale_97",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": "duck-typed ``genie.ops.utils.lookup`` instance."
     },
@@ -7619,7 +7619,7 @@
       "source_location": "L104",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_rationale_104",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": "duck-typed ``pkgutil.moduleinfo`` for ``pkgutil.iter_modules``."
     },
@@ -7630,7 +7630,7 @@
       "source_location": "L111",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_rationale_111",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": "inject a fake ``genie.ops.utils.lookup`` + ``genie.libs.ops`` into ``sys.modules"
     },
@@ -7641,7 +7641,7 @@
       "source_location": "L168",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_capture_learn_rationale_168",
-      "community": 15,
+      "community": 14,
       "community_name": "test_capture_learn.py",
       "norm_label": "minimal duck-typed pyats device for learn tests.      the learn path only reads"
     },
@@ -8675,7 +8675,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_api",
-      "community": 49,
+      "community": 50,
       "community_name": "PyatsGoldenConfigAPITest",
       "norm_label": "test_compliance_api.py"
     },
@@ -8686,7 +8686,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_api_pyatsgoldenconfigapitest",
-      "community": 49,
+      "community": 50,
       "community_name": "PyatsGoldenConfigAPITest",
       "norm_label": "pyatsgoldenconfigapitest"
     },
@@ -8697,7 +8697,7 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_api_pyatsgoldenconfigapitest_setuptestdata",
-      "community": 49,
+      "community": 50,
       "community_name": "PyatsGoldenConfigAPITest",
       "norm_label": ".setuptestdata()"
     },
@@ -8708,7 +8708,7 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_api_pyatsgoldenconfigapitest_test_list_golden_configs",
-      "community": 49,
+      "community": 50,
       "community_name": "PyatsGoldenConfigAPITest",
       "norm_label": ".test_list_golden_configs()"
     },
@@ -8719,7 +8719,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_api_pyatsgoldenconfigapitest_test_create_golden_config",
-      "community": 49,
+      "community": 50,
       "community_name": "PyatsGoldenConfigAPITest",
       "norm_label": ".test_create_golden_config()"
     },
@@ -8730,7 +8730,7 @@
       "source_location": "L74",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_api_pyatsgoldenconfigapitest_test_retrieve_golden_config_returns_config_text",
-      "community": 49,
+      "community": 50,
       "community_name": "PyatsGoldenConfigAPITest",
       "norm_label": ".test_retrieve_golden_config_returns_config_text()"
     },
@@ -8741,7 +8741,7 @@
       "source_location": "L85",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_api_pyatsgoldenconfigapitest_test_update_golden_config",
-      "community": 49,
+      "community": 50,
       "community_name": "PyatsGoldenConfigAPITest",
       "norm_label": ".test_update_golden_config()"
     },
@@ -8752,7 +8752,7 @@
       "source_location": "L102",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_api_pyatsgoldenconfigapitest_test_delete_golden_config",
-      "community": 49,
+      "community": 50,
       "community_name": "PyatsGoldenConfigAPITest",
       "norm_label": ".test_delete_golden_config()"
     },
@@ -8763,7 +8763,7 @@
       "source_location": "L115",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_api_pyatscompliancerunapitest",
-      "community": 49,
+      "community": 50,
       "community_name": "PyatsGoldenConfigAPITest",
       "norm_label": "pyatscompliancerunapitest"
     },
@@ -8774,7 +8774,7 @@
       "source_location": "L123",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_api_pyatscompliancerunapitest_setuptestdata",
-      "community": 49,
+      "community": 50,
       "community_name": "PyatsGoldenConfigAPITest",
       "norm_label": ".setuptestdata()"
     },
@@ -8785,7 +8785,7 @@
       "source_location": "L144",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_api_pyatscompliancerunapitest_test_list_compliance_runs",
-      "community": 49,
+      "community": 50,
       "community_name": "PyatsGoldenConfigAPITest",
       "norm_label": ".test_list_compliance_runs()"
     },
@@ -8796,7 +8796,7 @@
       "source_location": "L149",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_api_pyatscompliancerunapitest_test_retrieve_compliance_run_returns_diff_and_summary",
-      "community": 49,
+      "community": 50,
       "community_name": "PyatsGoldenConfigAPITest",
       "norm_label": ".test_retrieve_compliance_run_returns_diff_and_summary()"
     },
@@ -8807,7 +8807,7 @@
       "source_location": "L166",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_api_pyatscompliancerunapitest_test_create_compliance_run_rejected_read_only",
-      "community": 49,
+      "community": 50,
       "community_name": "PyatsGoldenConfigAPITest",
       "norm_label": ".test_create_compliance_run_rejected_read_only()"
     },
@@ -8818,7 +8818,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_api_rationale_1",
-      "community": 49,
+      "community": 50,
       "community_name": "PyatsGoldenConfigAPITest",
       "norm_label": "rest api tests for the phase 4 models (pyatsgoldenconfig, pyatscompliancerun)."
     },
@@ -8829,7 +8829,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_job_legacy",
-      "community": 46,
+      "community": 47,
       "community_name": "extract_snapshot_raw_config",
       "norm_label": "test_compliance_job_legacy.py"
     },
@@ -8840,7 +8840,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_job_legacy_testextractsnapshotrawconfig",
-      "community": 46,
+      "community": 47,
       "community_name": "extract_snapshot_raw_config",
       "norm_label": "testextractsnapshotrawconfig"
     },
@@ -8851,7 +8851,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_job_legacy_testextractsnapshotrawconfig_test_config_raw_present_is_used_directly",
-      "community": 46,
+      "community": 47,
       "community_name": "extract_snapshot_raw_config",
       "norm_label": ".test_config_raw_present_is_used_directly()"
     },
@@ -8862,7 +8862,7 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_job_legacy_testextractsnapshotrawconfig_test_legacy_snapshot_falls_back_to_config_raw_key",
-      "community": 46,
+      "community": 47,
       "community_name": "extract_snapshot_raw_config",
       "norm_label": ".test_legacy_snapshot_falls_back_to_config_raw_key()"
     },
@@ -8873,7 +8873,7 @@
       "source_location": "L59",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_job_legacy_testextractsnapshotrawconfig_test_config_raw_takes_precedence_over_legacy_raw",
-      "community": 46,
+      "community": 47,
       "community_name": "extract_snapshot_raw_config",
       "norm_label": ".test_config_raw_takes_precedence_over_legacy_raw()"
     },
@@ -8884,7 +8884,7 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_job_legacy_testextractsnapshotrawconfig_test_empty_config_raw_falls_back_to_legacy",
-      "community": 46,
+      "community": 47,
       "community_name": "extract_snapshot_raw_config",
       "norm_label": ".test_empty_config_raw_falls_back_to_legacy()"
     },
@@ -8895,7 +8895,7 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_job_legacy_testextractsnapshotrawconfig_test_state_only_snapshot_has_no_raw",
-      "community": 46,
+      "community": 47,
       "community_name": "extract_snapshot_raw_config",
       "norm_label": ".test_state_only_snapshot_has_no_raw()"
     },
@@ -8906,7 +8906,7 @@
       "source_location": "L86",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_job_legacy_testextractsnapshotrawconfig_test_unsupported_snapshot_has_no_raw",
-      "community": 46,
+      "community": 47,
       "community_name": "extract_snapshot_raw_config",
       "norm_label": ".test_unsupported_snapshot_has_no_raw()"
     },
@@ -8917,7 +8917,7 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_job_legacy_testextractsnapshotrawconfig_test_legacy_config_not_a_dict_returns_empty",
-      "community": 46,
+      "community": 47,
       "community_name": "extract_snapshot_raw_config",
       "norm_label": ".test_legacy_config_not_a_dict_returns_empty()"
     },
@@ -8928,7 +8928,7 @@
       "source_location": "L99",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_job_legacy_testextractsnapshotrawconfig_test_legacy_config_raw_not_a_string_returns_empty",
-      "community": 46,
+      "community": 47,
       "community_name": "extract_snapshot_raw_config",
       "norm_label": ".test_legacy_config_raw_not_a_string_returns_empty()"
     },
@@ -8939,7 +8939,7 @@
       "source_location": "L106",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_job_legacy_testextractsnapshotrawconfig_test_legacy_config_raw_empty_string_returns_empty",
-      "community": 46,
+      "community": 47,
       "community_name": "extract_snapshot_raw_config",
       "norm_label": ".test_legacy_config_raw_empty_string_returns_empty()"
     },
@@ -8950,7 +8950,7 @@
       "source_location": "L113",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_job_legacy_testextractsnapshotrawconfig_test_legacy_config_raw_present_but_config_raw_missing_key",
-      "community": 46,
+      "community": 47,
       "community_name": "extract_snapshot_raw_config",
       "norm_label": ".test_legacy_config_raw_present_but_config_raw_missing_key()"
     },
@@ -8961,7 +8961,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_job_legacy_rationale_1",
-      "community": 46,
+      "community": 47,
       "community_name": "extract_snapshot_raw_config",
       "norm_label": "regression test for the compliance job's legacy ``config[raw]`` fallback (atw-43"
     },
@@ -8972,7 +8972,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_job_legacy_rationale_29",
-      "community": 46,
+      "community": 47,
       "community_name": "extract_snapshot_raw_config",
       "norm_label": "pin the contract of :func:`extract_snapshot_raw_config` (atw-437)."
     },
@@ -8983,7 +8983,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_models",
-      "community": 45,
+      "community": 46,
       "community_name": "GoldenConfigSourceChoices",
       "norm_label": "test_compliance_models.py"
     },
@@ -8994,7 +8994,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_models_pyatsgoldenconfigmodeltest",
-      "community": 45,
+      "community": 46,
       "community_name": "GoldenConfigSourceChoices",
       "norm_label": "pyatsgoldenconfigmodeltest"
     },
@@ -9005,7 +9005,7 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_models_pyatsgoldenconfigmodeltest_setuptestdata",
-      "community": 45,
+      "community": 46,
       "community_name": "GoldenConfigSourceChoices",
       "norm_label": ".setuptestdata()"
     },
@@ -9016,7 +9016,7 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_models_pyatsgoldenconfigmodeltest_test_manual_golden_round_trips_config_text",
-      "community": 45,
+      "community": 46,
       "community_name": "GoldenConfigSourceChoices",
       "norm_label": ".test_manual_golden_round_trips_config_text()"
     },
@@ -9038,7 +9038,7 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_models_pyatsgoldenconfigmodeltest_test_str_includes_device_and_name",
-      "community": 45,
+      "community": 46,
       "community_name": "GoldenConfigSourceChoices",
       "norm_label": ".test_str_includes_device_and_name()"
     },
@@ -9049,7 +9049,7 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_models_pyatsgoldenconfigmodeltest_test_unique_per_device_name_constraint",
-      "community": 45,
+      "community": 46,
       "community_name": "GoldenConfigSourceChoices",
       "norm_label": ".test_unique_per_device_name_constraint()"
     },
@@ -9060,7 +9060,7 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_models_pyatsgoldenconfigmodeltest_test_two_goldens_same_device_different_names_allowed",
-      "community": 45,
+      "community": 46,
       "community_name": "GoldenConfigSourceChoices",
       "norm_label": ".test_two_goldens_same_device_different_names_allowed()"
     },
@@ -9192,7 +9192,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_models_rationale_1",
-      "community": 45,
+      "community": 46,
       "community_name": "GoldenConfigSourceChoices",
       "norm_label": "tests for :class:`netbox_pyats.models.pyatsgoldenconfig` and :class:`netbox_pyat"
     },
@@ -9203,7 +9203,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_models_rationale_27",
-      "community": 45,
+      "community": 46,
       "community_name": "GoldenConfigSourceChoices",
       "norm_label": "persistence and helper behavior of pyatsgoldenconfig."
     },
@@ -9225,7 +9225,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_views",
-      "community": 47,
+      "community": 48,
       "community_name": "PyatsComplianceRunViewTest",
       "norm_label": "test_compliance_views.py"
     },
@@ -9236,7 +9236,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_views_pyatsgoldenconfigviewtest",
-      "community": 47,
+      "community": 48,
       "community_name": "PyatsComplianceRunViewTest",
       "norm_label": "pyatsgoldenconfigviewtest"
     },
@@ -9247,7 +9247,7 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_views_pyatsgoldenconfigviewtest_setuptestdata",
-      "community": 47,
+      "community": 48,
       "community_name": "PyatsComplianceRunViewTest",
       "norm_label": ".setuptestdata()"
     },
@@ -9258,7 +9258,7 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_views_pyatsgoldenconfigviewtest_test_list_view",
-      "community": 47,
+      "community": 48,
       "community_name": "PyatsComplianceRunViewTest",
       "norm_label": ".test_list_view()"
     },
@@ -9269,7 +9269,7 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_views_pyatsgoldenconfigviewtest_test_list_view_with_data",
-      "community": 47,
+      "community": 48,
       "community_name": "PyatsComplianceRunViewTest",
       "norm_label": ".test_list_view_with_data()"
     },
@@ -9280,7 +9280,7 @@
       "source_location": "L59",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_views_pyatsgoldenconfigviewtest_test_detail_view",
-      "community": 47,
+      "community": 48,
       "community_name": "PyatsComplianceRunViewTest",
       "norm_label": ".test_detail_view()"
     },
@@ -9291,7 +9291,7 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_views_pyatsgoldenconfigviewtest_test_add_view_creates_golden_config",
-      "community": 47,
+      "community": 48,
       "community_name": "PyatsComplianceRunViewTest",
       "norm_label": ".test_add_view_creates_golden_config()"
     },
@@ -9302,7 +9302,7 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_views_pyatscompliancerunviewtest",
-      "community": 47,
+      "community": 48,
       "community_name": "PyatsComplianceRunViewTest",
       "norm_label": "pyatscompliancerunviewtest"
     },
@@ -9313,7 +9313,7 @@
       "source_location": "L104",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_views_pyatscompliancerunviewtest_setuptestdata",
-      "community": 47,
+      "community": 48,
       "community_name": "PyatsComplianceRunViewTest",
       "norm_label": ".setuptestdata()"
     },
@@ -9324,7 +9324,7 @@
       "source_location": "L123",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_views_pyatscompliancerunviewtest_test_list_view",
-      "community": 47,
+      "community": 48,
       "community_name": "PyatsComplianceRunViewTest",
       "norm_label": ".test_list_view()"
     },
@@ -9335,7 +9335,7 @@
       "source_location": "L128",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_views_pyatscompliancerunviewtest_test_list_view_with_data",
-      "community": 47,
+      "community": 48,
       "community_name": "PyatsComplianceRunViewTest",
       "norm_label": ".test_list_view_with_data()"
     },
@@ -9346,7 +9346,7 @@
       "source_location": "L143",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_views_pyatscompliancerunviewtest_test_detail_view",
-      "community": 47,
+      "community": 48,
       "community_name": "PyatsComplianceRunViewTest",
       "norm_label": ".test_detail_view()"
     },
@@ -9357,7 +9357,7 @@
       "source_location": "L159",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_views_pyatscompliancerunviewtest_test_detail_view_null_fks_render_deleted_marker",
-      "community": 47,
+      "community": 48,
       "community_name": "PyatsComplianceRunViewTest",
       "norm_label": ".test_detail_view_null_fks_render_deleted_marker()"
     },
@@ -9368,7 +9368,7 @@
       "source_location": "L179",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_views_pyatscompliancerunviewtest_test_device_tab_null_fks_render_without_500",
-      "community": 47,
+      "community": 48,
       "community_name": "PyatsComplianceRunViewTest",
       "norm_label": ".test_device_tab_null_fks_render_without_500()"
     },
@@ -9379,7 +9379,7 @@
       "source_location": "L200",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_views_pyatscompliancerunviewtest_test_device_compliance_post_validates_device_membership",
-      "community": 47,
+      "community": 48,
       "community_name": "PyatsComplianceRunViewTest",
       "norm_label": ".test_device_compliance_post_validates_device_membership()"
     },
@@ -9390,7 +9390,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_compliance_views_rationale_1",
-      "community": 47,
+      "community": 48,
       "community_name": "PyatsComplianceRunViewTest",
       "norm_label": "view tests for the phase 4 compliance views (atw-15).  requires a running netbox"
     },
@@ -11249,7 +11249,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_filtersets",
-      "community": 45,
+      "community": 46,
       "community_name": "GoldenConfigSourceChoices",
       "norm_label": "test_filtersets.py"
     },
@@ -11469,7 +11469,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_filtersets_rationale_1",
-      "community": 45,
+      "community": 46,
       "community_name": "GoldenConfigSourceChoices",
       "norm_label": "tests for the ``has_changes`` / ``has_warnings`` / ``has_drift`` booleanfilter m"
     },
@@ -11513,7 +11513,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_diff",
-      "community": 55,
+      "community": 56,
       "community_name": "GenieDiffViewTest",
       "norm_label": "test_genie_diff.py"
     },
@@ -11524,7 +11524,7 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_diff_geniediffviewtest",
-      "community": 55,
+      "community": 56,
       "community_name": "GenieDiffViewTest",
       "norm_label": "geniediffviewtest"
     },
@@ -11535,7 +11535,7 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_diff_geniediffviewtest_setuptestdata",
-      "community": 55,
+      "community": 56,
       "community_name": "GenieDiffViewTest",
       "norm_label": ".setuptestdata()"
     },
@@ -11546,7 +11546,7 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_diff_geniediffviewtest_test_get_no_device_renders_mode_and_device_pickers",
-      "community": 55,
+      "community": 56,
       "community_name": "GenieDiffViewTest",
       "norm_label": ".test_get_no_device_renders_mode_and_device_pickers()"
     },
@@ -11557,7 +11557,7 @@
       "source_location": "L105",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_diff_geniediffviewtest_test_get_same_device_renders_snapshot_pickers",
-      "community": 55,
+      "community": 56,
       "community_name": "GenieDiffViewTest",
       "norm_label": ".test_get_same_device_renders_snapshot_pickers()"
     },
@@ -11568,7 +11568,7 @@
       "source_location": "L115",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_diff_geniediffviewtest_test_get_cross_device_renders_both_device_snapshots",
-      "community": 55,
+      "community": 56,
       "community_name": "GenieDiffViewTest",
       "norm_label": ".test_get_cross_device_renders_both_device_snapshots()"
     },
@@ -11579,7 +11579,7 @@
       "source_location": "L131",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_diff_geniediffviewtest_test_post_same_device_enqueues_diff_without_cross_device",
-      "community": 55,
+      "community": 56,
       "community_name": "GenieDiffViewTest",
       "norm_label": ".test_post_same_device_enqueues_diff_without_cross_device()"
     },
@@ -11590,7 +11590,7 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_diff_geniediffviewtest_test_post_cross_device_enqueues_diff_with_cross_device",
-      "community": 55,
+      "community": 56,
       "community_name": "GenieDiffViewTest",
       "norm_label": ".test_post_cross_device_enqueues_diff_with_cross_device()"
     },
@@ -11601,7 +11601,7 @@
       "source_location": "L174",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_diff_geniediffviewtest_test_post_same_device_with_cross_device_snapshots_redirects_with_error",
-      "community": 55,
+      "community": 56,
       "community_name": "GenieDiffViewTest",
       "norm_label": ".test_post_same_device_with_cross_device_snapshots_redirects_with_error()"
     },
@@ -11612,7 +11612,7 @@
       "source_location": "L189",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_diff_geniediffviewtest_test_post_missing_snapshot_redirects_with_error",
-      "community": 55,
+      "community": 56,
       "community_name": "GenieDiffViewTest",
       "norm_label": ".test_post_missing_snapshot_redirects_with_error()"
     },
@@ -11623,7 +11623,7 @@
       "source_location": "L204",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_diff_geniediffviewtest_test_post_diffing_snapshot_against_itself_redirects_with_error",
-      "community": 55,
+      "community": 56,
       "community_name": "GenieDiffViewTest",
       "norm_label": ".test_post_diffing_snapshot_against_itself_redirects_with_error()"
     },
@@ -11634,7 +11634,7 @@
       "source_location": "L219",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_diff_geniediffviewtest_test_recent_diffs_show_existing_diff_rows",
-      "community": 55,
+      "community": 56,
       "community_name": "GenieDiffViewTest",
       "norm_label": ".test_recent_diffs_show_existing_diff_rows()"
     },
@@ -11645,7 +11645,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_diff_rationale_1",
-      "community": 55,
+      "community": 56,
       "community_name": "GenieDiffViewTest",
       "norm_label": "tests for the dedicated genie diff page (atw-731).  requires a running netbox/dj"
     },
@@ -11656,7 +11656,7 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_diff_rationale_41",
-      "community": 55,
+      "community": 56,
       "community_name": "GenieDiffViewTest",
       "norm_label": "view tests for :class:`views.geniediffview` (atw-731)."
     },
@@ -11788,7 +11788,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_parse",
-      "community": 56,
+      "community": 57,
       "community_name": "GenieParseViewTest",
       "norm_label": "test_genie_parse.py"
     },
@@ -11799,7 +11799,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_parse_genieparseviewtest",
-      "community": 56,
+      "community": 57,
       "community_name": "GenieParseViewTest",
       "norm_label": "genieparseviewtest"
     },
@@ -11810,7 +11810,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_parse_genieparseviewtest_setuptestdata",
-      "community": 56,
+      "community": 57,
       "community_name": "GenieParseViewTest",
       "norm_label": ".setuptestdata()"
     },
@@ -11821,7 +11821,7 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_parse_genieparseviewtest_test_get_no_device_renders_picker_and_recent_results",
-      "community": 56,
+      "community": 57,
       "community_name": "GenieParseViewTest",
       "norm_label": ".test_get_no_device_renders_picker_and_recent_results()"
     },
@@ -11832,7 +11832,7 @@
       "source_location": "L81",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_parse_genieparseviewtest_test_get_with_device_renders_parse_form_with_catalog",
-      "community": 56,
+      "community": 57,
       "community_name": "GenieParseViewTest",
       "norm_label": ".test_get_with_device_renders_parse_form_with_catalog()"
     },
@@ -11843,7 +11843,7 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_parse_genieparseviewtest_test_get_with_unsupported_platform_renders_banner",
-      "community": 56,
+      "community": 57,
       "community_name": "GenieParseViewTest",
       "norm_label": ".test_get_with_unsupported_platform_renders_banner()"
     },
@@ -11854,7 +11854,7 @@
       "source_location": "L101",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_parse_genieparseviewtest_test_get_with_no_catalog_row_renders_refresh_banner",
-      "community": 56,
+      "community": 57,
       "community_name": "GenieParseViewTest",
       "norm_label": ".test_get_with_no_catalog_row_renders_refresh_banner()"
     },
@@ -11865,7 +11865,7 @@
       "source_location": "L107",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_parse_genieparseviewtest_test_post_with_command_enqueues_parse_and_redirects",
-      "community": 56,
+      "community": 57,
       "community_name": "GenieParseViewTest",
       "norm_label": ".test_post_with_command_enqueues_parse_and_redirects()"
     },
@@ -11876,7 +11876,7 @@
       "source_location": "L125",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_parse_genieparseviewtest_test_post_with_manual_command_enqueues_parse",
-      "community": 56,
+      "community": 57,
       "community_name": "GenieParseViewTest",
       "norm_label": ".test_post_with_manual_command_enqueues_parse()"
     },
@@ -11887,7 +11887,7 @@
       "source_location": "L139",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_parse_genieparseviewtest_test_post_with_no_device_redirects_with_error",
-      "community": 56,
+      "community": 57,
       "community_name": "GenieParseViewTest",
       "norm_label": ".test_post_with_no_device_redirects_with_error()"
     },
@@ -11898,7 +11898,7 @@
       "source_location": "L147",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_parse_genieparseviewtest_test_post_with_device_but_no_commands_rerenders_with_error",
-      "community": 56,
+      "community": 57,
       "community_name": "GenieParseViewTest",
       "norm_label": ".test_post_with_device_but_no_commands_rerenders_with_error()"
     },
@@ -11909,7 +11909,7 @@
       "source_location": "L159",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_parse_genieparseviewtest_test_recent_results_show_parse_snapshots",
-      "community": 56,
+      "community": 57,
       "community_name": "GenieParseViewTest",
       "norm_label": ".test_recent_results_show_parse_snapshots()"
     },
@@ -11920,7 +11920,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_parse_rationale_1",
-      "community": 56,
+      "community": 57,
       "community_name": "GenieParseViewTest",
       "norm_label": "tests for the dedicated genie parse page (atw-729).  requires a running netbox/d"
     },
@@ -11931,7 +11931,7 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_genie_parse_rationale_36",
-      "community": 56,
+      "community": 57,
       "community_name": "GenieParseViewTest",
       "norm_label": "view tests for :class:`views.genieparseview` (atw-729)."
     },
@@ -12910,7 +12910,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "test_navmenu_uniqueness_guard.py"
     },
@@ -12921,7 +12921,7 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_extract_menu_item_kwargs",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "_extract_menu_item_kwargs()"
     },
@@ -12932,7 +12932,7 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_is_menu_var",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "_is_menu_var()"
     },
@@ -12943,7 +12943,7 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_extract_menu_links",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "_extract_menu_links()"
     },
@@ -12954,7 +12954,7 @@
       "source_location": "L110",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_str_kw",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "_str_kw()"
     },
@@ -12965,7 +12965,7 @@
       "source_location": "L122",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_extract_schema_type_models",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "_extract_schema_type_models()"
     },
@@ -12976,7 +12976,7 @@
       "source_location": "L151",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_extract_model_classes",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "_extract_model_classes()"
     },
@@ -12987,7 +12987,7 @@
       "source_location": "L163",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_navmenuuniquenessguard",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "navmenuuniquenessguard"
     },
@@ -12998,7 +12998,7 @@
       "source_location": "L166",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_navmenuuniquenessguard_test_menu_items_is_non_empty",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": ".test_menu_items_is_non_empty()"
     },
@@ -13009,7 +13009,7 @@
       "source_location": "L170",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_navmenuuniquenessguard_test_menu_links_are_unique",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": ".test_menu_links_are_unique()"
     },
@@ -13020,7 +13020,7 @@
       "source_location": "L182",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_navmenuuniquenessguard_test_menu_texts_are_unique",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": ".test_menu_texts_are_unique()"
     },
@@ -13031,7 +13031,7 @@
       "source_location": "L195",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_navmenuuniquenessguard_test_canonical_ordering_ends_with_supported_platforms",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": ".test_canonical_ordering_ends_with_supported_platforms()"
     },
@@ -13042,7 +13042,7 @@
       "source_location": "L208",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_graphqlschemacompletenessguard",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "graphqlschemacompletenessguard"
     },
@@ -13053,7 +13053,7 @@
       "source_location": "L215",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_graphqlschemacompletenessguard_test_every_model_has_type_or_is_documented_deferred",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": ".test_every_model_has_type_or_is_documented_deferred()"
     },
@@ -13064,7 +13064,7 @@
       "source_location": "L243",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_graphqlschemacompletenessguard_test_no_type_references_nonexistent_model",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": ".test_no_type_references_nonexistent_model()"
     },
@@ -13075,7 +13075,7 @@
       "source_location": "L254",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_graphqlschemacompletenessguard_test_each_model_has_at_most_one_type",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": ".test_each_model_has_at_most_one_type()"
     },
@@ -13086,7 +13086,7 @@
       "source_location": "L282",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_graphqlschemacompletenessguard_test_deferred_models_documented_match_code",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": ".test_deferred_models_documented_match_code()"
     },
@@ -13097,7 +13097,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_rationale_1",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "hardening guard for the navigation menu and graphql schema surface.  these tests"
     },
@@ -13108,7 +13108,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_rationale_45",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "return ``(link, link_text)`` from a ``pluginmenuitem(...)`` call."
     },
@@ -13119,7 +13119,7 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_rationale_68",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "return ``[(link, link_text), ...]`` parsed from every top-level menu.      walks"
     },
@@ -13130,7 +13130,7 @@
       "source_location": "L111",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_rationale_111",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "resolve a keyword value to its string literal, unwrapping ``_(...)``."
     },
@@ -13141,7 +13141,7 @@
       "source_location": "L123",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_rationale_123",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "return ``{model_name: type_class_name}`` parsed from ``schema.py``.      each ``"
     },
@@ -13152,7 +13152,7 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_rationale_152",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "return the set of top-level class names in ``models.py``."
     },
@@ -13163,7 +13163,7 @@
       "source_location": "L164",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_rationale_164",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "c1 regression guard: navigation menu items must have unique links."
     },
@@ -13174,7 +13174,7 @@
       "source_location": "L183",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_rationale_183",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "display text should also be unique to avoid operator confusion."
     },
@@ -13185,7 +13185,7 @@
       "source_location": "L196",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_rationale_196",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "the static supported-platforms report is the final menu entry.          per adr-"
     },
@@ -13196,7 +13196,7 @@
       "source_location": "L209",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_rationale_209",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "asserts graphql/schema.py types match the docs' claimed model set.      two-side"
     },
@@ -13207,7 +13207,7 @@
       "source_location": "L283",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_navmenu_uniqueness_guard_rationale_283",
-      "community": 17,
+      "community": 16,
       "community_name": "test_navmenu_uniqueness_guard.py",
       "norm_label": "the docs' deferred set must match the code's deferred set.          catches the"
     },
@@ -15385,7 +15385,7 @@
       "source_location": "L239",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_snapshots_pyatssnapshotdiffmodeltest_test_has_changes_reflects_summary",
-      "community": 14,
+      "community": 45,
       "community_name": "PyatsSnapshotDiff",
       "norm_label": ".test_has_changes_reflects_summary()"
     },
@@ -16111,7 +16111,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_fakeplatform",
-      "community": 52,
+      "community": 53,
       "community_name": "platform_to_pyats_os",
       "norm_label": "fakeplatform"
     },
@@ -16265,7 +16265,7 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testplatformtoos",
-      "community": 52,
+      "community": 53,
       "community_name": "platform_to_pyats_os",
       "norm_label": "testplatformtoos"
     },
@@ -16276,7 +16276,7 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testplatformtoos_test_cisco_ios_slug",
-      "community": 52,
+      "community": 53,
       "community_name": "platform_to_pyats_os",
       "norm_label": ".test_cisco_ios_slug()"
     },
@@ -16287,7 +16287,7 @@
       "source_location": "L96",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testplatformtoos_test_ios_slug",
-      "community": 52,
+      "community": 53,
       "community_name": "platform_to_pyats_os",
       "norm_label": ".test_ios_slug()"
     },
@@ -16298,7 +16298,7 @@
       "source_location": "L99",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testplatformtoos_test_iosxe",
-      "community": 52,
+      "community": 53,
       "community_name": "platform_to_pyats_os",
       "norm_label": ".test_iosxe()"
     },
@@ -16309,7 +16309,7 @@
       "source_location": "L102",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testplatformtoos_test_junos",
-      "community": 52,
+      "community": 53,
       "community_name": "platform_to_pyats_os",
       "norm_label": ".test_junos()"
     },
@@ -16320,7 +16320,7 @@
       "source_location": "L105",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testplatformtoos_test_arista_eos",
-      "community": 52,
+      "community": 53,
       "community_name": "platform_to_pyats_os",
       "norm_label": ".test_arista_eos()"
     },
@@ -16331,7 +16331,7 @@
       "source_location": "L108",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testplatformtoos_test_nokia_sros",
-      "community": 52,
+      "community": 53,
       "community_name": "platform_to_pyats_os",
       "norm_label": ".test_nokia_sros()"
     },
@@ -16342,7 +16342,7 @@
       "source_location": "L111",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testplatformtoos_test_unknown_slug_returns_unsupported_sentinel",
-      "community": 52,
+      "community": 53,
       "community_name": "platform_to_pyats_os",
       "norm_label": ".test_unknown_slug_returns_unsupported_sentinel()"
     },
@@ -16353,7 +16353,7 @@
       "source_location": "L114",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testplatformtoos_test_none_platform_returns_unsupported",
-      "community": 52,
+      "community": 53,
       "community_name": "platform_to_pyats_os",
       "norm_label": ".test_none_platform_returns_unsupported()"
     },
@@ -16364,7 +16364,7 @@
       "source_location": "L117",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testplatformtoos_test_platform_with_no_slug_returns_unsupported",
-      "community": 52,
+      "community": 53,
       "community_name": "platform_to_pyats_os",
       "norm_label": ".test_platform_with_no_slug_returns_unsupported()"
     },
@@ -16375,7 +16375,7 @@
       "source_location": "L120",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testplatformtoos_test_manufacturer_fallback_is_not_used",
-      "community": 52,
+      "community": 53,
       "community_name": "platform_to_pyats_os",
       "norm_label": ".test_manufacturer_fallback_is_not_used()"
     },
@@ -16386,7 +16386,7 @@
       "source_location": "L128",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_testbed_testplatformtoos_test_cisco_manufacturer_does_not_imply_iosxe",
-      "community": 52,
+      "community": 53,
       "community_name": "platform_to_pyats_os",
       "norm_label": ".test_cisco_manufacturer_does_not_imply_iosxe()"
     },
@@ -17002,7 +17002,7 @@
       "source_location": "L161",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_worker_status_workerstatusbadgeviewtest",
-      "community": 53,
+      "community": 54,
       "community_name": "WorkerStatusBadgeViewTest",
       "norm_label": "workerstatusbadgeviewtest"
     },
@@ -17013,7 +17013,7 @@
       "source_location": "L181",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_worker_status_workerstatusbadgeviewtest_setuptestdata",
-      "community": 53,
+      "community": 54,
       "community_name": "WorkerStatusBadgeViewTest",
       "norm_label": ".setuptestdata()"
     },
@@ -17024,7 +17024,7 @@
       "source_location": "L205",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_worker_status_workerstatusbadgeviewtest_test_device_tab_renders_online_badge",
-      "community": 53,
+      "community": 54,
       "community_name": "WorkerStatusBadgeViewTest",
       "norm_label": ".test_device_tab_renders_online_badge()"
     },
@@ -17035,7 +17035,7 @@
       "source_location": "L214",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_worker_status_workerstatusbadgeviewtest_test_device_parse_renders_online_badge",
-      "community": 53,
+      "community": 54,
       "community_name": "WorkerStatusBadgeViewTest",
       "norm_label": ".test_device_parse_renders_online_badge()"
     },
@@ -17046,7 +17046,7 @@
       "source_location": "L221",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_worker_status_workerstatusbadgeviewtest_test_genie_parse_renders_online_badge",
-      "community": 53,
+      "community": 54,
       "community_name": "WorkerStatusBadgeViewTest",
       "norm_label": ".test_genie_parse_renders_online_badge()"
     },
@@ -17057,7 +17057,7 @@
       "source_location": "L228",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_worker_status_workerstatusbadgeviewtest_test_genie_learn_renders_online_badge",
-      "community": 53,
+      "community": 54,
       "community_name": "WorkerStatusBadgeViewTest",
       "norm_label": ".test_genie_learn_renders_online_badge()"
     },
@@ -17068,7 +17068,7 @@
       "source_location": "L235",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_worker_status_workerstatusbadgeviewtest_test_genie_diff_renders_online_badge",
-      "community": 53,
+      "community": 54,
       "community_name": "WorkerStatusBadgeViewTest",
       "norm_label": ".test_genie_diff_renders_online_badge()"
     },
@@ -17079,7 +17079,7 @@
       "source_location": "L242",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_worker_status_workerstatusbadgeviewtest_test_device_bulk_capture_renders_online_badge",
-      "community": 53,
+      "community": 54,
       "community_name": "WorkerStatusBadgeViewTest",
       "norm_label": ".test_device_bulk_capture_renders_online_badge()"
     },
@@ -17090,7 +17090,7 @@
       "source_location": "L251",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_worker_status_workerstatusbadgeviewtest_test_device_tab_renders_offline_badge",
-      "community": 53,
+      "community": 54,
       "community_name": "WorkerStatusBadgeViewTest",
       "norm_label": ".test_device_tab_renders_offline_badge()"
     },
@@ -17101,7 +17101,7 @@
       "source_location": "L260",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_worker_status_workerstatusbadgeviewtest_test_device_parse_renders_offline_badge",
-      "community": 53,
+      "community": 54,
       "community_name": "WorkerStatusBadgeViewTest",
       "norm_label": ".test_device_parse_renders_offline_badge()"
     },
@@ -17112,7 +17112,7 @@
       "source_location": "L268",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_worker_status_workerstatusbadgeviewtest_test_genie_parse_renders_offline_badge",
-      "community": 53,
+      "community": 54,
       "community_name": "WorkerStatusBadgeViewTest",
       "norm_label": ".test_genie_parse_renders_offline_badge()"
     },
@@ -17123,7 +17123,7 @@
       "source_location": "L276",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_worker_status_workerstatusbadgeviewtest_test_genie_learn_renders_offline_badge",
-      "community": 53,
+      "community": 54,
       "community_name": "WorkerStatusBadgeViewTest",
       "norm_label": ".test_genie_learn_renders_offline_badge()"
     },
@@ -17134,7 +17134,7 @@
       "source_location": "L284",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_worker_status_workerstatusbadgeviewtest_test_genie_diff_renders_offline_badge",
-      "community": 53,
+      "community": 54,
       "community_name": "WorkerStatusBadgeViewTest",
       "norm_label": ".test_genie_diff_renders_offline_badge()"
     },
@@ -17145,7 +17145,7 @@
       "source_location": "L292",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_worker_status_workerstatusbadgeviewtest_test_device_bulk_capture_renders_offline_badge",
-      "community": 53,
+      "community": 54,
       "community_name": "WorkerStatusBadgeViewTest",
       "norm_label": ".test_device_bulk_capture_renders_offline_badge()"
     },
@@ -17178,7 +17178,7 @@
       "source_location": "L162",
       "_origin": "ast",
       "id": "netbox_pyats_tests_test_worker_status_rationale_162",
-      "community": 53,
+      "community": 54,
       "community_name": "WorkerStatusBadgeViewTest",
       "norm_label": "the six worker-using views must render the worker status badge (atw-804).      `"
     },
@@ -17475,7 +17475,7 @@
       "source_location": "L277",
       "_origin": "ast",
       "id": "netbox_pyats_views_devicecaptureview",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": "devicecaptureview"
     },
@@ -17486,7 +17486,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "permissionrequiredmixin",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": "permissionrequiredmixin"
     },
@@ -17497,7 +17497,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "view",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": "view"
     },
@@ -17508,7 +17508,7 @@
       "source_location": "L290",
       "_origin": "ast",
       "id": "netbox_pyats_views_devicecaptureview_post",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": ".post()"
     },
@@ -17574,7 +17574,7 @@
       "source_location": "L361",
       "_origin": "ast",
       "id": "netbox_pyats_views_devicediffview",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": "devicediffview"
     },
@@ -17585,7 +17585,7 @@
       "source_location": "L374",
       "_origin": "ast",
       "id": "netbox_pyats_views_devicediffview_post",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": ".post()"
     },
@@ -17706,7 +17706,7 @@
       "source_location": "L504",
       "_origin": "ast",
       "id": "netbox_pyats_views_devicecomplianceview",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": "devicecomplianceview"
     },
@@ -17816,7 +17816,7 @@
       "source_location": "L694",
       "_origin": "ast",
       "id": "netbox_pyats_views_supportedplatformsreportview",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": "supportedplatformsreportview"
     },
@@ -17849,7 +17849,7 @@
       "source_location": "L801",
       "_origin": "ast",
       "id": "netbox_pyats_views_deviceparseview",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": "deviceparseview"
     },
@@ -17893,7 +17893,7 @@
       "source_location": "L906",
       "_origin": "ast",
       "id": "netbox_pyats_views_devicerefreshcatalogview",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": "devicerefreshcatalogview"
     },
@@ -17904,7 +17904,7 @@
       "source_location": "L925",
       "_origin": "ast",
       "id": "netbox_pyats_views_devicerefreshcatalogview_post",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": ".post()"
     },
@@ -18047,7 +18047,7 @@
       "source_location": "L1071",
       "_origin": "ast",
       "id": "netbox_pyats_views_genielearnview",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": "genielearnview"
     },
@@ -18080,7 +18080,7 @@
       "source_location": "L1174",
       "_origin": "ast",
       "id": "netbox_pyats_views_genieparseview",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": "genieparseview"
     },
@@ -18124,7 +18124,7 @@
       "source_location": "L1328",
       "_origin": "ast",
       "id": "netbox_pyats_views_geniediffview",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": "geniediffview"
     },
@@ -18146,7 +18146,7 @@
       "source_location": "L1416",
       "_origin": "ast",
       "id": "netbox_pyats_views_geniediffview_post",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": ".post()"
     },
@@ -18289,7 +18289,7 @@
       "source_location": "L278",
       "_origin": "ast",
       "id": "netbox_pyats_views_rationale_278",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": "endpoint the device-page pyats panel posts to.      accepts a ``kind`` (config /"
     },
@@ -18322,7 +18322,7 @@
       "source_location": "L362",
       "_origin": "ast",
       "id": "netbox_pyats_views_rationale_362",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": "endpoint the device-page pyats panel posts to.      accepts ``before_id`` and ``"
     },
@@ -18388,7 +18388,7 @@
       "source_location": "L505",
       "_origin": "ast",
       "id": "netbox_pyats_views_rationale_505",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": "endpoint the device-page pyats compliance sub-tab posts to.      accepts ``golde"
     },
@@ -18454,7 +18454,7 @@
       "source_location": "L695",
       "_origin": "ast",
       "id": "netbox_pyats_views_rationale_695",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": "static \"supported platforms\" report (phase 5, atw-16, option a).      adr-0001 \u00a7"
     },
@@ -18476,7 +18476,7 @@
       "source_location": "L802",
       "_origin": "ast",
       "id": "netbox_pyats_views_rationale_802",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": "device-page \"parse\" sub-tab (atw-241 child 2, atw-250).      a get form view + p"
     },
@@ -18487,7 +18487,7 @@
       "source_location": "L907",
       "_origin": "ast",
       "id": "netbox_pyats_views_rationale_907",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": "device-page \"refresh parser list\" button (atw-241 child 2, atw-250).      a smal"
     },
@@ -18619,7 +18619,7 @@
       "source_location": "L1072",
       "_origin": "ast",
       "id": "netbox_pyats_views_rationale_1072",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": "dedicated genie learn page (atw-730).      promotes learn from the interim landi"
     },
@@ -18630,7 +18630,7 @@
       "source_location": "L1175",
       "_origin": "ast",
       "id": "netbox_pyats_views_rationale_1175",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": "dedicated genie parse page (atw-729).      promotes parse from a device-page sub"
     },
@@ -18641,7 +18641,7 @@
       "source_location": "L1329",
       "_origin": "ast",
       "id": "netbox_pyats_views_rationale_1329",
-      "community": 16,
+      "community": 15,
       "community_name": "PyatsCaptureSchedule",
       "norm_label": "dedicated genie diff page (atw-731).      promotes snapshot diff from the device"
     },
@@ -18791,7 +18791,7 @@
       },
       "_origin": "ast",
       "id": "scripts_dev_seed",
-      "community": 57,
+      "community": 58,
       "community_name": "dev-seed.sh",
       "norm_label": "dev-seed.sh"
     },
@@ -18806,7 +18806,7 @@
       },
       "_origin": "ast",
       "id": "scripts_dev_seed_sh__entry",
-      "community": 57,
+      "community": 58,
       "community_name": "dev-seed.sh",
       "norm_label": "dev-seed.sh script"
     },
@@ -18821,7 +18821,7 @@
       },
       "_origin": "ast",
       "id": "scripts_dev_seed_cleanup",
-      "community": 57,
+      "community": 58,
       "community_name": "dev-seed.sh",
       "norm_label": "cleanup()"
     },
@@ -18836,7 +18836,7 @@
       },
       "_origin": "ast",
       "id": "scripts_dev_seed_die",
-      "community": 57,
+      "community": 58,
       "community_name": "dev-seed.sh",
       "norm_label": "die()"
     },
@@ -18851,7 +18851,7 @@
       },
       "_origin": "ast",
       "id": "scripts_dev_seed_migration_state_hash",
-      "community": 57,
+      "community": 58,
       "community_name": "dev-seed.sh",
       "norm_label": "migration_state_hash()"
     },
@@ -18866,7 +18866,7 @@
       },
       "_origin": "ast",
       "id": "scripts_dev_seed_write_marker",
-      "community": 57,
+      "community": 58,
       "community_name": "dev-seed.sh",
       "norm_label": "write_marker()"
     },
@@ -18881,7 +18881,7 @@
       },
       "_origin": "ast",
       "id": "scripts_dev_seed_running_netbox_projects",
-      "community": 57,
+      "community": 58,
       "community_name": "dev-seed.sh",
       "norm_label": "running_netbox_projects()"
     },
@@ -18896,7 +18896,7 @@
       },
       "_origin": "ast",
       "id": "scripts_dev_seed_usage",
-      "community": 57,
+      "community": 58,
       "community_name": "dev-seed.sh",
       "norm_label": "usage()"
     },
@@ -18911,7 +18911,7 @@
       },
       "_origin": "ast",
       "id": "scripts_dev_seed_cmd_build",
-      "community": 57,
+      "community": 58,
       "community_name": "dev-seed.sh",
       "norm_label": "cmd_build()"
     },
@@ -18926,7 +18926,7 @@
       },
       "_origin": "ast",
       "id": "scripts_dev_seed_restore",
-      "community": 57,
+      "community": 58,
       "community_name": "dev-seed.sh",
       "norm_label": "_restore()"
     },
@@ -18941,7 +18941,7 @@
       },
       "_origin": "ast",
       "id": "scripts_dev_seed_cmd_restore",
-      "community": 57,
+      "community": 58,
       "community_name": "dev-seed.sh",
       "norm_label": "cmd_restore()"
     },
@@ -18956,7 +18956,7 @@
       },
       "_origin": "ast",
       "id": "scripts_dev_seed_cmd_force_restore",
-      "community": 57,
+      "community": 58,
       "community_name": "dev-seed.sh",
       "norm_label": "cmd_force_restore()"
     },
@@ -18971,7 +18971,7 @@
       },
       "_origin": "ast",
       "id": "scripts_dev_seed_cmd_remove",
-      "community": 57,
+      "community": 58,
       "community_name": "dev-seed.sh",
       "norm_label": "cmd_remove()"
     },
@@ -18986,7 +18986,7 @@
       },
       "_origin": "ast",
       "id": "scripts_dev_seed_cmd_info",
-      "community": 57,
+      "community": 58,
       "community_name": "dev-seed.sh",
       "norm_label": "cmd_info()"
     },
@@ -20274,7 +20274,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "agents",
-      "community": 48,
+      "community": 49,
       "community_name": "contributing.md",
       "norm_label": "agents.md"
     },
@@ -20285,7 +20285,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "agents_graphify",
-      "community": 48,
+      "community": 49,
       "community_name": "contributing.md",
       "norm_label": "graphify"
     },
@@ -20296,7 +20296,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "agents_contributing",
-      "community": 48,
+      "community": 49,
       "community_name": "contributing.md",
       "norm_label": "contributing"
     },
@@ -20417,7 +20417,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "contributing",
-      "community": 48,
+      "community": 49,
       "community_name": "contributing.md",
       "norm_label": "contributing.md"
     },
@@ -20428,7 +20428,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "contributing_contributing_to_netbox_pyats",
-      "community": 48,
+      "community": 49,
       "community_name": "contributing.md",
       "norm_label": "contributing to netbox-pyats"
     },
@@ -20648,7 +20648,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "docs_adr_0001_plugin_layout",
-      "community": 48,
+      "community": 49,
       "community_name": "contributing.md",
       "norm_label": "0001-plugin-layout.md"
     },
@@ -20736,7 +20736,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "docs_adr_0002_graceful_degradation",
-      "community": 48,
+      "community": 49,
       "community_name": "contributing.md",
       "norm_label": "0002-graceful-degradation.md"
     },
@@ -20868,7 +20868,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "docs_adr_0003_netbox46_migration_and_worker_toolchain",
-      "community": 48,
+      "community": 49,
       "community_name": "contributing.md",
       "norm_label": "0003-netbox46-migration-and-worker-toolchain.md"
     },
@@ -20989,7 +20989,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "docs_adr_0004_compliance_golden_parse_shape",
-      "community": 48,
+      "community": 49,
       "community_name": "contributing.md",
       "norm_label": "0004-compliance-golden-parse-shape.md"
     },
@@ -21000,7 +21000,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "docs_adr_0004_compliance_golden_parse_shape_adr_0004_compliance_golden_config_comparison_shape",
-      "community": 50,
+      "community": 51,
       "community_name": "ADR-0004: Compliance golden-config comparison shape",
       "norm_label": "adr-0004: compliance golden-config comparison shape"
     },
@@ -21011,7 +21011,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "docs_adr_0004_compliance_golden_parse_shape_context",
-      "community": 50,
+      "community": 51,
       "community_name": "ADR-0004: Compliance golden-config comparison shape",
       "norm_label": "context"
     },
@@ -21022,7 +21022,7 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "docs_adr_0004_compliance_golden_parse_shape_considered_options",
-      "community": 50,
+      "community": 51,
       "community_name": "ADR-0004: Compliance golden-config comparison shape",
       "norm_label": "considered options"
     },
@@ -21033,7 +21033,7 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "docs_adr_0004_compliance_golden_parse_shape_decision",
-      "community": 50,
+      "community": 51,
       "community_name": "ADR-0004: Compliance golden-config comparison shape",
       "norm_label": "decision"
     },
@@ -21044,7 +21044,7 @@
       "source_location": "L96",
       "_origin": "ast",
       "id": "docs_adr_0004_compliance_golden_parse_shape_v1_line_set_diff_semantics_documented_limitation",
-      "community": 50,
+      "community": 51,
       "community_name": "ADR-0004: Compliance golden-config comparison shape",
       "norm_label": "v1 line-set diff semantics (documented limitation)"
     },
@@ -21055,7 +21055,7 @@
       "source_location": "L114",
       "_origin": "ast",
       "id": "docs_adr_0004_compliance_golden_parse_shape_capture_change",
-      "community": 50,
+      "community": 51,
       "community_name": "ADR-0004: Compliance golden-config comparison shape",
       "norm_label": "capture change"
     },
@@ -21066,7 +21066,7 @@
       "source_location": "L131",
       "_origin": "ast",
       "id": "docs_adr_0004_compliance_golden_parse_shape_acceptance",
-      "community": 50,
+      "community": 51,
       "community_name": "ADR-0004: Compliance golden-config comparison shape",
       "norm_label": "acceptance"
     },
@@ -21077,7 +21077,7 @@
       "source_location": "L146",
       "_origin": "ast",
       "id": "docs_adr_0004_compliance_golden_parse_shape_consequences",
-      "community": 50,
+      "community": 51,
       "community_name": "ADR-0004: Compliance golden-config comparison shape",
       "norm_label": "consequences"
     },
@@ -21088,7 +21088,7 @@
       "source_location": "L165",
       "_origin": "ast",
       "id": "docs_adr_0004_compliance_golden_parse_shape_v2_ordered_text_diff_atw_434",
-      "community": 50,
+      "community": 51,
       "community_name": "ADR-0004: Compliance golden-config comparison shape",
       "norm_label": "v2 ordered text diff (atw-434)"
     },
@@ -21099,7 +21099,7 @@
       "source_location": "L172",
       "_origin": "ast",
       "id": "docs_adr_0004_compliance_golden_parse_shape_context_172",
-      "community": 50,
+      "community": 51,
       "community_name": "ADR-0004: Compliance golden-config comparison shape",
       "norm_label": "context"
     },
@@ -21110,7 +21110,7 @@
       "source_location": "L188",
       "_origin": "ast",
       "id": "docs_adr_0004_compliance_golden_parse_shape_considered_options_for_v2",
-      "community": 50,
+      "community": 51,
       "community_name": "ADR-0004: Compliance golden-config comparison shape",
       "norm_label": "considered options for v2"
     },
@@ -21121,7 +21121,7 @@
       "source_location": "L216",
       "_origin": "ast",
       "id": "docs_adr_0004_compliance_golden_parse_shape_decision_216",
-      "community": 50,
+      "community": 51,
       "community_name": "ADR-0004: Compliance golden-config comparison shape",
       "norm_label": "decision"
     },
@@ -21132,7 +21132,7 @@
       "source_location": "L236",
       "_origin": "ast",
       "id": "docs_adr_0004_compliance_golden_parse_shape_consequences_236",
-      "community": 50,
+      "community": 51,
       "community_name": "ADR-0004: Compliance golden-config comparison shape",
       "norm_label": "consequences"
     },
@@ -21143,7 +21143,7 @@
       "source_location": "L257",
       "_origin": "ast",
       "id": "docs_adr_0004_compliance_golden_parse_shape_doesnotexist_error_row_persistence_blocker_3_same_pr",
-      "community": 50,
+      "community": 51,
       "community_name": "ADR-0004: Compliance golden-config comparison shape",
       "norm_label": "doesnotexist error-row persistence (blocker #3, same pr)"
     },
@@ -21154,7 +21154,7 @@
       "source_location": "L278",
       "_origin": "ast",
       "id": "docs_adr_0004_compliance_golden_parse_shape_end_to_end_coverage_blocker_2_same_pr",
-      "community": 50,
+      "community": 51,
       "community_name": "ADR-0004: Compliance golden-config comparison shape",
       "norm_label": "end-to-end coverage (blocker #2, same pr)"
     },
@@ -21165,7 +21165,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "docs_adr_0005_pyatsjob_model",
-      "community": 48,
+      "community": 49,
       "community_name": "contributing.md",
       "norm_label": "0005-pyatsjob-model.md"
     },
@@ -21286,7 +21286,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "docs_adr_0006_pr_body_hygiene",
-      "community": 48,
+      "community": 49,
       "community_name": "contributing.md",
       "norm_label": "0006-pr-body-hygiene.md"
     },
@@ -21297,7 +21297,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "docs_adr_0006_pr_body_hygiene_adr_0006_pr_body_hygiene_no_paperclip_control_plane_metadata_in_public_github_artifacts",
-      "community": 58,
+      "community": 59,
       "community_name": "ADR-0006: PR-body hygiene \u2014 no Paperclip control-plane metadata in public GitHub artifacts",
       "norm_label": "adr-0006: pr-body hygiene \u2014 no paperclip control-plane metadata in public github artifacts"
     },
@@ -21308,7 +21308,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "docs_adr_0006_pr_body_hygiene_context",
-      "community": 58,
+      "community": 59,
       "community_name": "ADR-0006: PR-body hygiene \u2014 no Paperclip control-plane metadata in public GitHub artifacts",
       "norm_label": "context"
     },
@@ -21319,7 +21319,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "docs_adr_0006_pr_body_hygiene_blast_radius",
-      "community": 58,
+      "community": 59,
       "community_name": "ADR-0006: PR-body hygiene \u2014 no Paperclip control-plane metadata in public GitHub artifacts",
       "norm_label": "blast radius"
     },
@@ -21330,7 +21330,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "docs_adr_0006_pr_body_hygiene_root_cause",
-      "community": 58,
+      "community": 59,
       "community_name": "ADR-0006: PR-body hygiene \u2014 no Paperclip control-plane metadata in public GitHub artifacts",
       "norm_label": "root cause"
     },
@@ -21341,7 +21341,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "docs_adr_0006_pr_body_hygiene_decision",
-      "community": 58,
+      "community": 59,
       "community_name": "ADR-0006: PR-body hygiene \u2014 no Paperclip control-plane metadata in public GitHub artifacts",
       "norm_label": "decision"
     },
@@ -21352,7 +21352,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "docs_adr_0006_pr_body_hygiene_1_pr_bodies_use_role_only_labels_no_identifiers_hard_rule",
-      "community": 58,
+      "community": 59,
       "community_name": "ADR-0006: PR-body hygiene \u2014 no Paperclip control-plane metadata in public GitHub artifacts",
       "norm_label": "1. pr bodies use role-only labels \u2014 no identifiers (hard rule)"
     },
@@ -21363,7 +21363,7 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "docs_adr_0006_pr_body_hygiene_2_agent_agent_id_is_internal_only",
-      "community": 58,
+      "community": 59,
       "community_name": "ADR-0006: PR-body hygiene \u2014 no Paperclip control-plane metadata in public GitHub artifacts",
       "norm_label": "2. `[@agent](agent://<id>)` is internal-only"
     },
@@ -21374,7 +21374,7 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "docs_adr_0006_pr_body_hygiene_3_boundary_rule_public_artifact_vs_internal_comment",
-      "community": 58,
+      "community": 59,
       "community_name": "ADR-0006: PR-body hygiene \u2014 no Paperclip control-plane metadata in public GitHub artifacts",
       "norm_label": "3. boundary rule: public artifact vs internal comment"
     },
@@ -21385,7 +21385,7 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "docs_adr_0006_pr_body_hygiene_4_merger_verifies_before_merge",
-      "community": 58,
+      "community": 59,
       "community_name": "ADR-0006: PR-body hygiene \u2014 no Paperclip control-plane metadata in public GitHub artifacts",
       "norm_label": "4. merger verifies before merge"
     },
@@ -21396,7 +21396,7 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "docs_adr_0006_pr_body_hygiene_5_retroactive_redaction_is_harm_reduction_not_elimination",
-      "community": 58,
+      "community": 59,
       "community_name": "ADR-0006: PR-body hygiene \u2014 no Paperclip control-plane metadata in public GitHub artifacts",
       "norm_label": "5. retroactive redaction is harm-reduction, not elimination"
     },
@@ -21407,7 +21407,7 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "docs_adr_0006_pr_body_hygiene_consequences",
-      "community": 58,
+      "community": 59,
       "community_name": "ADR-0006: PR-body hygiene \u2014 no Paperclip control-plane metadata in public GitHub artifacts",
       "norm_label": "consequences"
     },
@@ -21418,7 +21418,7 @@
       "source_location": "L74",
       "_origin": "ast",
       "id": "docs_adr_0006_pr_body_hygiene_alternatives_considered",
-      "community": 58,
+      "community": 59,
       "community_name": "ADR-0006: PR-body hygiene \u2014 no Paperclip control-plane metadata in public GitHub artifacts",
       "norm_label": "alternatives considered"
     },
@@ -21429,7 +21429,7 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "docs_adr_0006_pr_body_hygiene_owners",
-      "community": 58,
+      "community": 59,
       "community_name": "ADR-0006: PR-body hygiene \u2014 no Paperclip control-plane metadata in public GitHub artifacts",
       "norm_label": "owners"
     },
@@ -21440,7 +21440,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "docs_adr_0007_device_page_tab",
-      "community": 48,
+      "community": 49,
       "community_name": "contributing.md",
       "norm_label": "0007-device-page-tab.md"
     },
@@ -21517,7 +21517,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "docs_adr_0008_scheduling_surface",
-      "community": 48,
+      "community": 49,
       "community_name": "contributing.md",
       "norm_label": "0008-scheduling-surface.md"
     },
@@ -21616,7 +21616,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "docs_adr_readme",
-      "community": 48,
+      "community": 49,
       "community_name": "contributing.md",
       "norm_label": "readme.md"
     },
@@ -21781,7 +21781,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "docs_developer_contributing",
-      "community": 48,
+      "community": 49,
       "community_name": "contributing.md",
       "norm_label": "contributing.md"
     },
@@ -21792,7 +21792,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "docs_developer_contributing_contributing_to_netbox_pyats",
-      "community": 51,
+      "community": 52,
       "community_name": "Contributing to netbox-pyats",
       "norm_label": "contributing to netbox-pyats"
     },
@@ -21803,7 +21803,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "docs_developer_contributing_local_dev_environment",
-      "community": 51,
+      "community": 52,
       "community_name": "Contributing to netbox-pyats",
       "norm_label": "local dev environment"
     },
@@ -21814,7 +21814,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "docs_developer_contributing_running_tests",
-      "community": 51,
+      "community": 52,
       "community_name": "Contributing to netbox-pyats",
       "norm_label": "running tests"
     },
@@ -21825,7 +21825,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "docs_developer_contributing_pure_python_tests_no_netbox_db_needed",
-      "community": 51,
+      "community": 52,
       "community_name": "Contributing to netbox-pyats",
       "norm_label": "pure-python tests (no netbox db needed)"
     },
@@ -21836,7 +21836,7 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "docs_developer_contributing_full_netbox_test_suite_integration",
-      "community": 51,
+      "community": 52,
       "community_name": "Contributing to netbox-pyats",
       "norm_label": "full netbox test suite (integration)"
     },
@@ -21847,7 +21847,7 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "docs_developer_contributing_test_conventions_invariant_reuse_db_safety",
-      "community": 51,
+      "community": 52,
       "community_name": "Contributing to netbox-pyats",
       "norm_label": "test-conventions invariant (`--reuse-db` safety)"
     },
@@ -21858,7 +21858,7 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "docs_developer_contributing_lint_and_format",
-      "community": 51,
+      "community": 52,
       "community_name": "Contributing to netbox-pyats",
       "norm_label": "lint and format"
     },
@@ -21869,7 +21869,7 @@
       "source_location": "L75",
       "_origin": "ast",
       "id": "docs_developer_contributing_secret_pii_leakage_gate_pre_commit_gitleaks",
-      "community": 51,
+      "community": 52,
       "community_name": "Contributing to netbox-pyats",
       "norm_label": "secret / pii leakage gate (pre-commit + gitleaks)"
     },
@@ -21880,7 +21880,7 @@
       "source_location": "L107",
       "_origin": "ast",
       "id": "docs_developer_contributing_adding_a_supported_platform",
-      "community": 51,
+      "community": 52,
       "community_name": "Contributing to netbox-pyats",
       "norm_label": "adding a supported platform"
     },
@@ -21891,7 +21891,7 @@
       "source_location": "L111",
       "_origin": "ast",
       "id": "docs_developer_contributing_adding_a_model",
-      "community": 51,
+      "community": 52,
       "community_name": "Contributing to netbox-pyats",
       "norm_label": "adding a model"
     },
@@ -21902,7 +21902,7 @@
       "source_location": "L127",
       "_origin": "ast",
       "id": "docs_developer_contributing_test_conventions",
-      "community": 51,
+      "community": 52,
       "community_name": "Contributing to netbox-pyats",
       "norm_label": "test conventions"
     },
@@ -21913,7 +21913,7 @@
       "source_location": "L144",
       "_origin": "ast",
       "id": "docs_developer_contributing_architectural_decisions_adrs",
-      "community": 51,
+      "community": 52,
       "community_name": "Contributing to netbox-pyats",
       "norm_label": "architectural decisions (adrs)"
     },
@@ -21924,7 +21924,7 @@
       "source_location": "L159",
       "_origin": "ast",
       "id": "docs_developer_contributing_branch_pr_conventions",
-      "community": 51,
+      "community": 52,
       "community_name": "Contributing to netbox-pyats",
       "norm_label": "branch / pr conventions"
     },
@@ -21935,7 +21935,7 @@
       "source_location": "L166",
       "_origin": "ast",
       "id": "docs_developer_contributing_pr_body_hygiene_atw_159",
-      "community": 51,
+      "community": 52,
       "community_name": "Contributing to netbox-pyats",
       "norm_label": "pr body hygiene (atw-159)"
     },
@@ -21946,7 +21946,7 @@
       "source_location": "L195",
       "_origin": "ast",
       "id": "docs_developer_contributing_ci",
-      "community": 51,
+      "community": 52,
       "community_name": "Contributing to netbox-pyats",
       "norm_label": "ci"
     },
@@ -23354,7 +23354,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "docs_user_usage_usage_guide",
-      "community": 54,
+      "community": 55,
       "community_name": "Usage guide",
       "norm_label": "usage guide"
     },
@@ -23365,7 +23365,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "docs_user_usage_prerequisites",
-      "community": 54,
+      "community": 55,
       "community_name": "Usage guide",
       "norm_label": "prerequisites"
     },
@@ -23376,7 +23376,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "docs_user_usage_1_add_a_credential",
-      "community": 54,
+      "community": 55,
       "community_name": "Usage guide",
       "norm_label": "1 \u2014 add a credential"
     },
@@ -23387,7 +23387,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "docs_user_usage_2_capture_a_snapshot",
-      "community": 54,
+      "community": 55,
       "community_name": "Usage guide",
       "norm_label": "2 \u2014 capture a snapshot"
     },
@@ -23398,7 +23398,7 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "docs_user_usage_3_run_an_on_demand_parse",
-      "community": 54,
+      "community": 55,
       "community_name": "Usage guide",
       "norm_label": "3 \u2014 run an on-demand parse"
     },
@@ -23409,7 +23409,7 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "docs_user_usage_4_run_a_genie_learn_capture",
-      "community": 54,
+      "community": 55,
       "community_name": "Usage guide",
       "norm_label": "4 \u2014 run a genie learn capture"
     },
@@ -23420,7 +23420,7 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "docs_user_usage_5_diff_two_snapshots",
-      "community": 54,
+      "community": 55,
       "community_name": "Usage guide",
       "norm_label": "5 \u2014 diff two snapshots"
     },
@@ -23431,7 +23431,7 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "docs_user_usage_6_add_a_golden_config",
-      "community": 54,
+      "community": 55,
       "community_name": "Usage guide",
       "norm_label": "6 \u2014 add a golden config"
     },
@@ -23442,7 +23442,7 @@
       "source_location": "L111",
       "_origin": "ast",
       "id": "docs_user_usage_7_run_compliance",
-      "community": 54,
+      "community": 55,
       "community_name": "Usage guide",
       "norm_label": "7 \u2014 run compliance"
     },
@@ -23453,7 +23453,7 @@
       "source_location": "L125",
       "_origin": "ast",
       "id": "docs_user_usage_8_browse_everything",
-      "community": 54,
+      "community": 55,
       "community_name": "Usage guide",
       "norm_label": "8 \u2014 browse everything"
     },
@@ -23464,7 +23464,7 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "docs_user_usage_9_build_a_testbed_programmatically",
-      "community": 54,
+      "community": 55,
       "community_name": "Usage guide",
       "norm_label": "9 \u2014 build a testbed programmatically"
     },
@@ -23475,7 +23475,7 @@
       "source_location": "L168",
       "_origin": "ast",
       "id": "docs_user_usage_multi_vendor_support",
-      "community": 54,
+      "community": 55,
       "community_name": "Usage guide",
       "norm_label": "multi-vendor support"
     },
@@ -23486,7 +23486,7 @@
       "source_location": "L178",
       "_origin": "ast",
       "id": "docs_user_usage_rest_and_graphql",
-      "community": 54,
+      "community": 55,
       "community_name": "Usage guide",
       "norm_label": "rest and graphql"
     },
@@ -23497,7 +23497,7 @@
       "source_location": "L193",
       "_origin": "ast",
       "id": "docs_user_usage_next_steps",
-      "community": 54,
+      "community": 55,
       "community_name": "Usage guide",
       "norm_label": "next steps"
     },
@@ -88722,5 +88722,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "dd1d5039827c4d6f0fdcc03de519905ac33cf73b"
+  "built_at_commit": "947db5a3c9adda9e71ad53b5c2c7d8caa1a10349"
 }
